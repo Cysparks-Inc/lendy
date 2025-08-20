@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Plus, Search, Edit, Trash2, Users, Eye, Phone, MapPin } from 'lucide-react';
-import { Loader } from '@/components/ui/loader';
+import { ScrollableContainer } from '@/components/ui/scrollable-container';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -390,6 +390,7 @@ const Members = () => {
                   className="pl-9"
                 />
               </div>
+              </div>
             </div>
             <div className="w-full lg:w-48">
               <Label htmlFor="status">Status</Label>
@@ -422,7 +423,7 @@ const Members = () => {
           </div>
 
           {/* Members Table */}
-          <div className="overflow-x-auto">
+          <ScrollableContainer>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -519,7 +520,7 @@ const Members = () => {
                 ))}
               </TableBody>
             </Table>
-          </div>
+          </ScrollableContainer>
 
           {filteredMembers.length === 0 && (
             <div className="text-center py-8">

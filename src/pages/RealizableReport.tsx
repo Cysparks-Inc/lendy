@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ScrollableContainer } from '@/components/ui/scrollable-container';
 import { Search, Download, FileText, TrendingUp, DollarSign, Target } from 'lucide-react';
 import { Loader } from '@/components/ui/loader';
 
@@ -326,7 +328,7 @@ const RealizableReport = () => {
           </div>
 
           {/* Assets Table */}
-          <div className="overflow-x-auto">
+          <ScrollableContainer>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -422,7 +424,7 @@ const RealizableReport = () => {
                 ))}
               </TableBody>
             </Table>
-          </div>
+          </ScrollableContainer>
 
           {filteredItems.length === 0 && (
             <div className="text-center py-8">

@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Search, Download, FileText, Filter } from 'lucide-react';
-import { Loader } from '@/components/ui/loader';
+import { ScrollableContainer } from '@/components/ui/scrollable-container';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -200,7 +200,7 @@ const MasterRoll = () => {
             <div className="text-3xl font-bold text-destructive">{records.filter(r => r.status === 'suspended').length}</div>
           </CardContent>
         </Card>
-      </div>
+          </ScrollableContainer>
 
       {/* Master Roll Table */}
       <Card>
@@ -255,7 +255,7 @@ const MasterRoll = () => {
           </div>
 
           {/* Records Table */}
-          <div className="overflow-x-auto">
+          <ScrollableContainer>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -307,7 +307,7 @@ const MasterRoll = () => {
                 ))}
               </TableBody>
             </Table>
-          </div>
+          </ScrollableContainer>
 
           {filteredRecords.length === 0 && (
             <div className="text-center py-8">

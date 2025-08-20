@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Label } from '@/components/ui/label';  
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Search, Edit, Trash2, UserCheck } from 'lucide-react';
+import { ScrollableContainer } from '@/components/ui/scrollable-container';
+import { Plus, Search, Edit, Trash2, UserCheck, Mail, Phone } from 'lucide-react';
 import { Loader } from '@/components/ui/loader';
+import { toast } from 'sonner';
 
 interface LoanOfficer {
   id: string;
@@ -28,48 +32,100 @@ const LoanOfficer = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [newOfficer, setNewOfficer] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    branch: '',
+    hire_date: new Date().toISOString().split('T')[0]
+  });
 
   useEffect(() => {
-    // Simulate data fetch
-    setTimeout(() => {
-      setOfficers([
-        {
-          id: '1',
-          name: 'John Doe',
-          email: 'john.doe@napol.com',
-          phone: '+254712345678',
-          branch: 'Nairobi Central',
-          active_loans: 45,
-          total_disbursed: 2500000,
-          status: 'active',
-          hire_date: '2023-01-15'
-        },
-        {
-          id: '2',
-          name: 'Jane Smith',
-          email: 'jane.smith@napol.com',
-          phone: '+254787654321',
-          branch: 'Mombasa',
-          active_loans: 32,
-          total_disbursed: 1800000,
-          status: 'active',
-          hire_date: '2023-03-20'
-        },
-        {
-          id: '3',
-          name: 'Peter Kariuki',
-          email: 'peter.kariuki@napol.com',
-          phone: '+254798765432',
-          branch: 'Kisumu',
-          active_loans: 0,
-          total_disbursed: 450000,
-          status: 'inactive',
-          hire_date: '2022-11-10'
-        }
-      ]);
-      setLoading(false);
-    }, 1000);
+    fetchLoanOfficers();
   }, []);
+
+  const fetchLoanOfficers = async () => {
+    try {
+      // Get all profiles first, then filter those with loan officer role
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')  
+        .select('id, full_name, email, phone_number, created_at');
+
+      if (profilesError) throw profilesError;
+
+      // Get user_branch_roles for loan officers
+      const { data: rolesData, error: rolesError } = await supabase
+        .from('user_branch_roles')
+        .select('user_id, branch_id')
+        .eq('role', 'loan_officer');
+
+      if (rolesError) throw rolesError;
+
+      // Get branches data
+      const { data: branchesData, error: branchesError } = await supabase
+        .from('branches')
+        .select('id, name');
+
+      if (branchesError) throw branchesError;
+
+      // Get loan statistics for each officer
+      const officersWithStats: LoanOfficer[] = [];
+      
+      for (const role of rolesData || []) {
+        const profile = profilesData?.find(p => p.id === role.user_id);
+        const branch = branchesData?.find(b => b.id === role.branch_id);
+        
+        if (!profile) continue;
+
+        const { data: loansData } = await supabase
+          .from('loans')
+          .select('principal_amount, status')
+          .eq('loan_officer_id', role.user_id);
+
+        const activeLoans = loansData?.filter(loan => loan.status === 'active').length || 0;
+        const totalDisbursed = loansData?.reduce((sum, loan) => sum + (loan.principal_amount || 0), 0) || 0;
+
+        officersWithStats.push({
+          id: role.user_id,
+          name: profile.full_name || 'Unknown',
+          email: profile.email || 'No email',
+          phone: profile.phone_number || 'No phone',
+          branch: branch?.name || 'No branch',
+          active_loans: activeLoans,
+          total_disbursed: totalDisbursed,
+          status: activeLoans > 0 ? 'active' : 'inactive',
+          hire_date: profile.created_at || new Date().toISOString()
+        });
+      }
+
+      setOfficers(officersWithStats);
+    } catch (error) {
+      console.error('Error fetching loan officers:', error);
+      toast.error('Failed to fetch loan officers');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddOfficer = async () => {
+    try {
+      // This would typically involve creating a new user and assigning roles
+      // For now, we'll show a success message
+      toast.success('Loan officer functionality requires user creation system');
+      setShowAddDialog(false);
+      setNewOfficer({
+        name: '',
+        email: '',
+        phone: '',
+        branch: '',
+        hire_date: new Date().toISOString().split('T')[0]
+      });
+    } catch (error) {
+      console.error('Error adding loan officer:', error);
+      toast.error('Failed to add loan officer');
+    }
+  };
 
   const filteredOfficers = officers.filter(officer => {
     const matchesSearch = officer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -99,10 +155,76 @@ const LoanOfficer = () => {
           <p className="text-muted-foreground">Manage and monitor loan officer performance</p>
         </div>
         {isSuperAdmin && (
-          <Button className="bg-primary hover:bg-primary/90">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Officer
-          </Button>
+          <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+            <DialogTrigger asChild>
+              <Button className="bg-primary hover:bg-primary/90">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Officer
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add New Loan Officer</DialogTitle>
+                <DialogDescription>Create a new loan officer account</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="name">Full Name</Label>
+                  <Input
+                    id="name"
+                    value={newOfficer.name}
+                    onChange={(e) => setNewOfficer(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="Enter full name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={newOfficer.email}
+                    onChange={(e) => setNewOfficer(prev => ({ ...prev, email: e.target.value }))}
+                    placeholder="Enter email address"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="phone">Phone Number</Label>
+                  <Input
+                    id="phone"
+                    value={newOfficer.phone}
+                    onChange={(e) => setNewOfficer(prev => ({ ...prev, phone: e.target.value }))}
+                    placeholder="Enter phone number"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="branch">Branch</Label>
+                  <Input
+                    id="branch"
+                    value={newOfficer.branch}
+                    onChange={(e) => setNewOfficer(prev => ({ ...prev, branch: e.target.value }))}
+                    placeholder="Enter branch name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="hireDate">Hire Date</Label>
+                  <Input
+                    id="hireDate"
+                    type="date"
+                    value={newOfficer.hire_date}
+                    onChange={(e) => setNewOfficer(prev => ({ ...prev, hire_date: e.target.value }))}
+                  />
+                </div>
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button variant="outline" onClick={() => setShowAddDialog(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleAddOfficer}>
+                    Add Officer
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         )}
       </div>
 
@@ -181,7 +303,7 @@ const LoanOfficer = () => {
           </div>
 
           {/* Officers Table */}
-          <div className="overflow-x-auto">
+          <ScrollableContainer>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -205,11 +327,19 @@ const LoanOfficer = () => {
                         </div>
                         <div>
                           <div className="font-medium">{officer.name}</div>
-                          <div className="text-sm text-muted-foreground">{officer.email}</div>
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <Mail className="h-3 w-3" />
+                            {officer.email}
+                          </div>
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-sm">{officer.phone}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1 text-sm">
+                        <Phone className="h-3 w-3" />
+                        {officer.phone}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <Badge variant="outline">{officer.branch}</Badge>
                     </TableCell>
@@ -243,7 +373,7 @@ const LoanOfficer = () => {
                 ))}
               </TableBody>
             </Table>
-          </div>
+          </ScrollableContainer>
 
           {filteredOfficers.length === 0 && (
             <div className="text-center py-8">

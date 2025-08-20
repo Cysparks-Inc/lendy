@@ -1,16 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { ScrollableContainer } from '@/components/ui/scrollable-container';
 import { Plus, Search, Edit, Eye, CreditCard, Calendar, DollarSign } from 'lucide-react';
 import { Loader } from '@/components/ui/loader';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 interface LoanAccount {
@@ -42,6 +43,8 @@ const LoanAccounts = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [branchFilter, setBranchFilter] = useState<string>('all');
+  const [showNewLoanDialog, setShowNewLoanDialog] = useState(false);
+  const [members, setMembers] = useState<any[]>([]);
   const [branches, setBranches] = useState<any[]>([]);
 
   const fetchLoans = async () => {
@@ -103,11 +106,25 @@ const LoanAccounts = () => {
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      await Promise.all([fetchLoans(), fetchBranches()]);
+      await Promise.all([fetchLoans(), fetchBranches(), fetchMembers()]);
       setLoading(false);
     };
     loadData();
   }, []);
+
+  const fetchMembers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('members')
+        .select('id, full_name')
+        .eq('status', 'active');
+      
+      if (error) throw error;
+      setMembers(data || []);
+    } catch (error) {
+      console.error('Error fetching members:', error);
+    }
+  };
 
   const filteredLoans = loans.filter(loan => {
     const matchesSearch = (loan.member_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -163,10 +180,79 @@ const LoanAccounts = () => {
           <p className="text-muted-foreground">Manage and monitor all loan accounts</p>
         </div>
         {isSuperAdmin && (
-          <Button className="bg-primary hover:bg-primary/90">
-            <Plus className="h-4 w-4 mr-2" />
-            New Loan
-          </Button>
+          <Dialog open={showNewLoanDialog} onOpenChange={setShowNewLoanDialog}>
+            <DialogTrigger asChild>
+              <Button className="bg-primary hover:bg-primary/90">
+                <Plus className="h-4 w-4 mr-2" />
+                New Loan
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Create New Loan</DialogTitle>
+                <DialogDescription>Enter loan details for a new customer</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 max-h-96 overflow-y-auto">
+                {/* Loan form fields would go here */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Customer</Label>
+                    <Select>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select customer" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {members.map(member => (
+                          <SelectItem key={member.id} value={member.id}>
+                            {member.full_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Principal Amount</Label>
+                    <Input type="number" placeholder="Enter amount" />
+                  </div>
+                  <div>
+                    <Label>Interest Rate (%)</Label>
+                    <Input type="number" placeholder="Enter rate" />
+                  </div>
+                  <div>
+                    <Label>Loan Term (months)</Label>
+                    <Input type="number" placeholder="Enter term" />
+                  </div>
+                  <div>
+                    <Label>Interest Type</Label>
+                    <Select>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="simple">Simple Interest</SelectItem>
+                        <SelectItem value="compound">Compound Interest</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Due Date</Label>
+                    <Input type="date" />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setShowNewLoanDialog(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={() => {
+                    toast.success('Loan creation functionality requires full implementation');
+                    setShowNewLoanDialog(false);
+                  }}>
+                    Create Loan
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         )}
       </div>
 
@@ -263,7 +349,7 @@ const LoanAccounts = () => {
           </div>
 
           {/* Loans Table */}
-          <div className="overflow-x-auto">
+          <ScrollableContainer>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -376,7 +462,7 @@ const LoanAccounts = () => {
                 })}
               </TableBody>
             </Table>
-          </div>
+          </ScrollableContainer>
 
           {filteredLoans.length === 0 && (
             <div className="text-center py-8">

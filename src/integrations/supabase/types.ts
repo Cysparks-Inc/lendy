@@ -82,6 +82,7 @@ export type Database = {
           created_at: string | null
           id: number
           loan_officer_id: string | null
+          location: string | null
           name: string
         }
         Insert: {
@@ -89,6 +90,7 @@ export type Database = {
           created_at?: string | null
           id?: never
           loan_officer_id?: string | null
+          location?: string | null
           name: string
         }
         Update: {
@@ -96,6 +98,7 @@ export type Database = {
           created_at?: string | null
           id?: never
           loan_officer_id?: string | null
+          location?: string | null
           name?: string
         }
         Relationships: [
@@ -382,6 +385,38 @@ export type Database = {
             columns: ["branch_id"]
             isOneToOne: false
             referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]

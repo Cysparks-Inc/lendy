@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ScrollableContainer } from '@/components/ui/scrollable-container';
 import { Search, Download, FileText, Clock, AlertTriangle, Phone } from 'lucide-react';
 import { Loader } from '@/components/ui/loader';
 
@@ -36,80 +38,85 @@ const DailyOverdue = () => {
   const [reportDate, setReportDate] = useState(new Date().toISOString().split('T')[0]);
 
   useEffect(() => {
-    // Simulate data fetch
-    setTimeout(() => {
-      setOverdueItems([
-        {
-          id: '1',
-          loan_number: 'LN002-2024',
-          member_name: 'Peter Ochieng Otieno',
-          member_code: 'MEM002',
-          phone: '+254787654321',
-          group_name: 'Harambee Business Group',
-          branch: 'Kisumu',
-          overdue_amount: 18500,
-          days_overdue: 15,
-          last_payment_date: '2023-12-15',
-          expected_payment_date: '2024-01-01',
-          loan_balance: 75000,
-          monthly_payment: 18500,
-          loan_officer: 'Jane Smith',
-          risk_level: 'medium'
-        },
-        {
-          id: '2',
-          loan_number: 'LN005-2023',
-          member_name: 'Grace Atieno Owuor',
-          member_code: 'MEM015',
-          phone: '+254722345678',
-          group_name: 'Mwangaza Women Group',
-          branch: 'Nairobi Central',
-          overdue_amount: 12000,
-          days_overdue: 45,
-          last_payment_date: '2023-11-20',
-          expected_payment_date: '2023-12-20',
-          loan_balance: 85000,
-          monthly_payment: 12000,
-          loan_officer: 'John Doe',
-          risk_level: 'high'
-        },
-        {
-          id: '3',
-          loan_number: 'LN008-2023',
-          member_name: 'Samuel Kipchoge Ruto',
-          member_code: 'MEM032',
-          phone: '+254798765432',
-          group_name: 'Eldoret Farmers Group',
-          branch: 'Eldoret',
-          overdue_amount: 25000,
-          days_overdue: 90,
-          expected_payment_date: '2023-10-15',
-          loan_balance: 150000,
-          monthly_payment: 25000,
-          loan_officer: 'Mary Wanjiru',
-          risk_level: 'critical'
-        },
-        {
-          id: '4',
-          loan_number: 'LN012-2024',
-          member_name: 'Amina Said Hassan',
-          member_code: 'MEM008',
-          phone: '+254733456789',
-          group_name: 'Tumaini Women Group',
-          branch: 'Mombasa',
-          overdue_amount: 8500,
-          days_overdue: 5,
-          last_payment_date: '2024-01-05',
-          expected_payment_date: '2024-01-10',
-          loan_balance: 45000,
-          monthly_payment: 8500,
-          loan_officer: 'Peter Kariuki',
-          risk_level: 'low'
-        }
-      ]);
-      setLoading(false);
-    }, 1000);
+    fetchOverdueLoans();
   }, []);
+
+  const fetchOverdueLoans = async () => {
+    try {
+      const { data: loansData, error } = await supabase
+        .from('loans')
+        .select('id, principal_amount, current_balance, due_date, issue_date, status, customer_id, group_id, branch_id, loan_officer_id')
+        .eq('status', 'active')
+        .lt('due_date', new Date().toISOString().split('T')[0]);
+
+      if (error) throw error;
+
+      // Get additional data separately
+      const { data: membersData } = await supabase
+        .from('members')
+        .select('id, full_name, phone_number, id_number');
+
+      const { data: groupsData } = await supabase
+        .from('groups')
+        .select('id, name');
+
+      const { data: branchesData } = await supabase
+        .from('branches')
+        .select('id, name');
+
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, full_name');
+
+      const { data: repaymentsData } = await supabase
+        .from('repayments')
+        .select('loan_id, payment_date, amount')
+        .order('payment_date', { ascending: false });
+
+      const overdueData: OverdueItem[] = (loansData || []).map(loan => {
+        const member = membersData?.find(m => m.id === loan.customer_id);
+        const group = groupsData?.find(g => g.id === loan.group_id);
+        const branch = branchesData?.find(b => b.id === loan.branch_id);
+        const officer = profilesData?.find(p => p.id === loan.loan_officer_id);
+        const lastRepayment = repaymentsData?.find(r => r.loan_id === loan.id);
+
+        const daysOverdue = Math.floor(
+          (new Date().getTime() - new Date(loan.due_date).getTime()) / (1000 * 3600 * 24)
+        );
+        
+        const monthlyPayment = loan.principal_amount / 12; // Assuming 12 month loans
+        
+        let riskLevel: 'low' | 'medium' | 'high' | 'critical' = 'low';
+        if (daysOverdue > 90) riskLevel = 'critical';
+        else if (daysOverdue > 60) riskLevel = 'high';
+        else if (daysOverdue > 30) riskLevel = 'medium';
+
+        return {
+          id: loan.id,
+          loan_number: `LN${String(loan.id).slice(-6)}`,
+          member_name: member?.full_name || 'Unknown',
+          member_code: member?.id_number || 'N/A',
+          phone: member?.phone_number || 'N/A',
+          group_name: group?.name || 'No Group',
+          branch: branch?.name || 'No Branch',
+          overdue_amount: monthlyPayment,
+          days_overdue: daysOverdue,
+          last_payment_date: lastRepayment?.payment_date,
+          expected_payment_date: loan.due_date,
+          loan_balance: loan.current_balance,
+          monthly_payment: monthlyPayment,
+          loan_officer: officer?.full_name || 'Unassigned',
+          risk_level: riskLevel
+        };
+      });
+
+      setOverdueItems(overdueData);
+    } catch (error) {
+      console.error('Error fetching overdue loans:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const branches = [...new Set(overdueItems.map(item => item.branch))];
 
@@ -299,7 +306,7 @@ const DailyOverdue = () => {
           </div>
 
           {/* Overdue Table */}
-          <div className="overflow-x-auto">
+          <ScrollableContainer>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -391,7 +398,7 @@ const DailyOverdue = () => {
                 ))}
               </TableBody>
             </Table>
-          </div>
+          </ScrollableContainer>
 
           {filteredItems.length === 0 && (
             <div className="text-center py-8">
