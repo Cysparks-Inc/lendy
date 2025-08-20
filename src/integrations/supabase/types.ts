@@ -55,74 +55,74 @@ export type Database = {
           },
         ]
       }
-      customers: {
+      branches: {
         Row: {
-          address: string | null
-          created_at: string
-          created_by: string
-          full_name: string
-          group_assignment: string | null
-          id: string
-          id_number: string
-          next_of_kin_name: string | null
-          next_of_kin_phone: string | null
-          next_of_kin_relationship: string | null
-          notes: string | null
-          phone_number: string
-          updated_at: string
+          created_at: string | null
+          id: number
+          location: string | null
+          name: string
         }
         Insert: {
-          address?: string | null
-          created_at?: string
-          created_by: string
-          full_name: string
-          group_assignment?: string | null
-          id?: string
-          id_number: string
-          next_of_kin_name?: string | null
-          next_of_kin_phone?: string | null
-          next_of_kin_relationship?: string | null
-          notes?: string | null
-          phone_number: string
-          updated_at?: string
+          created_at?: string | null
+          id?: never
+          location?: string | null
+          name: string
         }
         Update: {
-          address?: string | null
-          created_at?: string
-          created_by?: string
-          full_name?: string
-          group_assignment?: string | null
-          id?: string
-          id_number?: string
-          next_of_kin_name?: string | null
-          next_of_kin_phone?: string | null
-          next_of_kin_relationship?: string | null
-          notes?: string | null
-          phone_number?: string
-          updated_at?: string
+          created_at?: string | null
+          id?: never
+          location?: string | null
+          name?: string
+        }
+        Relationships: []
+      }
+      groups: {
+        Row: {
+          branch_id: number
+          created_at: string | null
+          id: number
+          loan_officer_id: string | null
+          name: string
+        }
+        Insert: {
+          branch_id: number
+          created_at?: string | null
+          id?: never
+          loan_officer_id?: string | null
+          name: string
+        }
+        Update: {
+          branch_id?: number
+          created_at?: string | null
+          id?: never
+          loan_officer_id?: string | null
+          name?: string
         }
         Relationships: [
           {
-            foreignKeyName: "customers_created_by_fkey"
-            columns: ["created_by"]
+            foreignKeyName: "groups_branch_id_fkey"
+            columns: ["branch_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "branches"
             referencedColumns: ["id"]
           },
         ]
       }
       loans: {
         Row: {
+          branch_id: number | null
           created_at: string
           created_by: string
           current_balance: number
           customer_id: string
           due_date: string
+          group_id: number | null
           id: string
           interest_rate: number
           interest_type: Database["public"]["Enums"]["interest_type"]
           issue_date: string
           late_payment_penalty_rate: number | null
+          loan_officer_id: string | null
           penalty_type: string | null
           principal_amount: number
           repayment_schedule: Database["public"]["Enums"]["repayment_schedule"]
@@ -131,16 +131,19 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          branch_id?: number | null
           created_at?: string
           created_by: string
           current_balance?: number
           customer_id: string
           due_date: string
+          group_id?: number | null
           id?: string
           interest_rate: number
           interest_type: Database["public"]["Enums"]["interest_type"]
           issue_date?: string
           late_payment_penalty_rate?: number | null
+          loan_officer_id?: string | null
           penalty_type?: string | null
           principal_amount: number
           repayment_schedule: Database["public"]["Enums"]["repayment_schedule"]
@@ -149,16 +152,19 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          branch_id?: number | null
           created_at?: string
           created_by?: string
           current_balance?: number
           customer_id?: string
           due_date?: string
+          group_id?: number | null
           id?: string
           interest_rate?: number
           interest_type?: Database["public"]["Enums"]["interest_type"]
           issue_date?: string
           late_payment_penalty_rate?: number | null
+          loan_officer_id?: string | null
           penalty_type?: string | null
           principal_amount?: number
           repayment_schedule?: Database["public"]["Enums"]["repayment_schedule"]
@@ -167,6 +173,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "loans_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "loans_created_by_fkey"
             columns: ["created_by"]
@@ -178,7 +191,96 @@ export type Database = {
             foreignKeyName: "loans_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
-            referencedRelation: "customers"
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loans_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      members: {
+        Row: {
+          address: string | null
+          branch_id: number | null
+          created_at: string
+          created_by: string
+          full_name: string
+          group_assignment: string | null
+          group_id: number | null
+          id: string
+          id_number: string
+          next_of_kin_name: string | null
+          next_of_kin_phone: string | null
+          next_of_kin_relationship: string | null
+          notes: string | null
+          phone_number: string
+          photo_url: string | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          branch_id?: number | null
+          created_at?: string
+          created_by: string
+          full_name: string
+          group_assignment?: string | null
+          group_id?: number | null
+          id?: string
+          id_number: string
+          next_of_kin_name?: string | null
+          next_of_kin_phone?: string | null
+          next_of_kin_relationship?: string | null
+          notes?: string | null
+          phone_number: string
+          photo_url?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          branch_id?: number | null
+          created_at?: string
+          created_by?: string
+          full_name?: string
+          group_assignment?: string | null
+          group_id?: number | null
+          id?: string
+          id_number?: string
+          next_of_kin_name?: string | null
+          next_of_kin_phone?: string | null
+          next_of_kin_relationship?: string | null
+          notes?: string | null
+          phone_number?: string
+          photo_url?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "members_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
             referencedColumns: ["id"]
           },
         ]
@@ -255,41 +357,31 @@ export type Database = {
           },
         ]
       }
-      user_roles: {
+      user_branch_roles: {
         Row: {
-          assigned_by: string | null
-          created_at: string
-          id: string
-          role: Database["public"]["Enums"]["app_role"]
+          branch_id: number
+          id: number
+          role: string
           user_id: string
         }
         Insert: {
-          assigned_by?: string | null
-          created_at?: string
-          id?: string
-          role: Database["public"]["Enums"]["app_role"]
+          branch_id: number
+          id?: never
+          role: string
           user_id: string
         }
         Update: {
-          assigned_by?: string | null
-          created_at?: string
-          id?: string
-          role?: Database["public"]["Enums"]["app_role"]
+          branch_id?: number
+          id?: never
+          role?: string
           user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "user_roles_assigned_by_fkey"
-            columns: ["assigned_by"]
+            foreignKeyName: "user_branch_roles_branch_id_fkey"
+            columns: ["branch_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_roles_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "branches"
             referencedColumns: ["id"]
           },
         ]
