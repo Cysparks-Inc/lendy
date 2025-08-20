@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { User, Mail, Phone, MapPin, Building, Save, Key } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { User, Mail, Phone, MapPin, Building, Save, Key, Camera, Upload } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -16,6 +17,7 @@ interface ProfileData {
   branch_name: string;
   role: string;
   created_at: string;
+  profile_picture_url: string;
 }
 
 const Profile = () => {
@@ -26,11 +28,14 @@ const Profile = () => {
     phone_number: '',
     branch_name: '',
     role: '',
-    created_at: ''
+    created_at: '',
+    profile_picture_url: ''
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchProfile();
@@ -69,7 +74,8 @@ const Profile = () => {
         phone_number: profile.phone_number || '',
         branch_name: roleData?.branches?.name || 'No Branch Assigned',
         role: roleData?.role || 'No Role Assigned',
-        created_at: profile.created_at
+        created_at: profile.created_at,
+        profile_picture_url: profile.profile_picture_url || ''
       });
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -88,7 +94,8 @@ const Profile = () => {
         .from('profiles')
         .update({
           full_name: profileData.full_name,
-          phone_number: profileData.phone_number
+          phone_number: profileData.phone_number,
+          profile_picture_url: profileData.profile_picture_url
         })
         .eq('id', user.id);
 
@@ -106,6 +113,47 @@ const Profile = () => {
 
   const handleInputChange = (field: keyof ProfileData, value: string) => {
     setProfileData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    setUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/profile.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('profile-pictures')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: true
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from('profile-pictures')
+        .getPublicUrl(fileName);
+
+      setProfileData(prev => ({ ...prev, profile_picture_url: data.publicUrl }));
+      toast.success('Profile picture uploaded successfully');
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      toast.error('Failed to upload profile picture');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(word => word.charAt(0))
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
   };
 
   if (loading) {
@@ -154,6 +202,46 @@ const Profile = () => {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
+        {/* Profile Picture */}
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Camera className="h-5 w-5" />
+              Profile Picture
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex items-center gap-6">
+            <Avatar className="h-24 w-24">
+              <AvatarImage src={profileData.profile_picture_url} alt={profileData.full_name} />
+              <AvatarFallback className="bg-primary/10 text-primary text-lg">
+                {profileData.full_name ? getInitials(profileData.full_name) : <User className="h-8 w-8" />}
+              </AvatarFallback>
+            </Avatar>
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Upload a new profile picture. Recommended size is 256x256 pixels.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+                <Button 
+                  variant="outline" 
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  {uploading ? 'Uploading...' : 'Upload Photo'}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Personal Information */}
         <Card>
           <CardHeader>

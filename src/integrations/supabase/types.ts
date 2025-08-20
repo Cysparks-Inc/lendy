@@ -295,6 +295,7 @@ export type Database = {
           full_name: string
           id: string
           phone_number: string | null
+          profile_picture_url: string | null
           updated_at: string
         }
         Insert: {
@@ -303,6 +304,7 @@ export type Database = {
           full_name: string
           id: string
           phone_number?: string | null
+          profile_picture_url?: string | null
           updated_at?: string
         }
         Update: {
@@ -311,9 +313,98 @@ export type Database = {
           full_name?: string
           id?: string
           phone_number?: string | null
+          profile_picture_url?: string | null
           updated_at?: string
         }
         Relationships: []
+      }
+      realizable_assets: {
+        Row: {
+          asset_type: string
+          branch_id: number | null
+          created_at: string
+          created_by: string
+          current_market_value: number
+          description: string
+          id: string
+          last_valuation_date: string
+          loan_id: string | null
+          location: string | null
+          member_id: string | null
+          notes: string | null
+          original_value: number
+          realizable_value: number
+          realization_period: number
+          recovery_likelihood: string
+          risk_factor: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          asset_type: string
+          branch_id?: number | null
+          created_at?: string
+          created_by?: string
+          current_market_value?: number
+          description: string
+          id?: string
+          last_valuation_date?: string
+          loan_id?: string | null
+          location?: string | null
+          member_id?: string | null
+          notes?: string | null
+          original_value?: number
+          realizable_value?: number
+          realization_period?: number
+          recovery_likelihood?: string
+          risk_factor?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          asset_type?: string
+          branch_id?: number | null
+          created_at?: string
+          created_by?: string
+          current_market_value?: number
+          description?: string
+          id?: string
+          last_valuation_date?: string
+          loan_id?: string | null
+          location?: string | null
+          member_id?: string | null
+          notes?: string | null
+          original_value?: number
+          realizable_value?: number
+          realization_period?: number
+          recovery_likelihood?: string
+          risk_factor?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "realizable_assets_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "realizable_assets_loan_id_fkey"
+            columns: ["loan_id"]
+            isOneToOne: false
+            referencedRelation: "loans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "realizable_assets_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       repayments: {
         Row: {

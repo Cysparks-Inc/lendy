@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ScrollableContainer } from '@/components/ui/scrollable-container';
 import { Search, Download, FileText, TrendingUp, DollarSign, Target } from 'lucide-react';
 import { Loader } from '@/components/ui/loader';
+import { toast } from 'sonner';
 
 interface RealizableItem {
   id: string;
@@ -40,83 +41,50 @@ const RealizableReport = () => {
   const [reportDate, setReportDate] = useState(new Date().toISOString().split('T')[0]);
 
   useEffect(() => {
-    // Simulate data fetch
-    setTimeout(() => {
-      setRealizableItems([
-        {
-          id: '1',
-          asset_type: 'collateral',
-          description: 'Motor Vehicle - Toyota Hilux 2018',
-          member_name: 'Peter Ochieng Otieno',
-          loan_number: 'LN002-2024',
-          original_value: 1500000,
-          current_market_value: 1200000,
-          realizable_value: 960000,
-          realization_period: 30,
-          risk_factor: 20,
-          location: 'Kisumu',
-          branch: 'Kisumu',
-          last_valuation_date: '2024-01-15',
-          status: 'available',
-          recovery_likelihood: 'high',
-          notes: 'Vehicle in good condition, easy to sell'
-        },
-        {
-          id: '2',
-          asset_type: 'collateral',
-          description: 'Land Title - 2 Acres Agricultural Land',
-          member_name: 'Grace Atieno Owuor',
-          loan_number: 'LN005-2023',
-          original_value: 800000,
-          current_market_value: 950000,
-          realizable_value: 760000,
-          realization_period: 90,
-          risk_factor: 20,
-          location: 'Siaya County',
-          branch: 'Nairobi Central',
-          last_valuation_date: '2023-12-10',
-          status: 'available',
-          recovery_likelihood: 'medium',
-          notes: 'Agricultural land, market dependent on season'
-        },
-        {
-          id: '3',
-          asset_type: 'recoverable_loan',
-          description: 'Outstanding loan balance',
-          member_name: 'Samuel Kipchoge Ruto',
-          loan_number: 'LN008-2023',
-          original_value: 150000,
-          current_market_value: 125000,
-          realizable_value: 75000,
-          realization_period: 180,
-          risk_factor: 40,
-          location: 'Eldoret',
-          branch: 'Eldoret',
-          last_valuation_date: '2024-01-01',
-          status: 'in_process',
-          recovery_likelihood: 'low',
-          notes: 'Member defaulted, recovery through legal process'
-        },
-        {
-          id: '4',
-          asset_type: 'liquid_asset',
-          description: 'Fixed Deposit Certificate',
-          original_value: 500000,
-          current_market_value: 520000,
-          realizable_value: 520000,
-          realization_period: 7,
-          risk_factor: 0,
-          location: 'Equity Bank',
-          branch: 'Mombasa',
-          last_valuation_date: '2024-01-20',
-          status: 'available',
-          recovery_likelihood: 'high',
-          notes: 'Matured fixed deposit, immediately realizable'
-        }
-      ]);
-      setLoading(false);
-    }, 1000);
+    fetchRealizableAssets();
   }, []);
+
+  const fetchRealizableAssets = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('realizable_assets')
+        .select(`
+          *,
+          member:members(full_name, phone_number),
+          loan:loans(id),
+          branch:branches(name)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedAssets = data.map(asset => ({
+        id: asset.id,
+        asset_type: asset.asset_type as 'collateral' | 'recoverable_loan' | 'liquid_asset' | 'investment',
+        description: asset.description,
+        member_name: asset.member?.full_name,
+        loan_number: asset.loan?.id ? `LN-${asset.loan.id.slice(0, 8)}` : undefined,
+        original_value: asset.original_value,
+        current_market_value: asset.current_market_value,
+        realizable_value: asset.realizable_value,
+        realization_period: asset.realization_period,
+        risk_factor: asset.risk_factor,
+        location: asset.location,
+        branch: asset.branch?.name || 'Unknown',
+        last_valuation_date: asset.last_valuation_date,
+        status: asset.status as 'available' | 'in_process' | 'realized' | 'disputed',
+        recovery_likelihood: asset.recovery_likelihood as 'high' | 'medium' | 'low',
+        notes: asset.notes
+      }));
+
+      setRealizableItems(formattedAssets);
+    } catch (error) {
+      console.error('Error fetching realizable assets:', error);
+      toast.error('Failed to load realizable assets');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const branches = [...new Set(realizableItems.map(item => item.branch))];
 

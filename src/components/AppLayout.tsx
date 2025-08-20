@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { PageLoader } from '@/components/ui/loader';
+import { ProfileDropdown } from '@/components/ProfileDropdown';
 const AppLayout = () => {
   const {
     user,
@@ -39,10 +40,11 @@ const AppLayout = () => {
                 </h1>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-4">
               <span className="text-sm text-muted-foreground">
                 {userRole === 'super_admin' ? 'Super Admin' : userRole?.charAt(0).toUpperCase() + userRole?.slice(1)}
               </span>
+              <ProfileDropdown />
             </div>
           </header>
           <main className="flex-1 p-6 bg-background/50">

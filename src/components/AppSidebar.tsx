@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, CreditCard, Search, FileText, Settings, LogOut, User, Shield, UserCheck, UsersRound, Clock, AlertTriangle, Folder, Trash2 } from 'lucide-react';
+import { LayoutDashboard, Users, CreditCard, Search, FileText, Settings, LogOut, User, Shield, UserCheck, UsersRound, Clock, AlertTriangle, Folder, Trash2, Building } from 'lucide-react';
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter, useSidebar } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
@@ -66,6 +66,10 @@ const superAdminNavItems = [{
   title: 'Security',
   url: '/security',
   icon: Shield
+}, {
+  title: 'Branches',
+  url: '/branches',
+  icon: Building
 }];
 export function AppSidebar() {
   const {

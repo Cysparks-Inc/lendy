@@ -22,6 +22,7 @@ import Profile from "@/pages/Profile";
 import Settings from "@/pages/Settings";
 import Users from "@/pages/Users";
 import Security from "@/pages/Security";
+import Branches from "@/pages/Branches";
 
 const queryClient = new QueryClient();
 
@@ -50,6 +51,7 @@ const App = () => (
               <Route path="settings" element={<Settings />} />
               <Route path="users" element={<Users />} />
               <Route path="security" element={<Security />} />
+              <Route path="branches" element={<Branches />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

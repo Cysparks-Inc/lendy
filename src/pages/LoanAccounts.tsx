@@ -1,18 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Search, Plus, Eye, Edit, CreditCard, Calendar, DollarSign } from 'lucide-react';
 import { ScrollableContainer } from '@/components/ui/scrollable-container';
-import { Plus, Search, Edit, Eye, CreditCard, Calendar, DollarSign } from 'lucide-react';
 import { Loader } from '@/components/ui/loader';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 interface LoanAccount {
   id: string;
@@ -37,15 +38,72 @@ interface LoanAccount {
 }
 
 const LoanAccounts = () => {
-  const { userRole, isSuperAdmin } = useAuth();
+  const { user, userRole, isSuperAdmin } = useAuth();
   const [loans, setLoans] = useState<LoanAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [branchFilter, setBranchFilter] = useState<string>('all');
+  const [filteredBranch, setFilteredBranch] = useState<string>('all');
   const [showNewLoanDialog, setShowNewLoanDialog] = useState(false);
+  const [newLoan, setNewLoan] = useState({
+    customer_id: '',
+    principal_amount: '',
+    interest_rate: '',
+    interest_type: 'simple',
+    repayment_schedule: 'monthly',
+    due_date: '',
+    branch_id: '',
+    group_id: ''
+  });
   const [members, setMembers] = useState<any[]>([]);
   const [branches, setBranches] = useState<any[]>([]);
+
+  const queryClient = useQueryClient();
+
+  const createLoanMutation = useMutation({
+    mutationFn: async (loanData: any) => {
+      const { error } = await supabase
+        .from('loans')
+        .insert({
+          customer_id: loanData.customer_id,
+          principal_amount: parseFloat(loanData.principal_amount),
+          interest_rate: parseFloat(loanData.interest_rate),
+          interest_type: loanData.interest_type,
+          repayment_schedule: loanData.repayment_schedule,
+          due_date: loanData.due_date,
+          branch_id: loanData.branch_id ? parseInt(loanData.branch_id) : null,
+          group_id: loanData.group_id ? parseInt(loanData.group_id) : null,
+          created_by: user?.id
+        });
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Loan created successfully');
+      setShowNewLoanDialog(false);
+      setNewLoan({
+        customer_id: '',
+        principal_amount: '',
+        interest_rate: '',
+        interest_type: 'simple',
+        repayment_schedule: 'monthly',
+        due_date: '',
+        branch_id: '',
+        group_id: ''
+      });
+      fetchLoans();
+    },
+    onError: (error) => {
+      console.error('Error creating loan:', error);
+      toast.error('Failed to create loan');
+    }
+  });
+
+  const handleCreateLoan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    createLoanMutation.mutate(newLoan);
+  };
 
   const fetchLoans = async () => {
     try {
@@ -103,20 +161,11 @@ const LoanAccounts = () => {
     }
   };
 
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      await Promise.all([fetchLoans(), fetchBranches(), fetchMembers()]);
-      setLoading(false);
-    };
-    loadData();
-  }, []);
-
   const fetchMembers = async () => {
     try {
       const { data, error } = await supabase
         .from('members')
-        .select('id, full_name')
+        .select('id, full_name, phone_number')
         .eq('status', 'active');
       
       if (error) throw error;
@@ -125,6 +174,15 @@ const LoanAccounts = () => {
       console.error('Error fetching members:', error);
     }
   };
+
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      await Promise.all([fetchLoans(), fetchBranches(), fetchMembers()]);
+      setLoading(false);
+    };
+    loadData();
+  }, []);
 
   const filteredLoans = loans.filter(loan => {
     const matchesSearch = (loan.member_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -192,39 +250,47 @@ const LoanAccounts = () => {
                 <DialogTitle>Create New Loan</DialogTitle>
                 <DialogDescription>Enter loan details for a new customer</DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 max-h-96 overflow-y-auto">
-                {/* Loan form fields would go here */}
+              <form onSubmit={handleCreateLoan} className="space-y-4 max-h-96 overflow-y-auto">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label>Customer</Label>
-                    <Select>
+                    <Select value={newLoan.customer_id} onValueChange={(value) => setNewLoan({...newLoan, customer_id: value})}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select customer" />
                       </SelectTrigger>
                       <SelectContent>
                         {members.map(member => (
                           <SelectItem key={member.id} value={member.id}>
-                            {member.full_name}
+                            {member.full_name} - {member.phone_number}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <Label>Principal Amount</Label>
-                    <Input type="number" placeholder="Enter amount" />
+                    <Label>Principal Amount (KES)</Label>
+                    <Input
+                      type="number"
+                      value={newLoan.principal_amount}
+                      onChange={(e) => setNewLoan({...newLoan, principal_amount: e.target.value})}
+                      placeholder="0"
+                      required
+                    />
                   </div>
                   <div>
                     <Label>Interest Rate (%)</Label>
-                    <Input type="number" placeholder="Enter rate" />
-                  </div>
-                  <div>
-                    <Label>Loan Term (months)</Label>
-                    <Input type="number" placeholder="Enter term" />
+                    <Input
+                      type="number"
+                      step="0.1"
+                      value={newLoan.interest_rate}
+                      onChange={(e) => setNewLoan({...newLoan, interest_rate: e.target.value})}
+                      placeholder="0.0"
+                      required
+                    />
                   </div>
                   <div>
                     <Label>Interest Type</Label>
-                    <Select>
+                    <Select value={newLoan.interest_type} onValueChange={(value) => setNewLoan({...newLoan, interest_type: value})}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select type" />
                       </SelectTrigger>
@@ -235,22 +301,64 @@ const LoanAccounts = () => {
                     </Select>
                   </div>
                   <div>
+                    <Label>Repayment Schedule</Label>
+                    <Select value={newLoan.repayment_schedule} onValueChange={(value) => setNewLoan({...newLoan, repayment_schedule: value})}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select schedule" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                        <SelectItem value="quarterly">Quarterly</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
                     <Label>Due Date</Label>
-                    <Input type="date" />
+                    <Input
+                      type="date"
+                      value={newLoan.due_date}
+                      onChange={(e) => setNewLoan({...newLoan, due_date: e.target.value})}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label>Branch</Label>
+                    <Select value={newLoan.branch_id} onValueChange={(value) => setNewLoan({...newLoan, branch_id: value})}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select branch" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {branches.map(branch => (
+                          <SelectItem key={branch.id} value={branch.id.toString()}>
+                            {branch.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Group (Optional)</Label>
+                    <Select value={newLoan.group_id} onValueChange={(value) => setNewLoan({...newLoan, group_id: value})}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select group" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">No Group</SelectItem>
+                        {/* Groups would be loaded here */}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setShowNewLoanDialog(false)}>
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button type="button" variant="outline" onClick={() => setShowNewLoanDialog(false)}>
                     Cancel
                   </Button>
-                  <Button onClick={() => {
-                    toast.success('Loan creation functionality requires full implementation');
-                    setShowNewLoanDialog(false);
-                  }}>
-                    Create Loan
+                  <Button type="submit" disabled={createLoanMutation.isPending}>
+                    {createLoanMutation.isPending ? 'Creating...' : 'Create Loan'}
                   </Button>
                 </div>
-              </div>
+              </form>
             </DialogContent>
           </Dialog>
         )}
