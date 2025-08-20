@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Plus, Search, Edit, Trash2, UsersRound, MapPin } from 'lucide-react';
 import { ScrollableContainer } from '@/components/ui/scrollable-container';
+import { Loader } from '@/components/ui/loader';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -375,6 +376,9 @@ const Groups = () => {
                     <TableCell>
                       <div className="text-center">
                         <div className="font-semibold">{group.member_count}</div>
+                        <div className="text-xs text-muted-foreground">Members</div>
+                      </div>
+                    </TableCell>
                     <TableCell className="text-center font-semibold">{group.total_loans}</TableCell>
                     <TableCell className="font-medium">
                       {formatCurrency(group.outstanding_balance || 0)}

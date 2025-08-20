@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Plus, Search, Edit, Trash2, Users, Eye, Phone, MapPin } from 'lucide-react';
 import { ScrollableContainer } from '@/components/ui/scrollable-container';
+import { Loader } from '@/components/ui/loader';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -389,7 +390,6 @@ const Members = () => {
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-9"
                 />
-              </div>
               </div>
             </div>
             <div className="w-full lg:w-48">

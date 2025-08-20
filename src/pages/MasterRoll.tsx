@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Search, Download, FileText, Filter } from 'lucide-react';
 import { ScrollableContainer } from '@/components/ui/scrollable-container';
+import { Loader } from '@/components/ui/loader';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -200,7 +201,7 @@ const MasterRoll = () => {
             <div className="text-3xl font-bold text-destructive">{records.filter(r => r.status === 'suspended').length}</div>
           </CardContent>
         </Card>
-          </ScrollableContainer>
+      </div>
 
       {/* Master Roll Table */}
       <Card>
