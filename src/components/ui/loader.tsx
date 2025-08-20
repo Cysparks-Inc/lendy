@@ -32,7 +32,7 @@ export function PageLoader() {
           <div className="absolute inset-0 h-16 w-16 animate-ping rounded-full border border-primary/20 mx-auto" />
         </div>
         <div className="space-y-2">
-          <h2 className="text-lg font-semibold text-foreground">Loading Napol</h2>
+          <h2 className="text-lg font-semibold text-foreground">Loading Napol...</h2>
           <p className="text-sm text-muted-foreground">Please wait while we prepare your data...</p>
         </div>
       </div>

@@ -54,13 +54,17 @@ const Auth = () => {
     <div className="min-h-screen bg-gradient-primary flex items-center justify-center p-4">
       <Card className="w-full max-w-md shadow-financial">
         <CardHeader className="space-y-4 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary">
-            <Building2 className="h-8 w-8 text-primary-foreground" />
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-white shadow-lg border">
+            <img 
+              src="/lovable-uploads/d7fc2e96-c700-49a2-be74-507880e07deb.png" 
+              alt="Napol Logo" 
+              className="h-16 w-16 object-contain"
+            />
           </div>
           <div className="space-y-2">
-            <CardTitle className="text-2xl font-bold text-foreground">LendWise</CardTitle>
-            <CardDescription>
-              Secure lending management system
+            <CardTitle className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">Napol</CardTitle>
+            <CardDescription className="text-lg">
+              Advanced Financial Management System
             </CardDescription>
           </div>
         </CardHeader>

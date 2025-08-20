@@ -40,9 +40,9 @@ const AppLayout = () => {
                 <img 
                   src="/lovable-uploads/d7fc2e96-c700-49a2-be74-507880e07deb.png" 
                   alt="Napol Logo" 
-                  className="h-6 w-6 object-contain"
+                  className="h-10 w-10 md:h-12 md:w-12 object-contain"
                 />
-                <h1 className="font-bold text-lg bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
+                <h1 className="font-bold text-xl md:text-2xl bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
                   Napol
                 </h1>
               </div>
