@@ -42,7 +42,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .from('user_branch_roles')
         .select('role')
         .eq('user_id', userId)
-        .eq('is_active', true)
         .maybeSingle();
       
       if (response.error && response.error.code !== 'PGRST116') {
