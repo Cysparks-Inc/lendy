@@ -2,17 +2,13 @@ import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
-import { Loader2 } from 'lucide-react';
+import { PageLoader } from '@/components/ui/loader';
 
 const AppLayout = () => {
   const { user, loading, userRole } = useAuth();
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <PageLoader />;
   }
 
   if (!user) {
@@ -37,10 +33,27 @@ const AppLayout = () => {
       <div className="flex min-h-screen w-full bg-background">
         <AppSidebar />
         <div className="flex-1 flex flex-col">
-          <header className="h-14 flex items-center border-b border-border bg-card px-4">
-            <SidebarTrigger />
+          <header className="h-16 flex items-center justify-between border-b border-border bg-card/50 backdrop-blur-sm px-6 sticky top-0 z-10">
+            <div className="flex items-center gap-4">
+              <SidebarTrigger className="hover:bg-accent hover:text-accent-foreground transition-colors" />
+              <div className="flex items-center gap-2">
+                <img 
+                  src="/lovable-uploads/d7fc2e96-c700-49a2-be74-507880e07deb.png" 
+                  alt="Napol Logo" 
+                  className="h-6 w-6 object-contain"
+                />
+                <h1 className="font-bold text-lg bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
+                  Napol
+                </h1>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">
+                {userRole === 'super_admin' ? 'Super Admin' : userRole?.charAt(0).toUpperCase() + userRole?.slice(1)}
+              </span>
+            </div>
           </header>
-          <main className="flex-1 p-6">
+          <main className="flex-1 p-6 bg-background/50">
             <Outlet />
           </main>
         </div>
