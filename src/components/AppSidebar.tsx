@@ -91,7 +91,7 @@ export function AppSidebar() {
   const handleSignOut = () => {
     signOut();
   };
-  return <Sidebar className={isCollapsed ? "w-14" : "w-72"} collapsible="icon">
+  return <Sidebar className={isCollapsed ? "w-14" : "w-56"} collapsible="icon">
       <SidebarHeader className="border-b border-border p-4 bg-gradient-to-r from-primary/5 to-primary/10">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg overflow-hidden bg-white shadow-sm">

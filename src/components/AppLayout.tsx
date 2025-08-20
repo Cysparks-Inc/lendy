@@ -31,7 +31,7 @@ const AppLayout = () => {
         <div className="flex-1 flex flex-col">
           <header className="h-16 flex items-center justify-between border-b border-border bg-card/50 backdrop-blur-sm px-6 sticky top-0 z-10">
             <div className="flex items-center gap-4">
-              <SidebarTrigger className="hover:bg-accent hover:text-accent-foreground transition-colors" />
+              <SidebarTrigger className="hover:bg-accent hover:text-accent-foreground transition-colors p-2 h-10 w-10 rounded-md" />
               <div className="flex items-center gap-2">
                 <img src="/lovable-uploads/d7fc2e96-c700-49a2-be74-507880e07deb.png" alt="Napol Logo" className="h-10 w-10 md:h-12 md:w-12 object-contain" />
                 <h1 className="font-bold text-xl md:text-2xl bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
