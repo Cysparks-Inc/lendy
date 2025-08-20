@@ -156,7 +156,7 @@ const Members = () => {
           <h1 className="text-3xl font-bold text-foreground">Members Management</h1>
           <p className="text-muted-foreground">Manage and monitor all registered members</p>
         </div>
-        {isAdmin && (
+        {isSuperAdmin && (
           <Button className="bg-primary hover:bg-primary/90">
             <Plus className="h-4 w-4 mr-2" />
             Add Member

@@ -127,7 +127,7 @@ const Groups = () => {
           <h1 className="text-3xl font-bold text-foreground">Groups Management</h1>
           <p className="text-muted-foreground">Manage self-help groups and their activities</p>
         </div>
-        {isAdmin && (
+        {isSuperAdmin && (
           <Button className="bg-primary hover:bg-primary/90">
             <Plus className="h-4 w-4 mr-2" />
             Add Group

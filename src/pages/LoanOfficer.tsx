@@ -98,7 +98,7 @@ const LoanOfficer = () => {
           <h1 className="text-3xl font-bold text-foreground">Loan Officers</h1>
           <p className="text-muted-foreground">Manage and monitor loan officer performance</p>
         </div>
-        {isAdmin && (
+        {isSuperAdmin && (
           <Button className="bg-primary hover:bg-primary/90">
             <Plus className="h-4 w-4 mr-2" />
             Add Officer

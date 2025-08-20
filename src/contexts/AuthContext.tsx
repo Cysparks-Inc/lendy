@@ -9,9 +9,9 @@ interface AuthContextType {
   userRole: string | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error?: any }>;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ error?: any }>;
   signOut: () => Promise<void>;
-  isAdmin: boolean;
+  isSuperAdmin: boolean;
+  isBranchAdmin: boolean;
   isStaff: boolean;
 }
 
@@ -31,15 +31,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userRole, setUserRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const isAdmin = userRole === 'admin';
-  const isStaff = userRole === 'staff' || isAdmin;
+  const isSuperAdmin = userRole === 'super_admin';
+  const isBranchAdmin = userRole === 'branch_admin';
+  const isStaff = ['super_admin', 'branch_admin', 'loan_officer', 'teller'].includes(userRole || '');
 
   const fetchUserRole = async (userId: string) => {
     try {
       const { data, error } = await supabase
-        .from('user_roles')
+        .from('user_branch_roles')
         .select('role')
         .eq('user_id', userId)
+        .eq('is_active', true)
+        .order('role')
+        .limit(1)
         .single();
       
       if (error && error.code !== 'PGRST116') {
@@ -113,33 +117,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signUp = async (email: string, password: string, fullName: string) => {
-    try {
-      const redirectUrl = `${window.location.origin}/`;
-      
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: redirectUrl,
-          data: {
-            full_name: fullName,
-          },
-        },
-      });
-
-      if (error) {
-        toast.error(error.message);
-        return { error };
-      }
-
-      toast.success('Account created successfully! Please check your email to confirm your account.');
-      return {};
-    } catch (error) {
-      toast.error('An unexpected error occurred');
-      return { error };
-    }
-  };
 
   const signOut = async () => {
     try {
@@ -161,9 +138,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     userRole,
     loading,
     signIn,
-    signUp,
     signOut,
-    isAdmin,
+    isSuperAdmin,
+    isBranchAdmin,
     isStaff,
   };
 

@@ -74,13 +74,13 @@ export function AppSidebar() {
   const {
     user,
     signOut,
-    isAdmin,
+    isSuperAdmin,
     userRole
   } = useAuth();
   const location = useLocation();
   const currentPath = location.pathname;
   const isCollapsed = state === "collapsed";
-  const isSuperAdmin = userRole === 'super_admin';
+  
   const isActive = (path: string) => {
     if (path === '/') {
       return currentPath === path;

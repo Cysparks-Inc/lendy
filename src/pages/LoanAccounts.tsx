@@ -161,7 +161,7 @@ const LoanAccounts = () => {
           <h1 className="text-3xl font-bold text-foreground">Loan Accounts</h1>
           <p className="text-muted-foreground">Manage and monitor all loan accounts</p>
         </div>
-        {isAdmin && (
+        {isSuperAdmin && (
           <Button className="bg-primary hover:bg-primary/90">
             <Plus className="h-4 w-4 mr-2" />
             New Loan
