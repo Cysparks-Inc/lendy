@@ -32,10 +32,10 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchDashboardStats = async () => {
       try {
-        // Fetch customer count
+        // Fetch member count
         const {
-          count: customerCount
-        } = await supabase.from('customers').select('*', {
+          count: memberCount
+        } = await supabase.from('members').select('*', {
           count: 'exact',
           head: true
         });
@@ -56,7 +56,7 @@ const Dashboard = () => {
         const defaultedLoans = loans?.filter(loan => loan.status === 'defaulted').length || 0;
         const repaidLoans = loans?.filter(loan => loan.status === 'repaid').length || 0;
         setStats({
-          totalCustomers: customerCount || 0,
+          totalCustomers: memberCount || 0,
           totalLoans: loans?.length || 0,
           totalLoanAmount,
           totalRepaid,

@@ -29,7 +29,7 @@ interface Group {
 }
 
 const Groups = () => {
-  const { userRole, isAdmin } = useAuth();
+  const { userRole, isSuperAdmin } = useAuth();
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -239,7 +239,7 @@ const Groups = () => {
                   <TableHead>Leadership</TableHead>
                   <TableHead>Meeting Day</TableHead>
                   <TableHead>Status</TableHead>
-                  {isAdmin && <TableHead>Actions</TableHead>}
+                  {isSuperAdmin && <TableHead>Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -298,7 +298,7 @@ const Groups = () => {
                         {group.status}
                       </Badge>
                     </TableCell>
-                    {isAdmin && (
+                    {isSuperAdmin && (
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Button variant="outline" size="sm">

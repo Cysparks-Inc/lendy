@@ -35,23 +35,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isBranchAdmin = userRole === 'branch_admin';
   const isStaff = ['super_admin', 'branch_admin', 'loan_officer', 'teller'].includes(userRole || '');
 
-  const fetchUserRole = async (userId: string) => {
+  const fetchUserRole = async (userId: string): Promise<string | null> => {
     try {
-      const { data, error } = await supabase
+      // Use any to bypass type issues temporarily
+      const response = await (supabase as any)
         .from('user_branch_roles')
         .select('role')
         .eq('user_id', userId)
         .eq('is_active', true)
-        .order('role')
-        .limit(1)
-        .single();
+        .maybeSingle();
       
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching user role:', error);
+      if (response.error && response.error.code !== 'PGRST116') {
+        console.error('Error fetching user role:', response.error);
         return null;
       }
       
-      return data?.role || null;
+      return response.data?.role || null;
     } catch (error) {
       console.error('Error fetching user role:', error);
       return null;

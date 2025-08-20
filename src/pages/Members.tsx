@@ -33,7 +33,7 @@ interface Member {
 }
 
 const Members = () => {
-  const { userRole, isAdmin } = useAuth();
+  const { userRole, isSuperAdmin } = useAuth();
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -374,7 +374,7 @@ const Members = () => {
                         <Button variant="outline" size="sm">
                           <Eye className="h-4 w-4" />
                         </Button>
-                        {isAdmin && (
+                        {isSuperAdmin && (
                           <>
                             <Button variant="outline" size="sm">
                               <Edit className="h-4 w-4" />

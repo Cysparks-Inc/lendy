@@ -34,7 +34,7 @@ interface LoanAccount {
 }
 
 const LoanAccounts = () => {
-  const { userRole, isAdmin } = useAuth();
+  const { userRole, isSuperAdmin } = useAuth();
   const [loans, setLoans] = useState<LoanAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -363,7 +363,7 @@ const LoanAccounts = () => {
                         <Button variant="outline" size="sm">
                           <Eye className="h-4 w-4" />
                         </Button>
-                        {isAdmin && (
+                        {isSuperAdmin && (
                           <Button variant="outline" size="sm">
                             <Edit className="h-4 w-4" />
                           </Button>

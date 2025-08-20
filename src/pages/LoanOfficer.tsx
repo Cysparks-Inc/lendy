@@ -23,7 +23,7 @@ interface LoanOfficer {
 }
 
 const LoanOfficer = () => {
-  const { userRole, isAdmin } = useAuth();
+  const { userRole, isSuperAdmin } = useAuth();
   const [officers, setOfficers] = useState<LoanOfficer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -192,7 +192,7 @@ const LoanOfficer = () => {
                   <TableHead>Total Disbursed</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Hire Date</TableHead>
-                  {isAdmin && <TableHead>Actions</TableHead>}
+                  {isSuperAdmin && <TableHead>Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -227,7 +227,7 @@ const LoanOfficer = () => {
                     <TableCell className="text-sm">
                       {new Date(officer.hire_date).toLocaleDateString()}
                     </TableCell>
-                    {isAdmin && (
+                    {isSuperAdmin && (
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Button variant="outline" size="sm">
