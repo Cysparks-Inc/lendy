@@ -7,123 +7,191 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Plus, Search, Edit, Trash2, Users, Eye, Phone, MapPin } from 'lucide-react';
 import { Loader } from '@/components/ui/loader';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface Member {
   id: string;
-  member_code: string;
   full_name: string;
   id_number: string;
-  phone: string;
-  email?: string;
-  gender: 'male' | 'female';
-  date_of_birth: string;
+  phone_number: string;
+  address?: string;
+  status: string;
+  group_id?: number;
+  branch_id?: number;
+  next_of_kin_name?: string;
+  next_of_kin_phone?: string;
+  notes?: string;
+  created_at: string;
+  group_name?: string;
+  branch_name?: string;
+  total_loans?: number;
+  outstanding_balance?: number;
+}
+
+interface NewMember {
+  full_name: string;
+  id_number: string;
+  phone_number: string;
   address: string;
-  group_name: string;
-  branch: string;
-  registration_date: string;
-  status: 'active' | 'inactive' | 'suspended';
-  total_loans: number;
-  outstanding_balance: number;
-  savings_balance: number;
-  last_transaction_date?: string;
-  next_of_kin: string;
+  group_id: string;
+  branch_id: string;
+  next_of_kin_name: string;
   next_of_kin_phone: string;
+  notes: string;
 }
 
 const Members = () => {
-  const { userRole, isSuperAdmin } = useAuth();
+  const { userRole, isSuperAdmin, user } = useAuth();
   const [members, setMembers] = useState<Member[]>([]);
+  const [groups, setGroups] = useState<any[]>([]);
+  const [branches, setBranches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'suspended'>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [branchFilter, setBranchFilter] = useState<string>('all');
-  const [genderFilter, setGenderFilter] = useState<'all' | 'male' | 'female'>('all');
+  const [newMember, setNewMember] = useState<NewMember>({
+    full_name: '',
+    id_number: '',
+    phone_number: '',
+    address: '',
+    group_id: '',
+    branch_id: '',
+    next_of_kin_name: '',
+    next_of_kin_phone: '',
+    notes: ''
+  });
+
+  const fetchMembers = async () => {
+    try {
+      const { data: membersData, error } = await supabase
+        .from('members')
+        .select(`
+          *,
+          groups:group_id (name),
+          branches:branch_id (name)
+        `);
+
+      if (error) throw error;
+
+      // Get loan statistics for each member
+      const membersWithStats = await Promise.all(
+        (membersData || []).map(async (member) => {
+          const { data: loansData } = await supabase
+            .from('loans')
+            .select('current_balance')
+            .eq('customer_id', member.id);
+
+          const totalLoans = loansData?.length || 0;
+          const outstandingBalance = loansData?.reduce(
+            (sum, loan) => sum + parseFloat(String(loan.current_balance || '0')), 0
+          ) || 0;
+
+          return {
+            ...member,
+            group_name: member.groups?.name,
+            branch_name: member.branches?.name,
+            total_loans: totalLoans,
+            outstanding_balance: outstandingBalance
+          };
+        })
+      );
+
+      setMembers(membersWithStats);
+    } catch (error) {
+      console.error('Error fetching members:', error);
+      toast.error('Failed to fetch members');
+    }
+  };
+
+  const fetchGroups = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('groups')
+        .select('*');
+      
+      if (error) throw error;
+      setGroups(data || []);
+    } catch (error) {
+      console.error('Error fetching groups:', error);
+    }
+  };
+
+  const fetchBranches = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('branches')
+        .select('*');
+      
+      if (error) throw error;
+      setBranches(data || []);
+    } catch (error) {
+      console.error('Error fetching branches:', error);
+    }
+  };
 
   useEffect(() => {
-    // Simulate data fetch
-    setTimeout(() => {
-      setMembers([
-        {
-          id: '1',
-          member_code: 'MEM001',
-          full_name: 'Alice Wanjiku Kamau',
-          id_number: '12345678',
-          phone: '+254712345678',
-          email: 'alice.wanjiku@gmail.com',
-          gender: 'female',
-          date_of_birth: '1985-03-15',
-          address: 'Kawangware, Nairobi',
-          group_name: 'Upendo Self Help Group',
-          branch: 'Nairobi Central',
-          registration_date: '2023-01-15',
-          status: 'active',
-          total_loans: 3,
-          outstanding_balance: 125000,
-          savings_balance: 45000,
-          last_transaction_date: '2024-01-10',
-          next_of_kin: 'John Kamau',
-          next_of_kin_phone: '+254700123456'
-        },
-        {
-          id: '2',
-          member_code: 'MEM002',
-          full_name: 'Peter Ochieng Otieno',
-          id_number: '87654321',
-          phone: '+254787654321',
-          gender: 'male',
-          date_of_birth: '1978-07-22',
-          address: 'Kondele, Kisumu',
-          group_name: 'Harambee Business Group',
-          branch: 'Kisumu',
-          registration_date: '2023-02-20',
-          status: 'active',
-          total_loans: 2,
-          outstanding_balance: 75000,
-          savings_balance: 32000,
-          last_transaction_date: '2024-01-08',
-          next_of_kin: 'Grace Atieno',
-          next_of_kin_phone: '+254722987654'
-        },
-        {
-          id: '3',
-          member_code: 'MEM003',
-          full_name: 'Fatuma Hassan Ali',
-          id_number: '11223344',
-          phone: '+254798765432',
-          email: 'fatuma.hassan@yahoo.com',
-          gender: 'female',
-          date_of_birth: '1990-12-05',
-          address: 'Likoni, Mombasa',
-          group_name: 'Tumaini Women Group',
-          branch: 'Mombasa',
-          registration_date: '2022-11-10',
-          status: 'suspended',
-          total_loans: 1,
-          outstanding_balance: 200000,
-          savings_balance: 15000,
-          next_of_kin: 'Said Hassan',
-          next_of_kin_phone: '+254733456789'
-        }
-      ]);
+    const loadData = async () => {
+      setLoading(true);
+      await Promise.all([fetchMembers(), fetchGroups(), fetchBranches()]);
       setLoading(false);
-    }, 1000);
+    };
+    loadData();
   }, []);
 
-  const branches = [...new Set(members.map(m => m.branch))];
+  const handleCreateMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const { error } = await supabase
+        .from('members')
+        .insert({
+          full_name: newMember.full_name,
+          id_number: newMember.id_number,
+          phone_number: newMember.phone_number,
+          address: newMember.address,
+          group_id: parseInt(newMember.group_id),
+          branch_id: parseInt(newMember.branch_id),
+          next_of_kin_name: newMember.next_of_kin_name,
+          next_of_kin_phone: newMember.next_of_kin_phone,
+          notes: newMember.notes,
+          created_by: user?.id,
+          status: 'active'
+        });
+
+      if (error) throw error;
+
+      toast.success('Member created successfully');
+      setDialogOpen(false);
+      setNewMember({
+        full_name: '',
+        id_number: '',
+        phone_number: '',
+        address: '',
+        group_id: '',
+        branch_id: '',
+        next_of_kin_name: '',
+        next_of_kin_phone: '',
+        notes: ''
+      });
+      fetchMembers();
+    } catch (error) {
+      console.error('Error creating member:', error);
+      toast.error('Failed to create member');
+    }
+  };
 
   const filteredMembers = members.filter(member => {
-    const matchesSearch = member.member_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         member.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const matchesSearch = member.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          member.id_number.includes(searchTerm) ||
-                         member.phone.includes(searchTerm) ||
-                         member.group_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (member.email && member.email.toLowerCase().includes(searchTerm.toLowerCase()));
+                         member.phone_number.includes(searchTerm) ||
+                         (member.group_name || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || member.status === statusFilter;
-    const matchesBranch = branchFilter === 'all' || member.branch === branchFilter;
-    const matchesGender = genderFilter === 'all' || member.gender === genderFilter;
-    return matchesSearch && matchesStatus && matchesBranch && matchesGender;
+    const matchesBranch = branchFilter === 'all' || member.branch_name === branchFilter;
+    return matchesSearch && matchesStatus && matchesBranch;
   });
 
   const formatCurrency = (amount: number) => {
@@ -132,17 +200,6 @@ const Members = () => {
       currency: 'KES',
       minimumFractionDigits: 0
     }).format(amount);
-  };
-
-  const calculateAge = (dateOfBirth: string) => {
-    const today = new Date();
-    const birth = new Date(dateOfBirth);
-    let age = today.getFullYear() - birth.getFullYear();
-    const monthDiff = today.getMonth() - birth.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-      age--;
-    }
-    return age;
   };
 
   if (loading) {
@@ -157,10 +214,118 @@ const Members = () => {
           <p className="text-muted-foreground">Manage and monitor all registered members</p>
         </div>
         {isSuperAdmin && (
-          <Button className="bg-primary hover:bg-primary/90">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Member
-          </Button>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-primary hover:bg-primary/90">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Member
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Add New Member</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleCreateMember} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="full_name">Full Name</Label>
+                    <Input
+                      id="full_name"
+                      value={newMember.full_name}
+                      onChange={(e) => setNewMember({ ...newMember, full_name: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="id_number">ID Number</Label>
+                    <Input
+                      id="id_number"
+                      value={newMember.id_number}
+                      onChange={(e) => setNewMember({ ...newMember, id_number: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="phone_number">Phone Number</Label>
+                    <Input
+                      id="phone_number"
+                      value={newMember.phone_number}
+                      onChange={(e) => setNewMember({ ...newMember, phone_number: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="address">Address</Label>
+                    <Input
+                      id="address"
+                      value={newMember.address}
+                      onChange={(e) => setNewMember({ ...newMember, address: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="group">Group</Label>
+                    <Select value={newMember.group_id} onValueChange={(value) => setNewMember({ ...newMember, group_id: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select group" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {groups.map((group) => (
+                          <SelectItem key={group.id} value={group.id.toString()}>
+                            {group.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="branch">Branch</Label>
+                    <Select value={newMember.branch_id} onValueChange={(value) => setNewMember({ ...newMember, branch_id: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select branch" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {branches.map((branch) => (
+                          <SelectItem key={branch.id} value={branch.id.toString()}>
+                            {branch.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="next_of_kin_name">Next of Kin Name</Label>
+                    <Input
+                      id="next_of_kin_name"
+                      value={newMember.next_of_kin_name}
+                      onChange={(e) => setNewMember({ ...newMember, next_of_kin_name: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="next_of_kin_phone">Next of Kin Phone</Label>
+                    <Input
+                      id="next_of_kin_phone"
+                      value={newMember.next_of_kin_phone}
+                      onChange={(e) => setNewMember({ ...newMember, next_of_kin_phone: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="notes">Notes</Label>
+                  <Input
+                    id="notes"
+                    value={newMember.notes}
+                    onChange={(e) => setNewMember({ ...newMember, notes: e.target.value })}
+                  />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit">Create Member</Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
         )}
       </div>
 
@@ -184,21 +349,21 @@ const Members = () => {
         </Card>
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Total Outstanding</CardTitle>
+            <CardTitle className="text-lg">Total Loans</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-warning">
-              {formatCurrency(members.reduce((sum, m) => sum + m.outstanding_balance, 0))}
+            <div className="text-3xl font-bold text-primary">
+              {members.reduce((sum, m) => sum + (m.total_loans || 0), 0)}
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Total Savings</CardTitle>
+            <CardTitle className="text-lg">Total Outstanding</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-primary">
-              {formatCurrency(members.reduce((sum, m) => sum + m.savings_balance, 0))}
+            <div className="text-3xl font-bold text-warning">
+              {formatCurrency(members.reduce((sum, m) => sum + (m.outstanding_balance || 0), 0))}
             </div>
           </CardContent>
         </Card>
@@ -212,23 +377,23 @@ const Members = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="lg:col-span-2">
+          <div className="flex flex-col lg:flex-row gap-4">
+            <div className="flex-1">
               <Label htmlFor="search">Search Members</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="search"
-                  placeholder="Search by code, name, ID, phone, email, or group..."
+                  placeholder="Search by name, ID, phone, or group..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-9"
                 />
               </div>
             </div>
-            <div>
+            <div className="w-full lg:w-48">
               <Label htmlFor="status">Status</Label>
-              <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
+              <Select value={statusFilter} onValueChange={(value: string) => setStatusFilter(value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
@@ -240,23 +405,7 @@ const Members = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label htmlFor="gender">Gender</Label>
-              <Select value={genderFilter} onValueChange={(value: any) => setGenderFilter(value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Genders" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Genders</SelectItem>
-                  <SelectItem value="male">Male</SelectItem>
-                  <SelectItem value="female">Female</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div>
+            <div className="w-full lg:w-48">
               <Label htmlFor="branch">Branch</Label>
               <Select value={branchFilter} onValueChange={(value: string) => setBranchFilter(value)}>
                 <SelectTrigger>
@@ -265,7 +414,7 @@ const Members = () => {
                 <SelectContent>
                   <SelectItem value="all">All Branches</SelectItem>
                   {branches.map(branch => (
-                    <SelectItem key={branch} value={branch}>{branch}</SelectItem>
+                    <SelectItem key={branch.id} value={branch.name}>{branch.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -279,7 +428,6 @@ const Members = () => {
                 <TableRow>
                   <TableHead>Member</TableHead>
                   <TableHead>Contact</TableHead>
-                  <TableHead>Demographics</TableHead>
                   <TableHead>Group & Branch</TableHead>
                   <TableHead>Financial Summary</TableHead>
                   <TableHead>Emergency Contact</TableHead>
@@ -297,8 +445,10 @@ const Members = () => {
                         </div>
                         <div>
                           <div className="font-medium">{member.full_name}</div>
-                          <div className="text-sm text-muted-foreground">{member.member_code}</div>
-                          <div className="text-xs text-muted-foreground font-mono">{member.id_number}</div>
+                          <div className="text-sm text-muted-foreground">ID: {member.id_number}</div>
+                          <div className="text-xs text-muted-foreground">
+                            Member since: {new Date(member.created_at).toLocaleDateString()}
+                          </div>
                         </div>
                       </div>
                     </TableCell>
@@ -306,57 +456,36 @@ const Members = () => {
                       <div className="space-y-1">
                         <div className="flex items-center gap-1 text-sm">
                           <Phone className="h-3 w-3" />
-                          {member.phone}
+                          {member.phone_number}
                         </div>
-                        {member.email && (
-                          <div className="text-xs text-muted-foreground">{member.email}</div>
-                        )}
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <MapPin className="h-3 w-3" />
-                          {member.address}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div className="text-sm">
-                          <Badge variant="outline" className="text-xs">
-                            {member.gender} • {calculateAge(member.date_of_birth)}yrs
-                          </Badge>
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          Reg: {new Date(member.registration_date).toLocaleDateString()}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div className="font-medium text-sm">{member.group_name}</div>
-                        <div className="text-xs text-muted-foreground">{member.branch}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div className="text-sm">
-                          <span className="font-medium">Loans:</span> {member.total_loans}
-                        </div>
-                        <div className="text-xs">
-                          <span className="font-medium">Outstanding:</span> {formatCurrency(member.outstanding_balance)}
-                        </div>
-                        <div className="text-xs">
-                          <span className="font-medium">Savings:</span> {formatCurrency(member.savings_balance)}
-                        </div>
-                        {member.last_transaction_date && (
-                          <div className="text-xs text-muted-foreground">
-                            Last: {new Date(member.last_transaction_date).toLocaleDateString()}
+                        {member.address && (
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <MapPin className="h-3 w-3" />
+                            {member.address}
                           </div>
                         )}
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="space-y-1">
-                        <div className="text-sm font-medium">{member.next_of_kin}</div>
-                        <div className="text-xs text-muted-foreground">{member.next_of_kin_phone}</div>
+                        <div className="font-medium text-sm">{member.group_name || 'No Group'}</div>
+                        <div className="text-xs text-muted-foreground">{member.branch_name || 'No Branch'}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="text-sm">
+                          <span className="font-medium">Loans:</span> {member.total_loans || 0}
+                        </div>
+                        <div className="text-xs">
+                          <span className="font-medium">Outstanding:</span> {formatCurrency(member.outstanding_balance || 0)}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="text-sm font-medium">{member.next_of_kin_name || 'N/A'}</div>
+                        <div className="text-xs text-muted-foreground">{member.next_of_kin_phone || 'N/A'}</div>
                       </div>
                     </TableCell>
                     <TableCell>

@@ -8,89 +8,122 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Search, Download, FileText, Filter } from 'lucide-react';
 import { Loader } from '@/components/ui/loader';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface MasterRecord {
   id: string;
-  member_code: string;
   full_name: string;
   id_number: string;
-  phone: string;
-  group_name: string;
-  branch: string;
-  registration_date: string;
-  status: 'active' | 'inactive' | 'suspended';
-  total_loans: number;
-  outstanding_balance: number;
+  phone_number: string;
+  status: string;
+  created_at: string;
+  group_name?: string;
+  branch_name?: string;
+  total_loans?: number;
+  outstanding_balance?: number;
   last_payment_date?: string;
 }
 
 const MasterRoll = () => {
   const [records, setRecords] = useState<MasterRecord[]>([]);
+  const [branches, setBranches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'suspended'>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [branchFilter, setBranchFilter] = useState<string>('all');
 
+  const fetchRecords = async () => {
+    try {
+      const { data: membersData, error } = await supabase
+        .from('members')
+        .select(`
+          *,
+          groups:group_id (name),
+          branches:branch_id (name)
+        `);
+
+      if (error) throw error;
+
+      // Get loan statistics and last payment for each member
+      const recordsWithStats = await Promise.all(
+        (membersData || []).map(async (member) => {
+          const { data: loansData } = await supabase
+            .from('loans')
+            .select('id, current_balance')
+            .eq('customer_id', member.id);
+
+          // Get last payment date if loans exist
+          let lastPaymentDate;
+          if (loansData && loansData.length > 0) {
+            const { data: repaymentsData } = await supabase
+              .from('repayments')
+              .select('payment_date')
+              .eq('loan_id', loansData[0].id)
+              .order('payment_date', { ascending: false })
+              .limit(1);
+            
+            lastPaymentDate = repaymentsData?.[0]?.payment_date;
+          }
+
+          const outstandingBalance = loansData?.reduce(
+            (sum, loan) => sum + parseFloat(String(loan.current_balance || '0')), 0
+          ) || 0;
+
+          const totalLoans = loansData?.length || 0;
+
+          return {
+            id: member.id,
+            full_name: member.full_name,
+            id_number: member.id_number,
+            phone_number: member.phone_number,
+            status: member.status,
+            created_at: member.created_at,
+            group_name: member.groups?.name,
+            branch_name: member.branches?.name,
+            total_loans: totalLoans,
+            outstanding_balance: outstandingBalance,
+            last_payment_date: lastPaymentDate
+          };
+        })
+      );
+
+      setRecords(recordsWithStats);
+    } catch (error) {
+      console.error('Error fetching master roll:', error);
+      toast.error('Failed to fetch master roll data');
+    }
+  };
+
+  const fetchBranches = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('branches')
+        .select('*');
+      
+      if (error) throw error;
+      setBranches(data || []);
+    } catch (error) {
+      console.error('Error fetching branches:', error);
+    }
+  };
+
   useEffect(() => {
-    // Simulate data fetch
-    setTimeout(() => {
-      setRecords([
-        {
-          id: '1',
-          member_code: 'MEM001',
-          full_name: 'Alice Wanjiku',
-          id_number: '12345678',
-          phone: '+254712345678',
-          group_name: 'Upendo Group',
-          branch: 'Nairobi Central',
-          registration_date: '2023-01-15',
-          status: 'active',
-          total_loans: 3,
-          outstanding_balance: 125000,
-          last_payment_date: '2024-01-10'
-        },
-        {
-          id: '2',
-          member_code: 'MEM002',
-          full_name: 'John Kamau',
-          id_number: '87654321',
-          phone: '+254787654321',
-          group_name: 'Tumaini Group',
-          branch: 'Mombasa',
-          registration_date: '2023-02-20',
-          status: 'active',
-          total_loans: 2,
-          outstanding_balance: 75000,
-          last_payment_date: '2024-01-08'
-        },
-        {
-          id: '3',
-          member_code: 'MEM003',
-          full_name: 'Mary Njeri',
-          id_number: '11223344',
-          phone: '+254798765432',
-          group_name: 'Harambee Group',
-          branch: 'Kisumu',
-          registration_date: '2022-11-10',
-          status: 'suspended',
-          total_loans: 1,
-          outstanding_balance: 200000
-        }
-      ]);
+    const loadData = async () => {
+      setLoading(true);
+      await Promise.all([fetchRecords(), fetchBranches()]);
       setLoading(false);
-    }, 1000);
+    };
+    loadData();
   }, []);
 
-  const branches = [...new Set(records.map(r => r.branch))];
-
   const filteredRecords = records.filter(record => {
-    const matchesSearch = record.member_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         record.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const matchesSearch = record.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          record.id_number.includes(searchTerm) ||
-                         record.phone.includes(searchTerm) ||
-                         record.group_name.toLowerCase().includes(searchTerm.toLowerCase());
+                         record.phone_number.includes(searchTerm) ||
+                         (record.group_name || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || record.status === statusFilter;
-    const matchesBranch = branchFilter === 'all' || record.branch === branchFilter;
+    const matchesBranch = branchFilter === 'all' || record.branch_name === branchFilter;
     return matchesSearch && matchesStatus && matchesBranch;
   });
 
@@ -104,6 +137,7 @@ const MasterRoll = () => {
 
   const handleExport = (format: 'pdf' | 'csv') => {
     // Implementation for export functionality
+    toast.success(`Master roll export as ${format.toUpperCase()} initiated`);
     console.log(`Exporting master roll as ${format}`);
   };
 
@@ -154,7 +188,7 @@ const MasterRoll = () => {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-warning">
-              {formatCurrency(records.reduce((sum, r) => sum + r.outstanding_balance, 0))}
+              {formatCurrency(records.reduce((sum, r) => sum + (r.outstanding_balance || 0), 0))}
             </div>
           </CardContent>
         </Card>
@@ -183,7 +217,7 @@ const MasterRoll = () => {
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="search"
-                  placeholder="Search by code, name, ID, phone, or group..."
+                  placeholder="Search by name, ID, phone, or group..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-9"
@@ -192,7 +226,7 @@ const MasterRoll = () => {
             </div>
             <div className="w-full lg:w-48">
               <Label htmlFor="status">Status</Label>
-              <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
+              <Select value={statusFilter} onValueChange={(value: string) => setStatusFilter(value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
@@ -213,7 +247,7 @@ const MasterRoll = () => {
                 <SelectContent>
                   <SelectItem value="all">All Branches</SelectItem>
                   {branches.map(branch => (
-                    <SelectItem key={branch} value={branch}>{branch}</SelectItem>
+                    <SelectItem key={branch.id} value={branch.name}>{branch.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -225,7 +259,7 @@ const MasterRoll = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Member Code</TableHead>
+                  <TableHead>Member ID</TableHead>
                   <TableHead>Full Name</TableHead>
                   <TableHead>ID Number</TableHead>
                   <TableHead>Phone</TableHead>
@@ -241,16 +275,16 @@ const MasterRoll = () => {
               <TableBody>
                 {filteredRecords.map((record) => (
                   <TableRow key={record.id}>
-                    <TableCell className="font-medium">{record.member_code}</TableCell>
-                    <TableCell>{record.full_name}</TableCell>
+                    <TableCell className="font-medium font-mono text-sm">{record.id.substring(0, 8)}</TableCell>
+                    <TableCell className="font-medium">{record.full_name}</TableCell>
                     <TableCell className="font-mono text-sm">{record.id_number}</TableCell>
-                    <TableCell className="text-sm">{record.phone}</TableCell>
+                    <TableCell className="text-sm">{record.phone_number}</TableCell>
                     <TableCell>
-                      <Badge variant="outline">{record.group_name}</Badge>
+                      <Badge variant="outline">{record.group_name || 'No Group'}</Badge>
                     </TableCell>
-                    <TableCell className="text-sm">{record.branch}</TableCell>
+                    <TableCell className="text-sm">{record.branch_name || 'No Branch'}</TableCell>
                     <TableCell className="text-sm">
-                      {new Date(record.registration_date).toLocaleDateString()}
+                      {new Date(record.created_at).toLocaleDateString()}
                     </TableCell>
                     <TableCell>
                       <Badge 
@@ -262,9 +296,9 @@ const MasterRoll = () => {
                         {record.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-center font-semibold">{record.total_loans}</TableCell>
+                    <TableCell className="text-center font-semibold">{record.total_loans || 0}</TableCell>
                     <TableCell className="font-medium">
-                      {formatCurrency(record.outstanding_balance)}
+                      {formatCurrency(record.outstanding_balance || 0)}
                     </TableCell>
                     <TableCell className="text-sm">
                       {record.last_payment_date ? new Date(record.last_payment_date).toLocaleDateString() : '-'}
