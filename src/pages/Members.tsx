@@ -7,13 +7,13 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Search, Edit, Trash2, Users, Eye, Phone, MapPin } from 'lucide-react';
-import { ScrollableContainer } from '@/components/ui/scrollable-container';
-import { Loader } from '@/components/ui/loader';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Plus, Search, Edit, Trash2, Users, Eye, Phone, MapPin, ArrowLeft, Loader2, AlertCircle, Banknote, Landmark, DollarSign, Hash } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+// --- Interfaces ---
 interface Member {
   id: string;
   full_name: string;
@@ -29,111 +29,108 @@ interface Member {
   created_at: string;
   group_name?: string;
   branch_name?: string;
-  total_loans?: number;
-  outstanding_balance?: number;
+  total_loans: number;
+  outstanding_balance: number;
 }
 
-interface NewMember {
-  full_name: string;
-  id_number: string;
-  phone_number: string;
-  address: string;
-  group_id: string;
-  branch_id: string;
-  next_of_kin_name: string;
-  next_of_kin_phone: string;
-  notes: string;
-}
+// --- Reusable Form Component ---
+const MemberForm = ({ member, branches, groups, onSubmit, onCancel, isSubmitting, error }) => {
+  const [formData, setFormData] = useState({
+    full_name: member?.full_name || '',
+    id_number: member?.id_number || '',
+    phone_number: member?.phone_number || '',
+    address: member?.address || '',
+    group_id: member?.group_id?.toString() || '',
+    branch_id: member?.branch_id?.toString() || '',
+    next_of_kin_name: member?.next_of_kin_name || '',
+    next_of_kin_phone: member?.next_of_kin_phone || '',
+    notes: member?.notes || '',
+  });
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit(formData);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 max-h-[70vh] overflow-y-auto px-1">
+      {error && <Alert variant="destructive" className="md:col-span-2"><AlertCircle className="h-4 w-4" /><AlertDescription>{error}</AlertDescription></Alert>}
+      <InputWithLabel id="full_name" label="Full Name" value={formData.full_name} onChange={e => setFormData({...formData, full_name: e.target.value})} required disabled={isSubmitting} />
+      <InputWithLabel id="id_number" label="ID Number" value={formData.id_number} onChange={e => setFormData({...formData, id_number: e.target.value})} required disabled={isSubmitting} />
+      <InputWithLabel id="phone_number" label="Phone Number" value={formData.phone_number} onChange={e => setFormData({...formData, phone_number: e.target.value})} required disabled={isSubmitting} />
+      <InputWithLabel id="address" label="Address" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} disabled={isSubmitting} />
+      <SelectWithLabel id="branch_id" label="Branch" placeholder="Select a branch" value={formData.branch_id} onValueChange={v => setFormData({...formData, branch_id: v})} options={branches.map(b => ({ value: String(b.id), label: b.name }))} required disabled={isSubmitting} />
+      <SelectWithLabel id="group_id" label="Group" placeholder="Select a group" value={formData.group_id} onValueChange={v => setFormData({...formData, group_id: v})} options={groups.map(g => ({ value: String(g.id), label: g.name }))} required disabled={isSubmitting} />
+      <InputWithLabel id="next_of_kin_name" label="Next of Kin Name" value={formData.next_of_kin_name} onChange={e => setFormData({...formData, next_of_kin_name: e.target.value})} disabled={isSubmitting} />
+      <InputWithLabel id="next_of_kin_phone" label="Next of Kin Phone" value={formData.next_of_kin_phone} onChange={e => setFormData({...formData, next_of_kin_phone: e.target.value})} disabled={isSubmitting} />
+      <div className="md:col-span-2">
+        <InputWithLabel id="notes" label="Notes" value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} disabled={isSubmitting} />
+      </div>
+      <DialogFooter className="md:col-span-2">
+        <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>Cancel</Button>
+        <Button type="submit" disabled={isSubmitting}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{member ? 'Update Member' : 'Create Member'}</Button>
+      </DialogFooter>
+    </form>
+  );
+};
+
+// --- Member Profile View ---
+const MemberProfile = ({ member, onBack }) => {
+  const formatCurrency = (amount: number) => new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(amount || 0);
+  return (
+    <div className="space-y-6">
+      <Button variant="outline" onClick={onBack}><ArrowLeft className="h-4 w-4 mr-2" />Back to Members List</Button>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="lg:col-span-1">
+          <CardHeader className="text-center">
+            <div className="w-24 h-24 bg-secondary rounded-full flex items-center justify-center mx-auto mb-4">
+              <Users className="w-12 h-12 text-muted-foreground" />
+            </div>
+            <CardTitle>{member.full_name}</CardTitle>
+            <CardDescription>{member.id_number}</CardDescription>
+          </CardHeader>
+          <CardContent className="text-sm space-y-4">
+            <InfoItem icon={Phone} label="Phone Number" value={member.phone_number} />
+            <InfoItem icon={MapPin} label="Address" value={member.address} />
+            <InfoItem icon={Users} label="Group" value={member.group_name} />
+            <InfoItem icon={Landmark} label="Branch" value={member.branch_name} />
+          </CardContent>
+        </Card>
+        <div className="lg:col-span-2 space-y-6">
+          <Card>
+            <CardHeader><CardTitle>Financial Summary</CardTitle></CardHeader>
+            <CardContent className="grid grid-cols-2 gap-4">
+              <InfoItem icon={Hash} label="Total Loans Taken" value={member.total_loans} />
+              <InfoItem icon={DollarSign} label="Outstanding Balance" value={formatCurrency(member.outstanding_balance)} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader><CardTitle>Emergency Contact</CardTitle></CardHeader>
+            <CardContent className="grid grid-cols-2 gap-4">
+              <InfoItem icon={Users} label="Next of Kin" value={member.next_of_kin_name} />
+              <InfoItem icon={Phone} label="Next of Kin Phone" value={member.next_of_kin_phone} />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- Main Members Page Component ---
 const Members = () => {
-  const { userRole, isSuperAdmin, user } = useAuth();
+  const { isSuperAdmin, user } = useAuth();
+  const [view, setView] = useState<{ page: 'list' | 'profile', data: Member | null }>({ page: 'list', data: null });
   const [members, setMembers] = useState<Member[]>([]);
   const [groups, setGroups] = useState<any[]>([]);
   const [branches, setBranches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [modal, setModal] = useState<{ type: 'create' | 'edit' | 'delete' | null, data: Member | null }>({ type: null, data: null });
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [branchFilter, setBranchFilter] = useState<string>('all');
-  const [newMember, setNewMember] = useState<NewMember>({
-    full_name: '',
-    id_number: '',
-    phone_number: '',
-    address: '',
-    group_id: '',
-    branch_id: '',
-    next_of_kin_name: '',
-    next_of_kin_phone: '',
-    notes: ''
-  });
-
-  const fetchMembers = async () => {
-    try {
-      const { data: membersData, error } = await supabase
-        .from('members')
-        .select(`
-          *,
-          groups:group_id (name),
-          branches:branch_id (name)
-        `);
-
-      if (error) throw error;
-
-      // Get loan statistics for each member
-      const membersWithStats = await Promise.all(
-        (membersData || []).map(async (member) => {
-          const { data: loansData } = await supabase
-            .from('loans')
-            .select('current_balance')
-            .eq('customer_id', member.id);
-
-          const totalLoans = loansData?.length || 0;
-          const outstandingBalance = loansData?.reduce(
-            (sum, loan) => sum + parseFloat(String(loan.current_balance || '0')), 0
-          ) || 0;
-
-          return {
-            ...member,
-            group_name: member.groups?.name,
-            branch_name: member.branches?.name,
-            total_loans: totalLoans,
-            outstanding_balance: outstandingBalance
-          };
-        })
-      );
-
-      setMembers(membersWithStats);
-    } catch (error) {
-      console.error('Error fetching members:', error);
-      toast.error('Failed to fetch members');
-    }
-  };
-
-  const fetchGroups = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('groups')
-        .select('*');
-      
-      if (error) throw error;
-      setGroups(data || []);
-    } catch (error) {
-      console.error('Error fetching groups:', error);
-    }
-  };
-
-  const fetchBranches = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('branches')
-        .select('*');
-      
-      if (error) throw error;
-      setBranches(data || []);
-    } catch (error) {
-      console.error('Error fetching branches:', error);
-    }
-  };
+  const [submitError, setSubmitError] = useState('');
 
   useEffect(() => {
     const loadData = async () => {
@@ -144,394 +141,213 @@ const Members = () => {
     loadData();
   }, []);
 
-  const handleCreateMember = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const fetchMembers = async () => {
     try {
-      const { error } = await supabase
-        .from('members')
-        .insert({
-          full_name: newMember.full_name,
-          id_number: newMember.id_number,
-          phone_number: newMember.phone_number,
-          address: newMember.address,
-          group_id: parseInt(newMember.group_id),
-          branch_id: parseInt(newMember.branch_id),
-          next_of_kin_name: newMember.next_of_kin_name,
-          next_of_kin_phone: newMember.next_of_kin_phone,
-          notes: newMember.notes,
-          created_by: user?.id,
-          status: 'active'
-        });
-
+      const { data, error } = await supabase.from('members_with_details').select('*');
       if (error) throw error;
+      setMembers(data || []);
+    } catch (error: any) {
+      toast.error('Failed to fetch members', { description: error.message });
+    }
+  };
 
+  const fetchGroups = async () => {
+    try {
+        const { data, error } = await supabase.from('groups').select('*');
+        if (error) throw error;
+        setGroups(data || []);
+    } catch (error: any) {
+        toast.error('Failed to fetch groups');
+    }
+  };
+
+  const fetchBranches = async () => {
+    try {
+        const { data, error } = await supabase.from('branches').select('*');
+        if (error) throw error;
+        setBranches(data || []);
+    } catch (error: any) {
+        toast.error('Failed to fetch branches');
+    }
+  };
+
+  const handleCreateMember = async (formData) => {
+    setIsSubmitting(true);
+    setSubmitError('');
+    try {
+      const { error } = await supabase.from('members').insert({ ...formData, created_by: user?.id, status: 'active' });
+      if (error) throw error;
       toast.success('Member created successfully');
-      setDialogOpen(false);
-      setNewMember({
-        full_name: '',
-        id_number: '',
-        phone_number: '',
-        address: '',
-        group_id: '',
-        branch_id: '',
-        next_of_kin_name: '',
-        next_of_kin_phone: '',
-        notes: ''
-      });
-      fetchMembers();
-    } catch (error) {
-      console.error('Error creating member:', error);
-      toast.error('Failed to create member');
+      setModal({ type: null, data: null });
+      await fetchMembers();
+    } catch (error: any) {
+      // FIX: Provide a user-friendly error for duplicate ID numbers
+      if (error.message && error.message.includes('duplicate key value violates unique constraint')) {
+        setSubmitError('A member with this ID Number already exists. Please use a unique ID.');
+      } else {
+        setSubmitError(error.message || 'An unexpected error occurred.');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleUpdateMember = async (formData) => {
+    if (!modal.data) return;
+    setIsSubmitting(true);
+    setSubmitError('');
+    try {
+      const { error } = await supabase.from('members').update(formData).eq('id', modal.data.id);
+      if (error) throw error;
+      toast.success('Member updated successfully');
+      setModal({ type: null, data: null });
+      await fetchMembers();
+    } catch (error: any) {
+      // FIX: Provide a user-friendly error for duplicate ID numbers
+      if (error.message && error.message.includes('duplicate key value violates unique constraint')) {
+        setSubmitError('A member with this ID Number already exists. Please use a unique ID.');
+      } else {
+        setSubmitError(error.message || 'An unexpected error occurred.');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteMember = async () => {
+    if (!modal.data) return;
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase.from('members').delete().eq('id', modal.data.id);
+      if (error) throw error;
+      toast.success('Member deleted successfully');
+      setModal({ type: null, data: null });
+      await fetchMembers();
+    } catch (error: any) {
+      toast.error('Failed to delete member', { description: error.message });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const filteredMembers = members.filter(member => {
-    const matchesSearch = member.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         member.id_number.includes(searchTerm) ||
-                         member.phone_number.includes(searchTerm) ||
-                         (member.group_name || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = member.full_name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || member.status === statusFilter;
     const matchesBranch = branchFilter === 'all' || member.branch_name === branchFilter;
     return matchesSearch && matchesStatus && matchesBranch;
   });
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-KE', {
-      style: 'currency',
-      currency: 'KES',
-      minimumFractionDigits: 0
-    }).format(amount);
-  };
+  const formatCurrency = (amount: number) => new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(amount || 0);
 
   if (loading) {
-    return <Loader size="lg" />;
+    return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+  }
+
+  if (view.page === 'profile' && view.data) {
+    return <div className="p-6"><MemberProfile member={view.data} onBack={() => setView({ page: 'list', data: null })} /></div>;
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="space-y-6 p-6">
+      <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Members Management</h1>
           <p className="text-muted-foreground">Manage and monitor all registered members</p>
         </div>
-        {isSuperAdmin && (
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-primary hover:bg-primary/90">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Member
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Add New Member</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleCreateMember} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="full_name">Full Name</Label>
-                    <Input
-                      id="full_name"
-                      value={newMember.full_name}
-                      onChange={(e) => setNewMember({ ...newMember, full_name: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="id_number">ID Number</Label>
-                    <Input
-                      id="id_number"
-                      value={newMember.id_number}
-                      onChange={(e) => setNewMember({ ...newMember, id_number: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="phone_number">Phone Number</Label>
-                    <Input
-                      id="phone_number"
-                      value={newMember.phone_number}
-                      onChange={(e) => setNewMember({ ...newMember, phone_number: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="address">Address</Label>
-                    <Input
-                      id="address"
-                      value={newMember.address}
-                      onChange={(e) => setNewMember({ ...newMember, address: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="group">Group</Label>
-                    <Select value={newMember.group_id} onValueChange={(value) => setNewMember({ ...newMember, group_id: value })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select group" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {groups.map((group) => (
-                          <SelectItem key={group.id} value={group.id.toString()}>
-                            {group.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="branch">Branch</Label>
-                    <Select value={newMember.branch_id} onValueChange={(value) => setNewMember({ ...newMember, branch_id: value })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select branch" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {branches.map((branch) => (
-                          <SelectItem key={branch.id} value={branch.id.toString()}>
-                            {branch.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="next_of_kin_name">Next of Kin Name</Label>
-                    <Input
-                      id="next_of_kin_name"
-                      value={newMember.next_of_kin_name}
-                      onChange={(e) => setNewMember({ ...newMember, next_of_kin_name: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="next_of_kin_phone">Next of Kin Phone</Label>
-                    <Input
-                      id="next_of_kin_phone"
-                      value={newMember.next_of_kin_phone}
-                      onChange={(e) => setNewMember({ ...newMember, next_of_kin_phone: e.target.value })}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="notes">Notes</Label>
-                  <Input
-                    id="notes"
-                    value={newMember.notes}
-                    onChange={(e) => setNewMember({ ...newMember, notes: e.target.value })}
-                  />
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit">Create Member</Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
-        )}
+        {isSuperAdmin && <Button onClick={() => setModal({ type: 'create', data: null })}><Plus className="h-4 w-4 mr-2" />Add Member</Button>}
       </div>
 
-      {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Total Members</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-primary">{members.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Active Members</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-success">{members.filter(m => m.status === 'active').length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Total Loans</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-primary">
-              {members.reduce((sum, m) => sum + (m.total_loans || 0), 0)}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Total Outstanding</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-warning">
-              {formatCurrency(members.reduce((sum, m) => sum + (m.outstanding_balance || 0), 0))}
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard title="Total Members" value={members.length} icon={Users} />
+        <StatCard title="Active Members" value={members.filter(m => m.status === 'active').length} icon={Users} />
+        <StatCard title="Total Loans" value={members.reduce((sum, m) => sum + (m.total_loans || 0), 0)} icon={Banknote} />
+        <StatCard title="Total Outstanding" value={formatCurrency(members.reduce((sum, m) => sum + (m.outstanding_balance || 0), 0))} icon={DollarSign} />
       </div>
 
-      {/* Members Directory */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">Members Directory</CardTitle>
-          <CardDescription>Complete registry of all members with detailed information</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Filters */}
-          <div className="flex flex-col lg:flex-row gap-4">
-            <div className="flex-1">
-              <Label htmlFor="search">Search Members</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="search"
-                  placeholder="Search by name, ID, phone, or group..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
-            </div>
-            <div className="w-full lg:w-48">
-              <Label htmlFor="status">Status</Label>
-              <Select value={statusFilter} onValueChange={(value: string) => setStatusFilter(value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                  <SelectItem value="suspended">Suspended</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="w-full lg:w-48">
-              <Label htmlFor="branch">Branch</Label>
-              <Select value={branchFilter} onValueChange={(value: string) => setBranchFilter(value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Branches" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Branches</SelectItem>
-                  {branches.map(branch => (
-                    <SelectItem key={branch.id} value={branch.name}>{branch.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <div className="flex flex-col lg:flex-row justify-between gap-4">
+            <div><CardTitle>Members Directory</CardTitle><CardDescription>Complete registry of all members.</CardDescription></div>
+            <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
+              <div className="relative w-full sm:w-64"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="Search by name..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9" /></div>
+              <Select value={branchFilter} onValueChange={setBranchFilter}><SelectTrigger className="w-full sm:w-48"><SelectValue placeholder="All Branches" /></SelectTrigger><SelectContent><SelectItem value="all">All Branches</SelectItem>{branches.map(b => <SelectItem key={b.id} value={b.name}>{b.name}</SelectItem>)}</SelectContent></Select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger className="w-full sm:w-48"><SelectValue placeholder="All Statuses" /></SelectTrigger><SelectContent><SelectItem value="all">All Statuses</SelectItem><SelectItem value="active">Active</SelectItem><SelectItem value="inactive">Inactive</SelectItem></SelectContent></Select>
             </div>
           </div>
-
-          {/* Members Table */}
-          <ScrollableContainer>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Member</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Group & Branch</TableHead>
-                  <TableHead>Financial Summary</TableHead>
-                  <TableHead>Emergency Contact</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
+              <TableHeader><TableRow><TableHead>Member</TableHead><TableHead>Financials</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
               <TableBody>
                 {filteredMembers.map((member) => (
                   <TableRow key={member.id}>
                     <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                          <Users className="h-5 w-5 text-primary" />
-                        </div>
-                        <div>
-                          <div className="font-medium">{member.full_name}</div>
-                          <div className="text-sm text-muted-foreground">ID: {member.id_number}</div>
-                          <div className="text-xs text-muted-foreground">
-                            Member since: {new Date(member.created_at).toLocaleDateString()}
-                          </div>
-                        </div>
-                      </div>
+                      <div className="font-medium">{member.full_name}</div>
+                      <div className="text-sm text-muted-foreground">{member.branch_name}</div>
                     </TableCell>
                     <TableCell>
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-1 text-sm">
-                          <Phone className="h-3 w-3" />
-                          {member.phone_number}
-                        </div>
-                        {member.address && (
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <MapPin className="h-3 w-3" />
-                            {member.address}
-                          </div>
-                        )}
-                      </div>
+                      <div><span className="font-semibold">Loans:</span> {member.total_loans}</div>
+                      <div className="text-sm text-muted-foreground">Outstanding: {formatCurrency(member.outstanding_balance)}</div>
                     </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div className="font-medium text-sm">{member.group_name || 'No Group'}</div>
-                        <div className="text-xs text-muted-foreground">{member.branch_name || 'No Branch'}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div className="text-sm">
-                          <span className="font-medium">Loans:</span> {member.total_loans || 0}
-                        </div>
-                        <div className="text-xs">
-                          <span className="font-medium">Outstanding:</span> {formatCurrency(member.outstanding_balance || 0)}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div className="text-sm font-medium">{member.next_of_kin_name || 'N/A'}</div>
-                        <div className="text-xs text-muted-foreground">{member.next_of_kin_phone || 'N/A'}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge 
-                        variant={
-                          member.status === 'active' ? 'default' : 
-                          member.status === 'suspended' ? 'destructive' : 'secondary'
-                        }
-                      >
-                        {member.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        {isSuperAdmin && (
-                          <>
-                            <Button variant="outline" size="sm">
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button variant="outline" size="sm">
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </>
-                        )}
+                    <TableCell><Badge variant={member.status === 'active' ? 'default' : 'secondary'} className="capitalize">{member.status}</Badge></TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setView({ page: 'profile', data: member })}><Eye className="h-4 w-4" /></Button>
+                        <Button variant="outline" size="sm" onClick={() => setModal({ type: 'edit', data: member })}><Edit className="h-4 w-4" /></Button>
+                        <Button variant="destructive" size="sm" onClick={() => setModal({ type: 'delete', data: member })}><Trash2 className="h-4 w-4" /></Button>
                       </div>
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
-          </ScrollableContainer>
-
-          {filteredMembers.length === 0 && (
-            <div className="text-center py-8">
-              <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">No members found matching your criteria.</p>
-            </div>
-          )}
+          </div>
         </CardContent>
       </Card>
+
+      {/* --- Dialogs --- */}
+      <Dialog open={modal.type === 'create' || modal.type === 'edit'} onOpenChange={() => setModal({ type: null, data: null })}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader><DialogTitle>{modal.type === 'edit' ? 'Edit Member' : 'Add New Member'}</DialogTitle></DialogHeader>
+          <MemberForm 
+            member={modal.data} 
+            branches={branches} 
+            groups={groups} 
+            onSubmit={modal.type === 'edit' ? handleUpdateMember : handleCreateMember} 
+            onCancel={() => setModal({ type: null, data: null })}
+            isSubmitting={isSubmitting}
+            error={submitError}
+          />
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={modal.type === 'delete'} onOpenChange={() => setModal({ type: null, data: null })}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Confirm Deletion</DialogTitle></DialogHeader>
+          <p>Are you sure you want to delete the member "{modal.data?.full_name}"? This action cannot be undone.</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setModal({ type: null, data: null })}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDeleteMember} disabled={isSubmitting}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
+
+// --- Helper Sub-components ---
+const InputWithLabel = ({ id, label, ...props }) => (<div><Label htmlFor={id} className="text-sm font-medium">{label}</Label><Input id={id} className="mt-1" {...props} /></div>);
+const SelectWithLabel = ({ id, label, placeholder, options, ...props }) => (<div><Label htmlFor={id}>{label}</Label><Select {...props}><SelectTrigger><SelectValue placeholder={placeholder} /></SelectTrigger><SelectContent>{options.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}</SelectContent></Select></div>);
+const StatCard = ({ title, value, icon: Icon }) => (<Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">{title}</CardTitle><Icon className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{value}</div></CardContent></Card>);
+const InfoItem = ({ icon: Icon, label, value }) => (
+  <div className="flex items-start gap-3">
+    {Icon && <Icon className="h-5 w-5 text-muted-foreground mt-1" />}
+    <div className="flex flex-col">
+      <Label>{label}</Label>
+      <p className="font-medium">{value || 'N/A'}</p>
+    </div>
+  </div>
+);
 
 export default Members;

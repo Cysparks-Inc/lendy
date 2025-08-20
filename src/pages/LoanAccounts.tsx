@@ -6,582 +6,333 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Plus, Eye, Edit, CreditCard, Calendar, DollarSign } from 'lucide-react';
-import { ScrollableContainer } from '@/components/ui/scrollable-container';
-import { Loader } from '@/components/ui/loader';
+import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Search, Plus, Eye, Edit, CreditCard, Calendar, DollarSign, Users, Landmark, Banknote, AlertCircle, Loader2, UserCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 
+// --- Interfaces ---
 interface LoanAccount {
   id: string;
   principal_amount: number;
   interest_rate: number;
   issue_date: string;
   due_date: string;
-  current_balance: number;
-  status: string;
-  interest_type: string;
-  repayment_schedule: string;
+  status: 'active' | 'repaid' | 'defaulted' | 'pending';
   customer_id: string;
-  group_id?: number;
-  branch_id?: number;
-  loan_officer_id?: string;
-  created_at: string;
   member_name?: string;
-  group_name?: string;
   branch_name?: string;
+  branch_id?: number;
   loan_officer_name?: string;
-  total_paid?: number;
+  total_paid: number;
+  total_due: number;
+}
+
+interface Member {
+  id: string;
+  full_name: string;
+  branch_id: number;
+  group_id: number;
+}
+
+interface Branch {
+  id: number;
+  name: string;
+}
+
+interface Group {
+  id: number;
+  name: string;
+}
+
+interface LoanOfficer {
+    id: string;
+    full_name: string;
 }
 
 const LoanAccounts = () => {
-  const { user, userRole, isSuperAdmin } = useAuth();
+  const { user, isSuperAdmin } = useAuth();
   const [loans, setLoans] = useState<LoanAccount[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [loanOfficers, setLoanOfficers] = useState<LoanOfficer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [branchFilter, setBranchFilter] = useState<string>('all');
-  const [filteredBranch, setFilteredBranch] = useState<string>('all');
-  const [showNewLoanDialog, setShowNewLoanDialog] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedLoan, setSelectedLoan] = useState<LoanAccount | null>(null);
+  const [submitError, setSubmitError] = useState('');
   const [newLoan, setNewLoan] = useState({
     customer_id: '',
     principal_amount: '',
-    interest_rate: '',
-    interest_type: 'simple',
-    repayment_schedule: 'monthly',
+    interest_rate: '10', // Default interest rate
     due_date: '',
-    branch_id: '',
-    group_id: ''
-  });
-  const [members, setMembers] = useState<any[]>([]);
-  const [branches, setBranches] = useState<any[]>([]);
-
-  const queryClient = useQueryClient();
-
-  const createLoanMutation = useMutation({
-    mutationFn: async (loanData: any) => {
-      const { error } = await supabase
-        .from('loans')
-        .insert({
-          customer_id: loanData.customer_id,
-          principal_amount: parseFloat(loanData.principal_amount),
-          interest_rate: parseFloat(loanData.interest_rate),
-          interest_type: loanData.interest_type,
-          repayment_schedule: loanData.repayment_schedule,
-          due_date: loanData.due_date,
-          branch_id: loanData.branch_id ? parseInt(loanData.branch_id) : null,
-          group_id: loanData.group_id ? parseInt(loanData.group_id) : null,
-          created_by: user?.id
-        });
-      
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success('Loan created successfully');
-      setShowNewLoanDialog(false);
-      setNewLoan({
-        customer_id: '',
-        principal_amount: '',
-        interest_rate: '',
-        interest_type: 'simple',
-        repayment_schedule: 'monthly',
-        due_date: '',
-        branch_id: '',
-        group_id: ''
-      });
-      fetchLoans();
-    },
-    onError: (error) => {
-      console.error('Error creating loan:', error);
-      toast.error('Failed to create loan');
-    }
+    loan_officer_id: '',
   });
 
-  const handleCreateLoan = async (e: React.FormEvent) => {
-    e.preventDefault();
-    createLoanMutation.mutate(newLoan);
-  };
+  useEffect(() => {
+    const loadInitialData = async () => {
+      setLoading(true);
+      await Promise.all([fetchLoans(), fetchBranches(), fetchMembers(), fetchGroups(), fetchLoanOfficers()]);
+      setLoading(false);
+    };
+    loadInitialData();
+  }, []);
 
   const fetchLoans = async () => {
     try {
-      const { data: loansData, error } = await supabase
-        .from('loans')
-        .select(`
-          *,
-          members:customer_id (full_name),
-          groups:group_id (name),
-          branches:branch_id (name)
-        `);
-
-      if (error) throw error;
-
-      // Get repayment totals for each loan
-      const loansWithPayments = await Promise.all(
-        (loansData || []).map(async (loan) => {
-          const { data: repaymentsData } = await supabase
-            .from('repayments')
-            .select('amount')
-            .eq('loan_id', loan.id);
-
-          const totalPaid = repaymentsData?.reduce(
-            (sum, payment) => sum + parseFloat(String(payment.amount || '0')), 0
-          ) || 0;
-
-          return {
-            ...loan,
-            member_name: loan.members?.full_name,
-            group_name: loan.groups?.name,
-            branch_name: loan.branches?.name,
-            loan_officer_name: 'N/A', // Remove loan officer lookup for now
-            total_paid: totalPaid
-          };
-        })
-      );
-
-      setLoans(loansWithPayments);
-    } catch (error) {
-      console.error('Error fetching loans:', error);
-      toast.error('Failed to fetch loan accounts');
-    }
-  };
-
-  const fetchBranches = async () => {
-    try {
       const { data, error } = await supabase
-        .from('branches')
+        .from('loans_with_details')
         .select('*');
-      
+
       if (error) throw error;
-      setBranches(data || []);
-    } catch (error) {
-      console.error('Error fetching branches:', error);
+
+      const loansWithCalcs = data.map(loan => {
+        const interest = loan.principal_amount * (loan.interest_rate / 100);
+        const totalDue = loan.principal_amount + interest;
+        
+        return {
+          ...loan,
+          total_due: totalDue,
+        };
+      });
+      setLoans(loansWithCalcs);
+    } catch (error: any) {
+      toast.error('Failed to fetch loans', { description: error.message });
     }
   };
 
-  const fetchMembers = async () => {
+  const fetchRelatedData = async (table, setter) => {
+    const { data, error } = await supabase.from(table).select('*');
+    if (error) toast.error(`Failed to fetch ${table}`);
+    else setter(data || []);
+  };
+
+  const fetchLoanOfficers = async () => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .eq('role', 'loan_officer');
+    if (error) toast.error('Failed to fetch loan officers');
+    else setLoanOfficers(data || []);
+  };
+
+  const fetchBranches = () => fetchRelatedData('branches', setBranches);
+  const fetchMembers = () => fetchRelatedData('members', setMembers);
+  const fetchGroups = () => fetchRelatedData('groups', setGroups);
+
+  const handleCreateLoan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setSubmitError('');
+
+    const selectedMember = members.find(m => m.id === newLoan.customer_id);
+    if (!selectedMember) {
+        setSubmitError("Please select a valid member.");
+        setIsSubmitting(false);
+        return;
+    }
+
     try {
-      const { data, error } = await supabase
-        .from('members')
-        .select('id, full_name, phone_number')
-        .eq('status', 'active');
-      
+      const { error } = await supabase.from('loans').insert({
+        customer_id: newLoan.customer_id,
+        principal_amount: parseFloat(newLoan.principal_amount),
+        interest_rate: parseFloat(newLoan.interest_rate),
+        interest_type: 'simple',
+        repayment_schedule: 'monthly',
+        due_date: newLoan.due_date,
+        branch_id: selectedMember.branch_id,
+        group_id: selectedMember.group_id,
+        loan_officer_id: newLoan.loan_officer_id || null,
+        created_by: user?.id,
+        status: 'active',
+        issue_date: new Date().toISOString(),
+        current_balance: parseFloat(newLoan.principal_amount) * (1 + (parseFloat(newLoan.interest_rate)/100))
+      });
+
       if (error) throw error;
-      setMembers(data || []);
-    } catch (error) {
-      console.error('Error fetching members:', error);
+
+      toast.success('Loan created successfully!');
+      setIsDialogOpen(false);
+      setNewLoan({ customer_id: '', principal_amount: '', interest_rate: '10', due_date: '', loan_officer_id: '' });
+      await fetchLoans();
+    } catch (error: any) {
+      setSubmitError(error.message || 'An unknown error occurred.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
-
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      await Promise.all([fetchLoans(), fetchBranches(), fetchMembers()]);
-      setLoading(false);
-    };
-    loadData();
-  }, []);
 
   const filteredLoans = loans.filter(loan => {
-    const matchesSearch = (loan.member_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (loan.group_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         loan.id.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (loan.member_name || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || loan.status === statusFilter;
     const matchesBranch = branchFilter === 'all' || loan.branch_name === branchFilter;
     return matchesSearch && matchesStatus && matchesBranch;
   });
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-KE', {
-      style: 'currency',
-      currency: 'KES',
-      minimumFractionDigits: 0
-    }).format(amount);
-  };
-
-  const calculateProgress = (totalPaid: number, loanAmount: number) => {
-    return loanAmount > 0 ? (totalPaid / loanAmount) * 100 : 0;
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active': return 'default';
-      case 'repaid': return 'secondary';
-      case 'defaulted': return 'destructive';
-      default: return 'secondary';
-    }
-  };
-
-  const calculateMonthlyPayment = (principal: number, rate: number, months: number) => {
-    if (rate === 0) return principal / months;
-    const monthlyRate = rate / 100 / 12;
-    return principal * (monthlyRate * Math.pow(1 + monthlyRate, months)) / (Math.pow(1 + monthlyRate, months) - 1);
-  };
-
-  const getMonthsDifference = (issueDate: string, dueDate: string) => {
-    const issue = new Date(issueDate);
-    const due = new Date(dueDate);
-    return Math.round((due.getTime() - issue.getTime()) / (1000 * 60 * 60 * 24 * 30));
-  };
+  const formatCurrency = (amount: number) => new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(amount || 0);
 
   if (loading) {
-    return <Loader size="lg" />;
+    return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="space-y-6 p-6">
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Loan Accounts</h1>
-          <p className="text-muted-foreground">Manage and monitor all loan accounts</p>
+          <h1 className="text-3xl font-bold text-foreground">Loan Management</h1>
+          <p className="text-muted-foreground mt-1">Track and manage all loan accounts.</p>
         </div>
         {isSuperAdmin && (
-          <Dialog open={showNewLoanDialog} onOpenChange={setShowNewLoanDialog}>
-            <DialogTrigger asChild>
-              <Button className="bg-primary hover:bg-primary/90">
-                <Plus className="h-4 w-4 mr-2" />
-                New Loan
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Create New Loan</DialogTitle>
-                <DialogDescription>Enter loan details for a new customer</DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleCreateLoan} className="space-y-4 max-h-96 overflow-y-auto">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Customer</Label>
-                    <Select value={newLoan.customer_id} onValueChange={(value) => setNewLoan({...newLoan, customer_id: value})}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select customer" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {members.map(member => (
-                          <SelectItem key={member.id} value={member.id}>
-                            {member.full_name} - {member.phone_number}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Principal Amount (KES)</Label>
-                    <Input
-                      type="number"
-                      value={newLoan.principal_amount}
-                      onChange={(e) => setNewLoan({...newLoan, principal_amount: e.target.value})}
-                      placeholder="0"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label>Interest Rate (%)</Label>
-                    <Input
-                      type="number"
-                      step="0.1"
-                      value={newLoan.interest_rate}
-                      onChange={(e) => setNewLoan({...newLoan, interest_rate: e.target.value})}
-                      placeholder="0.0"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label>Interest Type</Label>
-                    <Select value={newLoan.interest_type} onValueChange={(value) => setNewLoan({...newLoan, interest_type: value})}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="simple">Simple Interest</SelectItem>
-                        <SelectItem value="compound">Compound Interest</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Repayment Schedule</Label>
-                    <Select value={newLoan.repayment_schedule} onValueChange={(value) => setNewLoan({...newLoan, repayment_schedule: value})}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select schedule" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="weekly">Weekly</SelectItem>
-                        <SelectItem value="monthly">Monthly</SelectItem>
-                        <SelectItem value="quarterly">Quarterly</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Due Date</Label>
-                    <Input
-                      type="date"
-                      value={newLoan.due_date}
-                      onChange={(e) => setNewLoan({...newLoan, due_date: e.target.value})}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label>Branch</Label>
-                    <Select value={newLoan.branch_id} onValueChange={(value) => setNewLoan({...newLoan, branch_id: value})}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select branch" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {branches.map(branch => (
-                          <SelectItem key={branch.id} value={branch.id.toString()}>
-                            {branch.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Group (Optional)</Label>
-                    <Select value={newLoan.group_id} onValueChange={(value) => setNewLoan({...newLoan, group_id: value})}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select group" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="">No Group</SelectItem>
-                        {/* Groups would be loaded here */}
-                      </SelectContent>
-                    </Select>
-                  </div>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />New Loan</Button></DialogTrigger>
+            <DialogContent className="max-w-lg">
+              <DialogHeader><DialogTitle>Create New Loan</DialogTitle><DialogDescription>Disburse a new loan to an active member.</DialogDescription></DialogHeader>
+              {submitError && <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertDescription>{submitError}</AlertDescription></Alert>}
+              <form onSubmit={handleCreateLoan} className="space-y-4 pt-4">
+                <div>
+                  <Label htmlFor="customer_id">Member</Label>
+                  <Select value={newLoan.customer_id} onValueChange={(v) => setNewLoan({...newLoan, customer_id: v})}><SelectTrigger id="customer_id"><SelectValue placeholder="Select a Member" /></SelectTrigger><SelectContent>{members.map(m => <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>)}</SelectContent></Select>
                 </div>
-                <div className="flex justify-end gap-2 pt-4">
-                  <Button type="button" variant="outline" onClick={() => setShowNewLoanDialog(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={createLoanMutation.isPending}>
-                    {createLoanMutation.isPending ? 'Creating...' : 'Create Loan'}
-                  </Button>
+                <div>
+                  <Label htmlFor="loan_officer_id">Loan Officer (Optional)</Label>
+                  <Select value={newLoan.loan_officer_id} onValueChange={(v) => setNewLoan({...newLoan, loan_officer_id: v})}><SelectTrigger id="loan_officer_id"><SelectValue placeholder="Assign an Officer" /></SelectTrigger><SelectContent>{loanOfficers.map(o => <SelectItem key={o.id} value={o.id}>{o.full_name}</SelectItem>)}</SelectContent></Select>
                 </div>
+                <div>
+                  <Label htmlFor="principal_amount">Principal Amount (KES)</Label>
+                  <Input id="principal_amount" type="number" placeholder="e.g., 50000" value={newLoan.principal_amount} onChange={e => setNewLoan({...newLoan, principal_amount: e.target.value})} required />
+                </div>
+                <div>
+                  <Label htmlFor="interest_rate">Interest Rate (%)</Label>
+                  <Input id="interest_rate" type="number" placeholder="e.g., 10" value={newLoan.interest_rate} onChange={e => setNewLoan({...newLoan, interest_rate: e.target.value})} required />
+                </div>
+                <div>
+                  <Label htmlFor="due_date">Due Date</Label>
+                  <Input id="due_date" type="date" value={newLoan.due_date} onChange={e => setNewLoan({...newLoan, due_date: e.target.value})} required />
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+                  <Button type="submit" disabled={isSubmitting}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Create Loan</Button>
+                </DialogFooter>
               </form>
             </DialogContent>
           </Dialog>
         )}
       </div>
-
-      {/* Summary Cards */}
+      
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Total Loans</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-primary">{loans.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Active Loans</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-success">{loans.filter(l => l.status === 'active').length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Total Disbursed</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-primary">
-              {formatCurrency(loans.reduce((sum, l) => sum + parseFloat(String(l.principal_amount || '0')), 0))}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Outstanding</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-warning">
-              {formatCurrency(loans.reduce((sum, l) => sum + parseFloat(String(l.current_balance || '0')), 0))}
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard title="Total Loans" value={loans.length} icon={CreditCard} />
+        <StatCard title="Active Loans" value={loans.filter(l => l.status === 'active').length} icon={Banknote} />
+        <StatCard title="Total Disbursed" value={formatCurrency(loans.reduce((s, l) => s + l.principal_amount, 0))} icon={Landmark} />
+        <StatCard title="Total Outstanding" value={formatCurrency(loans.reduce((s, l) => s + (l.total_due - l.total_paid), 0))} icon={DollarSign} />
       </div>
 
-      {/* Loan Accounts Table */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">Loan Portfolio</CardTitle>
-          <CardDescription>Complete overview of all loan accounts and their performance</CardDescription>
+            <div className="flex flex-col lg:flex-row justify-between gap-4">
+                <div>
+                    <CardTitle>Loan Portfolio</CardTitle>
+                    <CardDescription>A complete overview of all loan accounts.</CardDescription>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
+                    <div className="relative w-full sm:w-64">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input placeholder="Search by member name..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9" />
+                    </div>
+                    <Select value={branchFilter} onValueChange={setBranchFilter}><SelectTrigger className="w-full sm:w-48"><SelectValue placeholder="All Branches" /></SelectTrigger><SelectContent><SelectItem value="all">All Branches</SelectItem>{branches.map(b => <SelectItem key={b.id} value={b.name}>{b.name}</SelectItem>)}</SelectContent></Select>
+                    <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger className="w-full sm:w-48"><SelectValue placeholder="All Statuses" /></SelectTrigger><SelectContent><SelectItem value="all">All Statuses</SelectItem><SelectItem value="active">Active</SelectItem><SelectItem value="repaid">Repaid</SelectItem><SelectItem value="defaulted">Defaulted</SelectItem></SelectContent></Select>
+                </div>
+            </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Filters */}
-          <div className="flex flex-col lg:flex-row gap-4">
-            <div className="flex-1">
-              <Label htmlFor="search">Search Loans</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="search"
-                  placeholder="Search by member name, group, or loan ID..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
-            </div>
-            <div className="w-full lg:w-48">
-              <Label htmlFor="status">Status</Label>
-              <Select value={statusFilter} onValueChange={(value: string) => setStatusFilter(value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="repaid">Repaid</SelectItem>
-                  <SelectItem value="defaulted">Defaulted</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="w-full lg:w-48">
-              <Label htmlFor="branch">Branch</Label>
-              <Select value={branchFilter} onValueChange={(value: string) => setBranchFilter(value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Branches" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Branches</SelectItem>
-                  {branches.map(branch => (
-                    <SelectItem key={branch.id} value={branch.name}>{branch.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Loans Table */}
-          <ScrollableContainer>
+        <CardContent>
+          <div className="overflow-x-auto">
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Loan Details</TableHead>
-                  <TableHead>Member & Group</TableHead>
-                  <TableHead>Loan Terms</TableHead>
-                  <TableHead>Financial Summary</TableHead>
-                  <TableHead>Payment Schedule</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
+              <TableHeader><TableRow><TableHead>Member</TableHead><TableHead>Principal</TableHead><TableHead>Total Due</TableHead><TableHead>Repayment Progress</TableHead><TableHead>Due Date</TableHead><TableHead className="text-center">Status</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
               <TableBody>
-                {filteredLoans.map((loan) => {
-                  const months = getMonthsDifference(loan.issue_date, loan.due_date);
-                  const monthlyPayment = calculateMonthlyPayment(
-                    parseFloat(String(loan.principal_amount)), 
-                    parseFloat(String(loan.interest_rate)), 
-                    months
-                  );
-                  
-                  return (
-                    <TableRow key={loan.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                            <CreditCard className="h-5 w-5 text-primary" />
-                          </div>
-                          <div>
-                            <div className="font-medium">Loan ID: {loan.id.substring(0, 8)}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {loan.interest_type} Interest • {loan.repayment_schedule}
-                            </div>
-                            <div className="text-xs text-muted-foreground">Officer: {loan.loan_officer_name || 'N/A'}</div>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          <div className="font-medium">{loan.member_name || 'N/A'}</div>
-                          <div className="text-sm text-muted-foreground">{loan.group_name || 'No Group'}</div>
-                          <Badge variant="outline" className="text-xs">{loan.branch_name || 'No Branch'}</Badge>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1 text-sm">
-                            <DollarSign className="h-3 w-3" />
-                            <span className="font-medium">{formatCurrency(parseFloat(String(loan.principal_amount)))}</span>
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {parseFloat(String(loan.interest_rate))}% • {months} months
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            Issued: {new Date(loan.issue_date).toLocaleDateString()}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          <div className="text-sm">
-                            <span className="font-medium">Paid:</span> {formatCurrency(loan.total_paid || 0)}
-                          </div>
-                          <div className="text-sm">
-                            <span className="font-medium">Outstanding:</span> {formatCurrency(parseFloat(String(loan.current_balance)))}
-                          </div>
-                          <div className="w-full bg-secondary rounded-full h-2">
-                            <div 
-                              className="bg-primary h-2 rounded-full transition-all duration-300" 
-                              style={{ 
-                                width: `${calculateProgress(loan.total_paid || 0, parseFloat(String(loan.principal_amount)))}%` 
-                              }}
-                            />
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {calculateProgress(loan.total_paid || 0, parseFloat(String(loan.principal_amount))).toFixed(1)}% complete
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1 text-sm">
-                            <Calendar className="h-3 w-3" />
-                            <span className="font-medium">{formatCurrency(monthlyPayment)}</span>
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            Due: {new Date(loan.due_date).toLocaleDateString()}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={getStatusColor(loan.status) as any}>
-                          {loan.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
+                {loading ? <TableRow><TableCell colSpan={7} className="text-center h-24">Loading loans...</TableCell></TableRow> :
+                filteredLoans.map((loan) => (
+                  <TableRow key={loan.id}>
+                    <TableCell>
+                        <div className="font-medium">{loan.member_name}</div>
+                        <div className="text-sm text-muted-foreground">{loan.branch_name}</div>
+                    </TableCell>
+                    <TableCell className="font-mono">{formatCurrency(loan.principal_amount)}</TableCell>
+                    <TableCell className="font-mono">{formatCurrency(loan.total_due)}</TableCell>
+                    <TableCell>
                         <div className="flex items-center gap-2">
-                          <Button variant="outline" size="sm">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          {isSuperAdmin && (
-                            <Button variant="outline" size="sm">
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                          )}
+                            <Progress value={(loan.total_paid / loan.total_due) * 100} className="w-24 h-2" />
+                            <span className="text-sm font-medium">{((loan.total_paid / loan.total_due) * 100 || 0).toFixed(0)}%</span>
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                        <div className="text-xs text-muted-foreground">{formatCurrency(loan.total_paid)} paid</div>
+                    </TableCell>
+                    <TableCell>{new Date(loan.due_date).toLocaleDateString()}</TableCell>
+                    <TableCell className="text-center"><Badge variant={loan.status === 'defaulted' ? 'destructive' : 'outline'} className="capitalize">{loan.status}</Badge></TableCell>
+                    <TableCell className="text-right">
+                        <Button variant="outline" size="sm" onClick={() => setSelectedLoan(loan)}><Eye className="h-4 w-4" /></Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
-          </ScrollableContainer>
-
-          {filteredLoans.length === 0 && (
-            <div className="text-center py-8">
-              <CreditCard className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">No loan accounts found matching your criteria.</p>
-            </div>
-          )}
+          </div>
         </CardContent>
       </Card>
+      
+      {/* Loan Details Modal */}
+      <Dialog open={!!selectedLoan} onOpenChange={() => setSelectedLoan(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Loan Details</DialogTitle>
+            <DialogDescription>
+              Full summary for loan to {selectedLoan?.member_name}.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedLoan && (
+            <div className="grid grid-cols-2 gap-4 pt-4">
+              <InfoItem label="Member" value={selectedLoan.member_name} />
+              <InfoItem label="Branch" value={selectedLoan.branch_name} />
+              <InfoItem label="Loan Officer" value={selectedLoan.loan_officer_name || 'N/A'} />
+              <InfoItem label="Status" value={<Badge variant={selectedLoan.status === 'defaulted' ? 'destructive' : 'outline'} className="capitalize">{selectedLoan.status}</Badge>} />
+              <InfoItem label="Principal Amount" value={formatCurrency(selectedLoan.principal_amount)} />
+              <InfoItem label="Interest Rate" value={`${selectedLoan.interest_rate}%`} />
+              <InfoItem label="Total Due" value={formatCurrency(selectedLoan.total_due)} />
+              <InfoItem label="Total Paid" value={formatCurrency(selectedLoan.total_paid)} />
+              <InfoItem label="Outstanding Balance" value={formatCurrency(selectedLoan.total_due - selectedLoan.total_paid)} />
+              <InfoItem label="Issue Date" value={new Date(selectedLoan.issue_date).toLocaleDateString()} />
+              <InfoItem label="Due Date" value={new Date(selectedLoan.due_date).toLocaleDateString()} />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
 
+// --- Helper Components ---
+const StatCard = ({ title, value, icon: Icon }) => (
+    <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">{title}</CardTitle>
+            <Icon className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+            <div className="text-2xl font-bold">{value}</div>
+        </CardContent>
+    </Card>
+);
+
+const InfoItem = ({ label, value }) => (
+  <div className="flex flex-col">
+    <Label className="text-sm text-muted-foreground">{label}</Label>
+    <div className="font-medium">{value}</div>
+  </div>
+);
+
 export default LoanAccounts;
+

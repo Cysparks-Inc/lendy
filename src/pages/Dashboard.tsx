@@ -1,248 +1,170 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { DollarSign, Users, CreditCard, TrendingUp, AlertTriangle, CheckCircle } from 'lucide-react';
+import { DollarSign, Users, CreditCard, TrendingUp, AlertTriangle, CheckCircle, Activity, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { Label } from 'recharts';
+
 interface DashboardStats {
-  totalCustomers: number;
-  totalLoans: number;
-  totalLoanAmount: number;
-  totalRepaid: number;
-  outstandingBalance: number;
-  activeLoans: number;
-  defaultedLoans: number;
-  repaidLoans: number;
+  total_customers: number;
+  total_loans: number;
+  total_disbursed: number;
+  total_repaid: number;
+  outstanding_balance: number;
+  active_loans: number;
+  defaulted_loans: number;
+  repaid_loans: number;
 }
-const Dashboard = () => {
-  const {
-    user
-  } = useAuth();
-  const [stats, setStats] = useState<DashboardStats>({
-    totalCustomers: 0,
-    totalLoans: 0,
-    totalLoanAmount: 0,
-    totalRepaid: 0,
-    outstandingBalance: 0,
-    activeLoans: 0,
-    defaultedLoans: 0,
-    repaidLoans: 0
-  });
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    const fetchDashboardStats = async () => {
-      try {
-        // Fetch member count
-        const {
-          count: memberCount
-        } = await supabase.from('members').select('*', {
-          count: 'exact',
-          head: true
-        });
 
-        // Fetch loan statistics
-        const {
-          data: loans
-        } = await supabase.from('loans').select('principal_amount, current_balance, status');
-
-        // Fetch total repayments
-        const {
-          data: repayments
-        } = await supabase.from('repayments').select('amount');
-        const totalRepaid = repayments?.reduce((sum, payment) => sum + parseFloat(String(payment.amount || '0')), 0) || 0;
-        const totalLoanAmount = loans?.reduce((sum, loan) => sum + parseFloat(String(loan.principal_amount || '0')), 0) || 0;
-        const outstandingBalance = loans?.reduce((sum, loan) => sum + parseFloat(String(loan.current_balance || '0')), 0) || 0;
-        const activeLoans = loans?.filter(loan => loan.status === 'active').length || 0;
-        const defaultedLoans = loans?.filter(loan => loan.status === 'defaulted').length || 0;
-        const repaidLoans = loans?.filter(loan => loan.status === 'repaid').length || 0;
-        setStats({
-          totalCustomers: memberCount || 0,
-          totalLoans: loans?.length || 0,
-          totalLoanAmount,
-          totalRepaid,
-          outstandingBalance,
-          activeLoans,
-          defaultedLoans,
-          repaidLoans
-        });
-      } catch (error) {
-        console.error('Error fetching dashboard stats:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchDashboardStats();
-  }, []);
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-KE', {
-      style: 'currency',
-      currency: 'KES'
-    }).format(amount);
+interface RecentLoan {
+  id: string;
+  principal_amount: number;
+  status: string;
+  members: {
+    full_name: string;
   };
+}
+
+const Dashboard = () => {
+  const { user } = useAuth();
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [recentLoans, setRecentLoans] = useState<RecentLoan[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchDashboardData = async () => {
+    try {
+      // Fetch stats from the new database function
+      const { data: statsData, error: statsError } = await supabase.rpc('get_dashboard_stats');
+      if (statsError) throw statsError;
+      if (statsData) setStats(statsData[0]);
+
+      // Fetch recent loans
+      const { data: loansData, error: loansError } = await supabase
+        .from('loans')
+        .select('id, principal_amount, status, members(full_name)')
+        .order('created_at', { ascending: false })
+        .limit(5);
+      if (loansError) throw loansError;
+      setRecentLoans(loansData || []);
+
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
+
+    // Set up real-time subscriptions
+    const subscription = supabase.channel('public:dashboard_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, fetchDashboardData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'loans' }, fetchDashboardData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'repayments' }, fetchDashboardData)
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
+  }, []);
+
+  const formatCurrency = (amount: number) => new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(amount || 0);
+
+  const collectionRate = stats && stats.total_disbursed > 0 ? (stats.total_repaid / stats.total_disbursed) * 100 : 0;
+  const defaultRate = stats && stats.total_loans > 0 ? (stats.defaulted_loans / stats.total_loans) * 100 : 0;
+
   if (loading) {
-    return <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground">Welcome back to LendWise</p>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {[...Array(8)].map((_, i) => <Card key={i} className="animate-pulse">
-              <CardHeader className="space-y-0 pb-2">
-                <div className="h-4 bg-muted rounded w-3/4"></div>
-                <div className="h-8 bg-muted rounded w-1/2"></div>
-              </CardHeader>
-            </Card>)}
-        </div>
-      </div>;
+    return <div className="flex items-center justify-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   }
-  return <div className="space-y-6">
+
+  return (
+    <div className="space-y-6 p-4 sm:p-6">
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Welcome back, {user?.email}. Here's your lending overview.
-        </p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Dashboard</h1>
+        <p className="text-muted-foreground">Welcome back, here's a real-time overview of your portfolio.</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="shadow-card">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Customers</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-primary">{stats.totalCustomers}</div>
-            <p className="text-xs text-muted-foreground">Active customer base</p>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-card">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Loans</CardTitle>
-            <CreditCard className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-primary">{stats.totalLoans}</div>
-            <p className="text-xs text-muted-foreground">Loans processed</p>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-card">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Disbursed</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-success">{formatCurrency(stats.totalLoanAmount)}</div>
-            <p className="text-xs text-muted-foreground">Principal amount</p>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-card">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Repaid</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-success">{formatCurrency(stats.totalRepaid)}</div>
-            <p className="text-xs text-muted-foreground">Collected payments</p>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-card">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Outstanding Balance</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-warning">{formatCurrency(stats.outstandingBalance)}</div>
-            <p className="text-xs text-muted-foreground">Due amount</p>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-card">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Loans</CardTitle>
-            <CheckCircle className="h-4 w-4 text-success" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-primary">{stats.activeLoans}</div>
-            <Badge variant="secondary" className="bg-success-light  text-black">Active</Badge>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-card">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Repaid Loans</CardTitle>
-            <CheckCircle className="h-4 w-4 text-success" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-success">{stats.repaidLoans}</div>
-            <Badge variant="secondary" className="bg-success-light  text-black">Completed</Badge>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-card">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Defaulted Loans</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-destructive" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-destructive">{stats.defaultedLoans}</div>
-            <Badge variant="secondary" className="bg-destructive-light text-black">Defaulted</Badge>
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard title="Total Disbursed" value={formatCurrency(stats?.total_disbursed)} icon={DollarSign} subtitle="Principal amount given out" />
+        <StatCard title="Outstanding Balance" value={formatCurrency(stats?.outstanding_balance)} icon={TrendingUp} subtitle="Currently active loans" />
+        <StatCard title="Total Customers" value={stats?.total_customers} icon={Users} subtitle="All registered members" />
+        <StatCard title="Total Loans" value={stats?.total_loans} icon={CreditCard} subtitle={`${stats?.active_loans} active`} />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card className="shadow-card">
-          <CardHeader>
-            <CardTitle>Quick Stats</CardTitle>
-            <CardDescription>Key performance indicators</CardDescription>
-          </CardHeader>
+      <div className="grid gap-4 grid-cols-1 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader><CardTitle>Recent Loans</CardTitle><CardDescription>The last 5 loans created in the system.</CardDescription></CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Collection Rate</span>
-                <span className="font-medium text-success">
-                  {stats.totalLoanAmount > 0 ? (stats.totalRepaid / stats.totalLoanAmount * 100).toFixed(1) : '0'}%
-                </span>
+            <Table>
+              <TableHeader><TableRow><TableHead>Member</TableHead><TableHead>Amount</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+              <TableBody>
+                {recentLoans.map(loan => (
+                  <TableRow key={loan.id}>
+                    <TableCell className="font-medium">{loan.members?.full_name || 'N/A'}</TableCell>
+                    <TableCell>{formatCurrency(loan.principal_amount)}</TableCell>
+                    <TableCell><Badge variant={loan.status === 'defaulted' ? 'destructive' : 'outline'} className="capitalize">{loan.status}</Badge></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>Portfolio Health</CardTitle><CardDescription>Key performance indicators.</CardDescription></CardHeader>
+          <CardContent className="space-y-6">
+            <div>
+              <div className="flex justify-between mb-1">
+                <Label>Collection Rate</Label>
+                <span className="text-sm font-bold text-green-600">{collectionRate.toFixed(1)}%</span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Default Rate</span>
-                <span className="font-medium text-destructive">
-                  {stats.totalLoans > 0 ? (stats.defaultedLoans / stats.totalLoans * 100).toFixed(1) : '0'}%
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Avg Loan Size</span>
-                <span className="font-medium">
-                  {stats.totalLoans > 0 ? formatCurrency(stats.totalLoanAmount / stats.totalLoans) : formatCurrency(0)}
-                </span>
-              </div>
+              <Progress value={collectionRate} className="h-2" />
+              <p className="text-xs text-muted-foreground mt-1">{formatCurrency(stats?.total_repaid)} collected of {formatCurrency(stats?.total_disbursed)}</p>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-card">
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Latest system activity</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">
-                System operational. All services running normally.
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Interest calculations updated daily at midnight.
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Audit logs maintained for compliance.
-              </p>
+            <div>
+              <div className="flex justify-between mb-1">
+                <Label>Default Rate</Label>
+                <span className="text-sm font-bold text-red-600">{defaultRate.toFixed(1)}%</span>
+              </div>
+              <Progress value={defaultRate} variant="destructive" className="h-2" />
+              <p className="text-xs text-muted-foreground mt-1">{stats?.defaulted_loans} of {stats?.total_loans} loans have defaulted</p>
+            </div>
+            <div className="flex justify-between items-center pt-4 border-t">
+                <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                    <span className="text-sm">{stats?.repaid_loans} Repaid</span>
+                </div>
+                 <div className="flex items-center gap-2">
+                    <Activity className="h-4 w-4 text-blue-500" />
+                    <span className="text-sm">{stats?.active_loans} Active</span>
+                </div>
+                 <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-red-500" />
+                    <span className="text-sm">{stats?.defaulted_loans} Defaulted</span>
+                </div>
             </div>
           </CardContent>
         </Card>
       </div>
-    </div>;
+    </div>
+  );
 };
+
+const StatCard = ({ title, value, icon: Icon, subtitle }) => (
+  <Card>
+    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <CardTitle className="text-sm font-medium">{title}</CardTitle>
+      <Icon className="h-4 w-4 text-muted-foreground" />
+    </CardHeader>
+    <CardContent>
+      <div className="text-2xl font-bold">{value}</div>
+      <p className="text-xs text-muted-foreground">{subtitle}</p>
+    </CardContent>
+  </Card>
+);
+
 export default Dashboard;
