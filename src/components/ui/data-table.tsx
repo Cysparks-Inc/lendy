@@ -7,12 +7,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ScrollableContainer } from '@/components/ui/scrollable-container'; // Assuming you have this
 
 // Using generics to make the component truly reusable
 interface DataTableProps<TData> {
   columns: {
-    accessorKey: keyof TData | ((row: TData) => any); // Can be a key or a function
     header: string;
     cell: (row: TData) => React.ReactNode;
   }[];
@@ -26,12 +24,18 @@ export function DataTable<TData>({
   emptyStateMessage = "No results found."
 }: DataTableProps<TData>) {
   return (
-    <ScrollableContainer>
+    // --- THE CRITICAL FIX IS HERE ---
+    // This wrapper div makes the table scroll horizontally on small screens
+    // without affecting the rest of the page layout. This is the standard
+    // shadcn/ui pattern for responsive tables.
+    <div className="relative w-full overflow-auto rounded-md border">
       <Table>
         <TableHeader>
           <TableRow>
             {columns.map((column, index) => (
-              <TableHead key={index}>{column.header}</TableHead>
+              <TableHead key={index} className="whitespace-nowrap">
+                {column.header}
+              </TableHead>
             ))}
           </TableRow>
         </TableHeader>
@@ -40,7 +44,7 @@ export function DataTable<TData>({
             data.map((row, rowIndex) => (
               <TableRow key={rowIndex}>
                 {columns.map((column, colIndex) => (
-                  <TableCell key={colIndex}>
+                  <TableCell key={colIndex} className="whitespace-nowrap">
                     {column.cell(row)}
                   </TableCell>
                 ))}
@@ -55,6 +59,6 @@ export function DataTable<TData>({
           )}
         </TableBody>
       </Table>
-    </ScrollableContainer>
+    </div>
   );
 }
