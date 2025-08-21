@@ -42,46 +42,48 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <Routes>
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/" element={<AppLayout />}>
-              <Route index element={<Dashboard />} />
-              <Route path="loan-officer" element={<LoanOfficer />} />
-              <Route path="loan-officer/:id" element={<LoanOfficerProfilePage />} />
-              <Route path="master-roll" element={<MasterRoll />} />
-              <Route path="groups" element={<Groups />} />
-              <Route path="members" element={<Members />} />
-              <Route path="members/new" element={<MemberFormPage />} />
-              <Route path="members/:id" element={<MemberProfilePage />} />
-              <Route path="members/:id/edit" element={<MemberFormPage />} />
-              <Route path="search-member" element={<SearchMember />} />
-              
-              {/* Note: Removed duplicate /loans route. Using LoanAccounts as per your import. */}
-              <Route path="loans" element={<LoanAccounts />} /> 
-              <Route path="loans/new" element={<LoanFormPage />} /> 
-              <Route path="loans/:id" element={<LoanDetailsPage />} />
-              <Route path="loans/:id/edit" element={<LoanFormPage />} /> 
-              
-              <Route path="daily-overdue" element={<DailyOverdue />} />
-              <Route path="realizable-report" element={<RealizableReport />} />
-              <Route path="realizable-assets/new" element={<AssetFormPage />} />
-              <Route path="realizable-assets/:id/edit" element={<AssetFormPage />} />
-              <Route path="dormant-members" element={<DormantMembers />} />
-              <Route path="bad-debt" element={<BadDebt />} />
-              
-              <Route path="profile" element={<Profile />} />
-              <Route path="settings" element={<Settings />} />
-              
-              {/* Note: Removed duplicate /users route. Using Users as per your import. */}
-              <Route path="users" element={<Users />} />
-              <Route path="users/new" element={<UserFormPage />} />
-              <Route path="users/:id/edit" element={<UserFormPage />} />
-              
-              <Route path="security" element={<Security />} />
-              <Route path="branches" element={<Branches />} />
-            </Route>
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <div className="overflow-x-hidden">
+            <Routes>
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/" element={<AppLayout />}>
+                <Route index element={<Dashboard />} />
+                <Route path="loan-officer" element={<LoanOfficer />} />
+                <Route path="loan-officer/:id" element={<LoanOfficerProfilePage />} />
+                <Route path="master-roll" element={<MasterRoll />} />
+                <Route path="groups" element={<Groups />} />
+                <Route path="members" element={<Members />} />
+                <Route path="members/new" element={<MemberFormPage />} />
+                <Route path="members/:id" element={<MemberProfilePage />} />
+                <Route path="members/:id/edit" element={<MemberFormPage />} />
+                <Route path="search-member" element={<SearchMember />} />
+                
+                {/* Note: Removed duplicate /loans route. Using LoanAccounts as per your import. */}
+                <Route path="loans" element={<LoanAccounts />} /> 
+                <Route path="loans/new" element={<LoanFormPage />} /> 
+                <Route path="loans/:id" element={<LoanDetailsPage />} />
+                <Route path="loans/:id/edit" element={<LoanFormPage />} /> 
+                
+                <Route path="daily-overdue" element={<DailyOverdue />} />
+                <Route path="realizable-report" element={<RealizableReport />} />
+                <Route path="realizable-assets/new" element={<AssetFormPage />} />
+                <Route path="realizable-assets/:id/edit" element={<AssetFormPage />} />
+                <Route path="dormant-members" element={<DormantMembers />} />
+                <Route path="bad-debt" element={<BadDebt />} />
+                
+                <Route path="profile" element={<Profile />} />
+                <Route path="settings" element={<Settings />} />
+                
+                {/* Note: Removed duplicate /users route. Using Users as per your import. */}
+                <Route path="users" element={<Users />} />
+                <Route path="users/new" element={<UserFormPage />} />
+                <Route path="users/:id/edit" element={<UserFormPage />} />
+                
+                <Route path="security" element={<Security />} />
+                <Route path="branches" element={<Branches />} />
+              </Route>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </div>
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>

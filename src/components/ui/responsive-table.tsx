@@ -1,29 +1,39 @@
 import * as React from "react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-const ResponsiveTable = ({ headers, data }) => {
+interface ResponsiveTableProps {
+  headers: { key: string; label: string }[];
+  data: any[];
+  className?: string;
+}
+
+const ResponsiveTable: React.FC<ResponsiveTableProps> = ({ headers, data, className }) => {
   return (
-    <div className="w-full overflow-x-auto rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            {headers.map((header) => (
-              <TableHead key={header.key} className="whitespace-nowrap">{header.label}</TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {data.map((row) => (
-            <TableRow key={row.id}>
+    <div className={`w-full ${className || ''}`}>
+      {/* Mobile-optimized table wrapper with horizontal scroll */}
+      <div className="border rounded-md table-container">
+        <table className="w-full min-w-full">
+          <thead>
+            <tr className="border-b bg-muted/50">
               {headers.map((header) => (
-                <TableCell key={`${row.id}-${header.key}`} className="whitespace-nowrap">
-                  {row[header.key]}
-                </TableCell>
+                <th key={header.key} className="whitespace-nowrap px-4 py-3 text-left text-sm font-medium text-muted-foreground">
+                  {header.label}
+                </th>
               ))}
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((row) => (
+              <tr key={row.id} className="border-b hover:bg-muted/50 transition-colors">
+                {headers.map((header) => (
+                  <td key={`${row.id}-${header.key}`} className="whitespace-nowrap px-4 py-3">
+                    {row[header.key]}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 };

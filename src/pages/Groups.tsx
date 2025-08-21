@@ -218,59 +218,135 @@ const Groups = () => {
   }
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Groups Management</h1>
-
-        </div>
-        {isSuperAdmin && <Button onClick={() => setModal({ type: 'create', data: null })}><Plus className="h-4 w-4 mr-2" />Add Group</Button>}
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard title="Total Groups" value={groups.length} icon={UsersRound} />
-        <StatCard title="Total Members" value={groups.reduce((s, g) => s + g.member_count, 0)} icon={UsersRound} />
-        <StatCard title="Active Loans" value={groups.reduce((s, g) => s + g.total_loans, 0)} icon={Banknote} />
-        <StatCard title="Total Outstanding" value={formatCurrency(groups.reduce((s, g) => s + g.outstanding_balance, 0))} icon={DollarSign} />
-      </div>
-
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col lg:flex-row justify-between gap-4">
-            <div><CardTitle>Groups Directory</CardTitle><CardDescription>A list of all self-help groups.</CardDescription></div>
-            <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
-              <div className="relative w-full sm:w-64"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="Search by name..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9" /></div>
-              <Select value={branchFilter} onValueChange={setBranchFilter}><SelectTrigger className="w-full sm:w-48"><SelectValue placeholder="All Branches" /></SelectTrigger><SelectContent><SelectItem value="all">All Branches</SelectItem>{branches.map(b => <SelectItem key={b.id} value={b.name}>{b.name}</SelectItem>)}</SelectContent></Select>
+    <div className="space-y-6 p-2 sm:p-4 md:p-6">
+      {view.page === 'profile' ? (
+        <GroupProfile group={view.data!} onBack={() => setView({ page: 'list', data: null })} />
+      ) : (
+        <>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Groups</h1>
+              <p className="text-muted-foreground">Manage member groups and loan officer assignments.</p>
             </div>
+            {isSuperAdmin && (
+              <Button onClick={() => setModal({ type: 'create', data: null })}><Plus className="h-4 w-4 mr-2" />Add Group</Button>
+            )}
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader><TableRow><TableHead>Group</TableHead><TableHead>Members</TableHead><TableHead>Outstanding</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
-              <TableBody>
-                {filteredGroups.map((group) => (
-                  <TableRow key={group.id}>
-                    <TableCell>
-                      <div className="font-medium">{group.name}</div>
-                      <div className="text-sm text-muted-foreground">{group.branch_name}</div>
-                    </TableCell>
-                    <TableCell>{group.member_count}</TableCell>
-                    <TableCell className="font-mono">{formatCurrency(group.outstanding_balance)}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm" onClick={() => setView({ page: 'profile', data: group })}><Eye className="h-4 w-4" /></Button>
-                        <Button variant="outline" size="sm" onClick={() => setModal({ type: 'edit', data: group })}><Edit className="h-4 w-4" /></Button>
-                        <Button variant="destructive" size="sm" onClick={() => setModal({ type: 'delete', data: group })}><Trash2 className="h-4 w-4" /></Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+
+          {/* Summary Stats */}
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Groups</CardTitle>
+                <UsersRound className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{groups.length}</div>
+                <p className="text-xs text-muted-foreground">Active groups</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Members</CardTitle>
+                <UsersRound className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{groups.reduce((sum, g) => sum + g.member_count, 0)}</div>
+                <p className="text-xs text-muted-foreground">Across all groups</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Active Loans</CardTitle>
+                <Banknote className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{groups.reduce((sum, g) => sum + g.total_loans, 0)}</div>
+                <p className="text-xs text-muted-foreground">Group loans</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Outstanding</CardTitle>
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{formatCurrency(groups.reduce((sum, g) => sum + g.outstanding_balance, 0))}</div>
+                <p className="text-xs text-muted-foreground">Total balance</p>
+              </CardContent>
+            </Card>
           </div>
-        </CardContent>
-      </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                  <CardTitle>Group Directory</CardTitle>
+                  <CardDescription>Showing {filteredGroups.length} of {groups.length} groups.</CardDescription>
+                </div>
+                <div className="relative w-full sm:w-80">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input placeholder="Search groups..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9" />
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="table-container border rounded-md">
+                <div className="min-w-full inline-block align-middle">
+                  <div className="overflow-hidden">
+                    <Table className="min-w-full">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="whitespace-nowrap bg-muted/50 px-4 py-3 text-left text-sm font-medium text-muted-foreground">Group Name</TableHead>
+                          <TableHead className="whitespace-nowrap bg-muted/50 px-4 py-3 text-left text-sm font-medium text-muted-foreground">Location</TableHead>
+                          <TableHead className="whitespace-nowrap bg-muted/50 px-4 py-3 text-left text-sm font-medium text-muted-foreground">Branch</TableHead>
+                          <TableHead className="whitespace-nowrap bg-muted/50 px-4 py-3 text-left text-sm font-medium text-muted-foreground">Members</TableHead>
+                          <TableHead className="whitespace-nowrap bg-muted/50 px-4 py-3 text-left text-sm font-medium text-muted-foreground">Loans</TableHead>
+                          <TableHead className="whitespace-nowrap bg-muted/50 px-4 py-3 text-left text-sm font-medium text-muted-foreground">Outstanding</TableHead>
+                          <TableHead className="whitespace-nowrap bg-muted/50 px-4 py-3 text-left text-sm font-medium text-muted-foreground">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredGroups.map((group) => (
+                          <TableRow key={group.id} className="hover:bg-muted/50 transition-colors">
+                            <TableCell className="whitespace-nowrap px-4 py-3">
+                              <Button variant="link" className="p-0 h-auto font-medium" onClick={() => setView({ page: 'profile', data: group })}>
+                                {group.name}
+                              </Button>
+                            </TableCell>
+                            <TableCell className="whitespace-nowrap px-4 py-3">{group.location}</TableCell>
+                            <TableCell className="whitespace-nowrap px-4 py-3">{group.branch_name}</TableCell>
+                            <TableCell className="whitespace-nowrap px-4 py-3">{group.member_count}</TableCell>
+                            <TableCell className="whitespace-nowrap px-4 py-3">{group.total_loans}</TableCell>
+                            <TableCell className="whitespace-nowrap px-4 py-3">{formatCurrency(group.outstanding_balance)}</TableCell>
+                            <TableCell className="whitespace-nowrap px-4 py-3">
+                              <div className="flex gap-2">
+                                <Button variant="outline" size="icon" onClick={() => setView({ page: 'profile', data: group })}>
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                                {isSuperAdmin && (
+                                  <>
+                                    <Button variant="outline" size="icon" onClick={() => setModal({ type: 'edit', data: group })}>
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="outline" size="icon" onClick={() => setModal({ type: 'delete', data: group })}>
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
 
       {/* --- Dialogs --- */}
       <Dialog open={modal.type === 'create' || modal.type === 'edit'} onOpenChange={() => setModal({ type: null, data: null })}>

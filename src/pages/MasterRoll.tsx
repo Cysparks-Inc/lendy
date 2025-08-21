@@ -118,24 +118,26 @@ const MasterRoll: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="space-y-6 p-2 sm:p-4 md:p-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Master Roll</h1>
-          <p className="text-muted-foreground mt-1">A real-time, comprehensive registry of all members in your scope.</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Master Roll</h1>
+          <p className="text-muted-foreground">Complete member registry and financial overview.</p>
         </div>
         <ExportDropdown 
-            data={filteredRecords} 
-            columns={exportColumns} 
-            fileName="master_roll_report" 
-            reportTitle="Master Roll Report" 
+          data={filteredRecords} 
+          columns={exportColumns} 
+          fileName="master-roll-report" 
+          reportTitle="Master Roll Report"
         />
       </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+
+      {/* Summary Stats */}
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard title="Total Members" value={records.length} />
         <StatCard title="Active Members" value={records.filter(r => r.status === 'active').length} />
-        <StatCard title="Total Outstanding" value={formatCurrency(records.reduce((sum, r) => sum + (r.outstanding_balance || 0), 0))} />
+        <StatCard title="With Loans" value={records.filter(r => r.total_loans > 0).length} />
+        <StatCard title="Total Outstanding" value={formatCurrency(records.reduce((sum, r) => sum + r.outstanding_balance, 0))} />
       </div>
 
       <Card>

@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Search, Plus, Eye, CreditCard, Landmark, Banknote, Loader2, DollarSign } from 'lucide-react';
+import { Search, Plus, Eye, CreditCard, Landmark, Banknote, Loader2, DollarSign, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/ui/data-table'; // Reusable component
@@ -97,34 +97,89 @@ const LoansPage: React.FC = () => {
   if (loading) { return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>; }
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6 p-2 sm:p-4 md:p-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Loans</h1>
-          <p className="text-muted-foreground mt-1">A real-time overview of all loan accounts.</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Loan Accounts</h1>
+          <p className="text-muted-foreground">Manage and monitor all loan accounts in your scope.</p>
         </div>
         <Button asChild><Link to="/loans/new"><Plus className="h-4 w-4 mr-2" />New Loan</Link></Button>
       </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <StatCard title="Total Loans" value={loans.length} icon={CreditCard} />
-        <StatCard title="Active Loans" value={loans.filter(l => l.status === 'active').length} icon={Banknote} />
-        <StatCard title="Total Disbursed" value={formatCurrency(loans.reduce((s, l) => s + l.principal_amount, 0))} icon={Landmark} />
-        <StatCard title="Total Outstanding" value={formatCurrency(totalOutstanding)} icon={DollarSign} />
+
+      {/* Summary Cards */}
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Loans</CardTitle>
+            <CreditCard className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{loans.length}</div>
+            <p className="text-xs text-muted-foreground">Active accounts</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Outstanding Balance</CardTitle>
+            <Landmark className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(totalOutstanding)}</div>
+            <p className="text-xs text-muted-foreground">Total due</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Loans</CardTitle>
+            <Banknote className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{loans.filter(l => l.status === 'active').length}</div>
+            <p className="text-xs text-muted-foreground">Currently active</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Defaulted</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{loans.filter(l => l.status === 'defaulted').length}</div>
+            <p className="text-xs text-muted-foreground">Require attention</p>
+          </CardContent>
+        </Card>
       </div>
 
+      {/* Search and Filters */}
       <Card>
         <CardHeader>
-            <div className="flex flex-col lg:flex-row justify-between gap-4">
-                <div><CardTitle>Loan Portfolio</CardTitle><CardDescription>Showing {filteredLoans.length} of {loans.length} loans.</CardDescription></div>
-                <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
-                    <div className="relative w-full sm:w-64"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="Search by member name..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9" /></div>
-                    <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger className="w-full sm:w-48"><SelectValue placeholder="All Statuses" /></SelectTrigger><SelectContent><SelectItem value="all">All Statuses</SelectItem><SelectItem value="pending">Pending</SelectItem><SelectItem value="active">Active</SelectItem><SelectItem value="repaid">Repaid</SelectItem><SelectItem value="defaulted">Defaulted</SelectItem></SelectContent></Select>
-                </div>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <CardTitle>Loan Accounts</CardTitle>
+              <CardDescription>Showing {filteredLoans.length} of {loans.length} loans.</CardDescription>
             </div>
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input placeholder="Search by member name..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9" />
+              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full sm:w-32">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="repaid">Repaid</SelectItem>
+                  <SelectItem value="defaulted">Defaulted</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          <DataTable columns={columns} data={filteredLoans} emptyStateMessage="No loans found." />
+          <DataTable columns={columns} data={filteredLoans} emptyStateMessage="No loans found matching your criteria." />
         </CardContent>
       </Card>
     </div>

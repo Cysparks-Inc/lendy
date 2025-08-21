@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Search, UserCheck, Landmark, Banknote, TrendingUp, Users, RefreshCw, Eye, MoreHorizontal, Mail, Edit, Loader2 } from 'lucide-react';
+import { Search, UserCheck, Landmark, Banknote, TrendingUp, Users, RefreshCw, Eye, MoreHorizontal, Mail, Edit, Loader2, Plus, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/ui/data-table';
 import { ExportDropdown } from '@/components/ui/ExportDropdown';
@@ -26,6 +26,8 @@ interface LoanOfficer {
   total_disbursed: number;
   total_balance: number;
   status: 'active' | 'inactive';
+  total_portfolio?: number; // Added for new summary stats
+  performance_score?: number; // Added for new summary stats
 }
 
 const LoanOfficerPage: React.FC = () => {
@@ -158,44 +160,25 @@ const LoanOfficerPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-4 p-3 sm:p-6">
-      {/* Header Section - Mobile Optimized */}
-      <div className="flex flex-col gap-4">
+    <div className="space-y-6 p-2 sm:p-4 md:p-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Loan Officer Dashboard</h1>
-          <p className="text-muted-foreground">Manage and monitor officer performance</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Loan Officers</h1>
+          <p className="text-muted-foreground">Manage loan officer profiles and performance.</p>
         </div>
-        
-        {/* Action Buttons - Mobile Optimized */}
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => fetchLoanOfficers()}>
-            <RefreshCw className="mr-2 h-4 w-4" /> Refresh
-          </Button>
-          <ExportDropdown 
-            data={filteredOfficers} 
-            columns={columns(userRole).slice(0, -1)} 
-            fileName="loan_officer_report" 
-            reportTitle="Loan Officer Performance Report"
-          />
-          {userRole === 'super_admin' && (
-            <Button asChild>
-              <Link to="/users">
-                <UserCheck className="h-4 w-4 mr-2" /> Manage Users
-              </Link>
-            </Button>
-          )}
-        </div>
+        {userRole === 'super_admin' && (
+          <Button asChild><Link to="/loan-officer/new"><Plus className="h-4 w-4 mr-2" />Add Officer</Link></Button>
+        )}
       </div>
-      
-      {/* Stats Grid - Mobile Optimized */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+
+      {/* Summary Stats */}
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard title="Total Officers" value={officers.length} icon={Users} />
-        <StatCard title="Active Officers" value={activeOfficers} icon={UserCheck} />
-        <StatCard title="Total Disbursed" value={formatCurrency(totalDisbursed)} icon={Landmark} />
-        <StatCard title="Total Outstanding" value={formatCurrency(totalOutstanding)} icon={TrendingUp} />
+        <StatCard title="Active Officers" value={officers.filter(o => o.status === 'active').length} icon={UserCheck} />
+        <StatCard title="Total Portfolio" value={formatCurrency(officers.reduce((sum, o) => sum + (o.total_portfolio || 0), 0))} icon={DollarSign} />
+        <StatCard title="Avg Performance" value={`${Math.round(officers.reduce((sum, o) => sum + (o.performance_score || 0), 0) / Math.max(officers.length, 1))}%`} icon={TrendingUp} />
       </div>
-      
-      {/* Data Table Card - Mobile Optimized with DataTable's built-in scroll */}
+
       <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">

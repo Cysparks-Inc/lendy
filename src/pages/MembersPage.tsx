@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Plus, Search, Edit, Trash2, Users, Eye, Banknote, DollarSign, Loader2 } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Users, Eye, Banknote, DollarSign, Loader2, UserCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/ui/data-table'; // We will use our new reusable component
@@ -126,37 +126,75 @@ const MembersPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6 p-2 sm:p-4 md:p-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Members Management</h1>
-          <p className="text-muted-foreground">Your centralized hub for all member data.</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Members</h1>
+          <p className="text-muted-foreground">Manage member registrations and profiles.</p>
         </div>
-        <Button asChild>
-          <Link to="/members/new"><Plus className="h-4 w-4 mr-2" />Add Member</Link>
-        </Button>
+        <Button asChild><Link to="/members/new"><Plus className="h-4 w-4 mr-2" />Add Member</Link></Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <StatCard title="Total Members" value={members.length} icon={Users} />
-        <StatCard title="Active Members" value={members.filter(m => m.status === 'active').length} icon={Users} />
-        <StatCard title="Total Loans Issued" value={members.reduce((sum, m) => sum + (m.total_loans || 0), 0)} icon={Banknote} />
-        <StatCard title="Total Outstanding" value={formatCurrency(members.reduce((sum, m) => sum + (m.outstanding_balance || 0), 0))} icon={DollarSign} />
+      {/* Summary Cards */}
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Members</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{members.length}</div>
+            <p className="text-xs text-muted-foreground">Registered members</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Members</CardTitle>
+            <UserCheck className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{members.filter(m => m.status === 'active').length}</div>
+            <p className="text-xs text-muted-foreground">Currently active</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Outstanding</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(members.reduce((sum, m) => sum + m.outstanding_balance, 0))}</div>
+            <p className="text-xs text-muted-foreground">Combined balance</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">With Loans</CardTitle>
+            <Banknote className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{members.filter(m => m.total_loans > 0).length}</div>
+            <p className="text-xs text-muted-foreground">Have active loans</p>
+          </CardContent>
+        </Card>
       </div>
 
+      {/* Members Table */}
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
-            <div><CardTitle>Members Directory</CardTitle><CardDescription>Showing {filteredMembers.length} of {members.length} members.</CardDescription></div>
-            <div className="relative w-full sm:w-64"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="Search by name, ID, or phone..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9" /></div>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <CardTitle>Member Directory</CardTitle>
+              <CardDescription>Showing {filteredMembers.length} of {members.length} members.</CardDescription>
+            </div>
+            <div className="relative w-full sm:w-80">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Search by name, ID, or phone..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9" />
+            </div>
           </div>
         </CardHeader>
         <CardContent>
-          <DataTable
-            columns={columns}
-            data={filteredMembers}
-            emptyStateMessage="No members match your search criteria."
-          />
+          <DataTable columns={columns} data={filteredMembers} emptyStateMessage="No members found matching your criteria." />
         </CardContent>
       </Card>
       

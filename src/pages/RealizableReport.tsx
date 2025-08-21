@@ -140,32 +140,39 @@ const RealizableReport: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="space-y-6 p-2 sm:p-4 md:p-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Realizable Assets</h1>
-          <p className="text-muted-foreground mt-1">Manage and evaluate all recoverable assets in your scope.</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Realizable Assets</h1>
+          <p className="text-muted-foreground">Track and manage recoverable assets from defaulted loans.</p>
         </div>
-        <div className="flex gap-2">
-            <ExportDropdown data={filteredItems} columns={exportColumns} fileName="realizable_assets_report" reportTitle="Realizable Assets Report" />
-            <Button asChild><Link to="/realizable-assets/new"><Plus className="mr-2 h-4 w-4" />Add Asset</Link></Button>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Button asChild><Link to="/realizable-assets/new"><Plus className="h-4 w-4 mr-2" />Add Asset</Link></Button>
+          <ExportDropdown 
+            data={filteredItems} 
+            columns={exportColumns} 
+            fileName="realizable-assets-report" 
+            reportTitle="Realizable Assets Report"
+          />
         </div>
       </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <StatCard title="Total Assets Tracked" value={filteredItems.length} icon={Target} />
-        <StatCard title="Total Market Value" value={formatCurrency(totalMarketValue)} icon={TrendingUp} />
-        <StatCard title="Total Realizable Value" value={formatCurrency(totalRealizableValue)} icon={DollarSign} />
+
+      {/* Summary Stats */}
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard title="Total Assets" value={items.length} icon={ShieldAlert} />
+        <StatCard title="Total Value" value={formatCurrency(items.reduce((sum, item) => sum + item.realizable_value, 0))} icon={DollarSign} />
+        <StatCard title="High Recovery" value={items.filter(item => item.recovery_likelihood === 'high').length} icon={Target} />
+        <StatCard title="Market Value" value={formatCurrency(items.reduce((sum, item) => sum + item.current_market_value, 0))} icon={TrendingUp} />
       </div>
 
       <Card>
         <CardHeader>
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
               <CardTitle>Asset Details</CardTitle>
               <CardDescription>Showing {filteredItems.length} of {items.length} assets.</CardDescription>
             </div>
-            <div className="relative w-full md:w-80">
+            <div className="relative w-full sm:w-80">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Search by asset or member..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9" />
             </div>

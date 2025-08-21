@@ -110,11 +110,11 @@ const UsersPage: React.FC = () => {
   if (loading) { return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>; }
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6 p-2 sm:p-4 md:p-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">User Management</h1>
-          <p className="text-muted-foreground mt-1">A centralized hub for all system users.</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">User Management</h1>
+          <p className="text-muted-foreground">A centralized hub for all system users.</p>
         </div>
         <Button asChild><Link to="/users/new"><Plus className="h-4 w-4 mr-2" />Add User</Link></Button>
       </div>

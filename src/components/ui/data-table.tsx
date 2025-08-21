@@ -1,12 +1,4 @@
 import React from 'react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 
 // Using generics to make the component truly reusable
 interface DataTableProps<TData> {
@@ -24,41 +16,43 @@ export function DataTable<TData>({
   emptyStateMessage = "No results found."
 }: DataTableProps<TData>) {
   return (
-    // --- THE CRITICAL FIX IS HERE ---
-    // This wrapper div makes the table scroll horizontally on small screens
-    // without affecting the rest of the page layout. This is the standard
-    // shadcn/ui pattern for responsive tables.
-    <div className="relative w-full overflow-auto rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            {columns.map((column, index) => (
-              <TableHead key={index} className="whitespace-nowrap">
-                {column.header}
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {data?.length ? (
-            data.map((row, rowIndex) => (
-              <TableRow key={rowIndex}>
-                {columns.map((column, colIndex) => (
-                  <TableCell key={colIndex} className="whitespace-nowrap">
-                    {column.cell(row)}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell colSpan={columns.length} className="h-24 text-center">
-                {emptyStateMessage}
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
+    // --- MOBILE RESPONSIVE TABLE WRAPPER ---
+    // This wrapper provides horizontal scrolling ONLY within the table container
+    // The table maintains its natural width while the container scrolls horizontally
+    // without affecting the page layout or causing page-level side scroll
+    <div className="w-full">
+      <div className="border rounded-md table-container">
+        <table className="w-full min-w-full">
+          <thead>
+            <tr className="border-b bg-muted/50">
+              {columns.map((column, index) => (
+                <th key={index} className="whitespace-nowrap px-4 py-3 text-left text-sm font-medium text-muted-foreground">
+                  {column.header}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {data?.length ? (
+              data.map((row, rowIndex) => (
+                <tr key={rowIndex} className="border-b hover:bg-muted/50 transition-colors">
+                  {columns.map((column, colIndex) => (
+                    <td key={colIndex} className="whitespace-nowrap px-4 py-3">
+                      {column.cell(row)}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={columns.length} className="h-24 text-center text-muted-foreground">
+                  {emptyStateMessage}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

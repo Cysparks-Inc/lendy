@@ -57,7 +57,7 @@ const Dashboard: React.FC = () => {
 
   return (
     // --- RESPONSIVE FIX: Reduced padding on mobile, larger on medium screens and up ---
-    <div className="space-y-6 p-4 md:p-6">
+    <div className="space-y-6 p-2 sm:p-4 md:p-6">
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Dashboard</h1>
         <p className="text-muted-foreground">Welcome back, {profile?.full_name || user?.email}.</p>

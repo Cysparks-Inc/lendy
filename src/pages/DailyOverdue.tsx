@@ -107,33 +107,79 @@ const DailyOverdue: React.FC = () => {
   if (loading) { return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>; }
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="space-y-6 p-2 sm:p-4 md:p-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Daily Overdue Report</h1>
-          <p className="text-muted-foreground mt-1">A real-time list of all loans with payments past their due date.</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Daily Overdue Report</h1>
+          <p className="text-muted-foreground">Monitor and manage overdue loan payments.</p>
         </div>
-        <ExportDropdown data={filteredItems} columns={exportColumns} fileName="daily_overdue_report" reportTitle="Daily Overdue Report" />
+        <ExportDropdown 
+          data={filteredItems} 
+          columns={exportColumns} 
+          fileName="daily-overdue-report" 
+          reportTitle="Daily Overdue Report"
+        />
       </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <StatCard title="Overdue Accounts" value={filteredItems.length} />
-        <StatCard title="Total Amount Overdue" value={formatCurrency(totalOverdueAmount)} />
-        <StatCard title="Critical Risk Cases (>90 Days)" value={filteredItems.filter(item => item.risk_level === 'critical').length} />
+
+      {/* Summary Stats */}
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Overdue</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{filteredItems.length}</div>
+            <p className="text-xs text-muted-foreground">Accounts overdue</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Amount</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(filteredItems.reduce((sum, item) => sum + item.overdue_amount, 0))}</div>
+            <p className="text-xs text-muted-foreground">Overdue balance</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">High Risk</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-destructive" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{filteredItems.filter(item => item.risk_level === 'high' || item.risk_level === 'critical').length}</div>
+            <p className="text-xs text-muted-foreground">Critical accounts</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Avg Days</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{Math.round(filteredItems.reduce((sum, item) => sum + item.days_overdue, 0) / Math.max(filteredItems.length, 1))}</div>
+            <p className="text-xs text-muted-foreground">Days overdue</p>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>
         <CardHeader>
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
-              <CardTitle>Overdue Loans Detail</CardTitle>
+              <CardTitle>Overdue Accounts</CardTitle>
               <CardDescription>Showing {filteredItems.length} of {overdueItems.length} overdue accounts.</CardDescription>
             </div>
-            <div className="relative w-full md:w-80"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="Search by member or account..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9" /></div>
+            <div className="relative w-full sm:w-80">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Search by member or account..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9" />
+            </div>
           </div>
         </CardHeader>
         <CardContent>
-          <DataTable columns={columns} data={filteredItems} emptyStateMessage="No overdue loans found." />
+          <DataTable columns={columns} data={filteredItems} emptyStateMessage="No overdue accounts found." />
         </CardContent>
       </Card>
     </div>
