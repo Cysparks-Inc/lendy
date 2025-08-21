@@ -1,0 +1,177 @@
+import React, { useState } from 'react';
+import { jsPDF } from 'jspdf';
+// --- THE CRITICAL FIX for PDF Error ---
+// We explicitly import the plugin and apply it. This is the most robust method.
+import autoTable from 'jspdf-autotable'; 
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { FileText, FileSpreadsheet, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+
+// Define the shape of the props for type safety
+interface GenerateStatementDialogProps {
+  open: boolean;
+  onOpenChange: (isOpen: boolean) => void;
+  member: {
+    full_name: string;
+    id_number: string;
+    phone_number: string;
+    branch_name: string;
+    assigned_officer_name: string | null;
+  } | null;
+  loans: {
+    account_number: string;
+    principal_amount: number;
+    current_balance: number;
+    status: string;
+    due_date: string;
+  }[];
+}
+
+export const GenerateStatementDialog: React.FC<GenerateStatementDialogProps> = ({ open, onOpenChange, member, loans }) => {
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    if (!member) return null;
+
+    const generatePdf = () => {
+        setIsGenerating(true);
+        try {
+            const doc = new jsPDF();
+            
+            // --- Header and Branding ---
+            doc.setFontSize(22);
+            doc.setFont("helvetica", "bold");
+            doc.text("Napol", 14, 22);
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "normal");
+            doc.text("MEMBER ACCOUNT STATEMENT", 14, 30);
+            doc.line(14, 32, 196, 32);
+
+            // --- Member Personal & Financial Details ---
+            let yPos = 40;
+            doc.setFontSize(10);
+            const totalOutstanding = loans.reduce((sum, loan) => sum + (loan.current_balance || 0), 0);
+            
+            // Member Info Column 1
+            doc.text(`Member Name: ${member.full_name}`, 14, yPos);
+            doc.text(`Member ID: ${member.id_number}`, 14, yPos + 5);
+            doc.text(`Phone: ${member.phone_number}`, 14, yPos + 10);
+            
+            // Member Info Column 2
+            doc.text(`Statement Date: ${new Date().toLocaleDateString()}`, 130, yPos);
+            doc.text(`Branch: ${member.branch_name}`, 130, yPos + 5);
+            doc.text(`Assigned Officer: ${member.assigned_officer_name || 'N/A'}`, 130, yPos + 10);
+
+            // Financial Summary
+            yPos += 20;
+            doc.setFont("helvetica", "bold");
+            doc.text(`Total Outstanding Balance: ${new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(totalOutstanding)}`, 14, yPos);
+            
+            // --- Loan History Table ---
+            yPos += 10;
+            doc.setFontSize(12);
+            doc.text("Loan History", 14, yPos);
+            
+            const head = [['Account No.', 'Principal', 'Outstanding', 'Status', 'Due Date']];
+            const body = loans.map(l => [
+                l.account_number,
+                `Ksh ${l.principal_amount.toLocaleString()}`,
+                `Ksh ${l.current_balance.toLocaleString()}`,
+                l.status.charAt(0).toUpperCase() + l.status.slice(1),
+                new Date(l.due_date).toLocaleDateString()
+            ]);
+
+            autoTable(doc, { // Use the imported function
+                startY: yPos + 4,
+                head: head,
+                body: body,
+                theme: 'grid',
+                headStyles: { fillColor: [17, 24, 39] } // Dark header for branding
+            });
+
+            doc.save(`Statement-${member.full_name.replace(/\s/g, '_')}-${new Date().toISOString().split('T')[0]}.pdf`);
+            toast.success("PDF statement generated successfully!");
+            onOpenChange(false);
+        } catch (error: any) {
+            toast.error("Failed to generate PDF", { description: error.message });
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+    
+    // --- FULLY IMPLEMENTED CSV GENERATION ---
+    const generateCsv = () => {
+        setIsGenerating(true);
+        try {
+            const escapeCsvCell = (cell: any) => `"${String(cell).replace(/"/g, '""')}"`;
+
+            const totalOutstanding = loans.reduce((sum, loan) => sum + (loan.current_balance || 0), 0);
+
+            let csvContent = [];
+            // --- Header Section with Personal Details ---
+            csvContent.push("MEMBER ACCOUNT STATEMENT\n");
+            csvContent.push(`"Member Name",${escapeCsvCell(member.full_name)}`);
+            csvContent.push(`"Member ID",${escapeCsvCell(member.id_number)}`);
+            csvContent.push(`"Branch",${escapeCsvCell(member.branch_name)}`);
+            csvContent.push(`"Statement Date",${escapeCsvCell(new Date().toLocaleDateString())}`);
+            csvContent.push(`"Total Outstanding Balance",${escapeCsvCell(totalOutstanding)}`);
+            csvContent.push("\n"); // Blank line for separation
+
+            // --- Loan History Table Section ---
+            const headers = ['Account Number', 'Principal', 'Outstanding Balance', 'Status', 'Due Date'];
+            csvContent.push(headers.join(','));
+
+            loans.forEach(l => {
+                const row = [
+                    escapeCsvCell(l.account_number),
+                    escapeCsvCell(l.principal_amount),
+                    escapeCsvCell(l.current_balance),
+                    escapeCsvCell(l.status),
+                    escapeCsvCell(new Date(l.due_date).toLocaleDateString())
+                ];
+                csvContent.push(row.join(','));
+            });
+
+            const csvString = csvContent.join('\n');
+            const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Statement-${member.full_name.replace(/\s/g, '_')}-${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            toast.success("CSV statement downloaded successfully!");
+            onOpenChange(false);
+        } catch (error: any) {
+            toast.error("Failed to generate CSV", { description: error.message });
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Generate Member Statement</DialogTitle>
+                    <DialogDescription>Choose a format for the statement for <strong>{member.full_name}</strong>.</DialogDescription>
+                </DialogHeader>
+                <div className="flex justify-center gap-4 py-8">
+                    <Button onClick={generatePdf} disabled={isGenerating}>
+                        {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
+                        Generate PDF
+                    </Button>
+                    <Button onClick={generateCsv} variant="outline" disabled={isGenerating}>
+                        {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
+                        Generate CSV
+                    </Button>
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
+export default GenerateStatementDialog;

@@ -1,17 +1,17 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Download, FileText, Filter } from 'lucide-react';
-import { ScrollableContainer } from '@/components/ui/scrollable-container';
-import { Loader } from '@/components/ui/loader';
+import { Search, Users, ShieldAlert, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { DataTable } from '@/components/ui/data-table';
+import { ExportDropdown } from '@/components/ui/ExportDropdown';
 
+// --- Type Definitions ---
 interface MasterRecord {
   id: string;
   full_name: string;
@@ -19,307 +19,148 @@ interface MasterRecord {
   phone_number: string;
   status: string;
   created_at: string;
-  group_name?: string;
   branch_name?: string;
-  total_loans?: number;
-  outstanding_balance?: number;
+  total_loans: number;
+  outstanding_balance: number;
   last_payment_date?: string;
+  profile_picture_url?: string;
 }
 
-const MasterRoll = () => {
+const MasterRoll: React.FC = () => {
+  const { user, userRole } = useAuth();
   const [records, setRecords] = useState<MasterRecord[]>([]);
-  const [branches, setBranches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [branchFilter, setBranchFilter] = useState<string>('all');
-
-  const fetchRecords = async () => {
-    try {
-      const { data: membersData, error } = await supabase
-        .from('members')
-        .select(`
-          *,
-          groups:group_id (name),
-          branches:branch_id (name)
-        `);
-
-      if (error) throw error;
-
-      // Get loan statistics and last payment for each member
-      const recordsWithStats = await Promise.all(
-        (membersData || []).map(async (member) => {
-          const { data: loansData } = await supabase
-            .from('loans')
-            .select('id, current_balance')
-            .eq('customer_id', member.id);
-
-          // Get last payment date if loans exist
-          let lastPaymentDate;
-          if (loansData && loansData.length > 0) {
-            const { data: repaymentsData } = await supabase
-              .from('repayments')
-              .select('payment_date')
-              .eq('loan_id', loansData[0].id)
-              .order('payment_date', { ascending: false })
-              .limit(1);
-            
-            lastPaymentDate = repaymentsData?.[0]?.payment_date;
-          }
-
-          const outstandingBalance = loansData?.reduce(
-            (sum, loan) => sum + parseFloat(String(loan.current_balance || '0')), 0
-          ) || 0;
-
-          const totalLoans = loansData?.length || 0;
-
-          return {
-            id: member.id,
-            full_name: member.full_name,
-            id_number: member.id_number,
-            phone_number: member.phone_number,
-            status: member.status,
-            created_at: member.created_at,
-            group_name: member.groups?.name,
-            branch_name: member.branches?.name,
-            total_loans: totalLoans,
-            outstanding_balance: outstandingBalance,
-            last_payment_date: lastPaymentDate
-          };
-        })
-      );
-
-      setRecords(recordsWithStats);
-    } catch (error) {
-      console.error('Error fetching master roll:', error);
-      toast.error('Failed to fetch master roll data');
-    }
-  };
-
-  const fetchBranches = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('branches')
-        .select('*');
-      
-      if (error) throw error;
-      setBranches(data || []);
-    } catch (error) {
-      console.error('Error fetching branches:', error);
-    }
-  };
 
   useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      await Promise.all([fetchRecords(), fetchBranches()]);
+    if (userRole === 'super_admin' || userRole === 'branch_manager') {
+      fetchMasterRoll();
+
+      // --- REAL-TIME DATA SYNC ---
+      const subscription = supabase.channel('master-roll-realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, () => fetchMasterRoll())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'loans' }, () => fetchMasterRoll())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, () => fetchMasterRoll())
+        .subscribe();
+      
+      return () => { supabase.removeChannel(subscription); };
+    } else {
       setLoading(false);
-    };
-    loadData();
-  }, []);
+    }
+  }, [user, userRole]);
 
-  const filteredRecords = records.filter(record => {
-    const matchesSearch = record.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         record.id_number.includes(searchTerm) ||
-                         record.phone_number.includes(searchTerm) ||
-                         (record.group_name || '').toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || record.status === statusFilter;
-    const matchesBranch = branchFilter === 'all' || record.branch_name === branchFilter;
-    return matchesSearch && matchesStatus && matchesBranch;
-  });
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-KE', {
-      style: 'currency',
-      currency: 'KES',
-      minimumFractionDigits: 0
-    }).format(amount);
+  const fetchMasterRoll = async () => {
+    if (!user) return;
+    try {
+      const { data, error } = await supabase.rpc('get_master_roll_data', { requesting_user_id: user.id });
+      if (error) throw error;
+      setRecords(data || []);
+    } catch (error: any) {
+      toast.error('Failed to fetch Master Roll', { description: error.message });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleExport = (format: 'pdf' | 'csv') => {
-    // Implementation for export functionality
-    toast.success(`Master roll export as ${format.toUpperCase()} initiated`);
-    console.log(`Exporting master roll as ${format}`);
-  };
+  const filteredRecords = records.filter(record =>
+    record.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    record.id_number.includes(searchTerm) ||
+    record.phone_number.includes(searchTerm)
+  );
 
-  if (loading) {
-    return <Loader size="lg" />;
+  const formatCurrency = (amount: number) => new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(amount || 0);
+
+  const columns = [
+    { header: 'Member', cell: (row: MasterRecord) => (
+      <Link to={`/members/${row.id}`} className="flex items-center gap-2 group">
+        <div className="h-8 w-8 rounded-full bg-secondary flex-shrink-0 flex items-center justify-center border">
+          {row.profile_picture_url ? (<img src={row.profile_picture_url} alt={row.full_name} className="h-full w-full object-cover rounded-full" />) : (<Users className="h-4 w-4 text-muted-foreground" />)}
+        </div>
+        <div>
+          <div className="font-medium group-hover:underline">{row.full_name}</div>
+          <div className="text-xs text-muted-foreground">{row.id_number}</div>
+        </div>
+      </Link>
+    )},
+    { header: 'Contact', cell: (row: MasterRecord) => row.phone_number },
+    { header: 'Branch', cell: (row: MasterRecord) => row.branch_name },
+    { header: 'Status', cell: (row: MasterRecord) => <Badge variant={row.status === 'active' ? 'default' : 'secondary'} className="capitalize">{row.status}</Badge> },
+    { header: 'Outstanding', cell: (row: MasterRecord) => <div className="font-mono text-right">{formatCurrency(row.outstanding_balance)}</div> },
+    { header: 'Last Payment', cell: (row: MasterRecord) => row.last_payment_date ? new Date(row.last_payment_date).toLocaleDateString() : <span className="text-muted-foreground">N/A</span> },
+  ];
+  
+  const exportColumns = [
+    { header: 'Name', accessorKey: 'full_name' },
+    { header: 'ID Number', accessorKey: 'id_number' },
+    { header: 'Phone', accessorKey: 'phone_number' },
+    { header: 'Branch', accessorKey: 'branch_name' },
+    { header: 'Status', accessorKey: 'status' },
+    { header: 'Total Loans', accessorKey: 'total_loans' },
+    { header: 'Outstanding Balance', accessorKey: (row: MasterRecord) => formatCurrency(row.outstanding_balance) },
+    { header: 'Last Payment Date', accessorKey: 'last_payment_date' },
+  ];
+
+  if (loading) { return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>; }
+
+  // --- Frontend Access Control ---
+  if (userRole !== 'super_admin' && userRole !== 'branch_manager') {
+    return (
+      <div className="p-6">
+        <Card className="max-w-md mx-auto">
+          <CardHeader className="text-center">
+            <ShieldAlert className="mx-auto h-12 w-12 text-yellow-500" />
+            <CardTitle className="mt-4">Access Denied</CardTitle>
+            <CardDescription>You do not have the required permissions to view the Master Roll.</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="space-y-6 p-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Master Roll</h1>
-          <p className="text-muted-foreground">Complete member registry and records</p>
+          <p className="text-muted-foreground mt-1">A real-time, comprehensive registry of all members in your scope.</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => handleExport('csv')}>
-            <Download className="h-4 w-4 mr-2" />
-            Export CSV
-          </Button>
-          <Button variant="outline" onClick={() => handleExport('pdf')}>
-            <FileText className="h-4 w-4 mr-2" />
-            Export PDF
-          </Button>
-        </div>
+        <ExportDropdown 
+            data={filteredRecords} 
+            columns={exportColumns} 
+            fileName="master_roll_report" 
+            reportTitle="Master Roll Report" 
+        />
       </div>
-
-      {/* Summary Cards */}
+      
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Total Members</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-primary">{records.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Active Members</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-success">{records.filter(r => r.status === 'active').length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Total Outstanding</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-warning">
-              {formatCurrency(records.reduce((sum, r) => sum + (r.outstanding_balance || 0), 0))}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Suspended Members</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-destructive">{records.filter(r => r.status === 'suspended').length}</div>
-          </CardContent>
-        </Card>
+        <StatCard title="Total Members" value={records.length} />
+        <StatCard title="Active Members" value={records.filter(r => r.status === 'active').length} />
+        <StatCard title="Total Outstanding" value={formatCurrency(records.reduce((sum, r) => sum + (r.outstanding_balance || 0), 0))} />
       </div>
 
-      {/* Master Roll Table */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">Member Records</CardTitle>
-          <CardDescription>Complete registry of all members across all branches</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Filters */}
-          <div className="flex flex-col lg:flex-row gap-4">
-            <div className="flex-1">
-              <Label htmlFor="search">Search Members</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="search"
-                  placeholder="Search by name, ID, phone, or group..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <CardTitle>Member Records</CardTitle>
+                <CardDescription>Showing {filteredRecords.length} of {records.length} members.</CardDescription>
             </div>
-            <div className="w-full lg:w-48">
-              <Label htmlFor="status">Status</Label>
-              <Select value={statusFilter} onValueChange={(value: string) => setStatusFilter(value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                  <SelectItem value="suspended">Suspended</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="w-full lg:w-48">
-              <Label htmlFor="branch">Branch</Label>
-              <Select value={branchFilter} onValueChange={(value: string) => setBranchFilter(value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Branches" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Branches</SelectItem>
-                  {branches.map(branch => (
-                    <SelectItem key={branch.id} value={branch.name}>{branch.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="relative w-full md:w-80">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input placeholder="Search by name, ID, or phone..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9" />
             </div>
           </div>
-
-          {/* Records Table */}
-          <ScrollableContainer>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Member ID</TableHead>
-                  <TableHead>Full Name</TableHead>
-                  <TableHead>ID Number</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead>Group</TableHead>
-                  <TableHead>Branch</TableHead>
-                  <TableHead>Registration</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Total Loans</TableHead>
-                  <TableHead>Outstanding</TableHead>
-                  <TableHead>Last Payment</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredRecords.map((record) => (
-                  <TableRow key={record.id}>
-                    <TableCell className="font-medium font-mono text-sm">{record.id.substring(0, 8)}</TableCell>
-                    <TableCell className="font-medium">{record.full_name}</TableCell>
-                    <TableCell className="font-mono text-sm">{record.id_number}</TableCell>
-                    <TableCell className="text-sm">{record.phone_number}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{record.group_name || 'No Group'}</Badge>
-                    </TableCell>
-                    <TableCell className="text-sm">{record.branch_name || 'No Branch'}</TableCell>
-                    <TableCell className="text-sm">
-                      {new Date(record.created_at).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell>
-                      <Badge 
-                        variant={
-                          record.status === 'active' ? 'default' : 
-                          record.status === 'suspended' ? 'destructive' : 'secondary'
-                        }
-                      >
-                        {record.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-center font-semibold">{record.total_loans || 0}</TableCell>
-                    <TableCell className="font-medium">
-                      {formatCurrency(record.outstanding_balance || 0)}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {record.last_payment_date ? new Date(record.last_payment_date).toLocaleDateString() : '-'}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </ScrollableContainer>
-
-          {filteredRecords.length === 0 && (
-            <div className="text-center py-8">
-              <Filter className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">No records found matching your criteria.</p>
-            </div>
-          )}
+        </CardHeader>
+        <CardContent>
+          <DataTable columns={columns} data={filteredRecords} emptyStateMessage="No member records found." />
         </CardContent>
       </Card>
     </div>
   );
 };
+
+const StatCard: React.FC<{title: string, value: string | number}> = ({ title, value }) => (
+    <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium">{title}</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{value}</div></CardContent></Card>
+);
 
 export default MasterRoll;
