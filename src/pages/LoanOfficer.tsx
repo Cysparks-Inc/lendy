@@ -195,7 +195,7 @@ const LoanOfficerPage: React.FC = () => {
         <StatCard title="Total Outstanding" value={formatCurrency(totalOutstanding)} icon={TrendingUp} />
       </div>
       
-      {/* Data Table Card - Mobile Optimized with Proper Scroll Container */}
+      {/* Data Table Card - Mobile Optimized with DataTable's built-in scroll */}
       <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -211,17 +211,12 @@ const LoanOfficerPage: React.FC = () => {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="p-0">
-          {/* Properly contained horizontal scroll */}
-          <div className="w-full overflow-x-auto">
-            <div className="min-w-[780px] w-full">
-              <DataTable 
-                columns={columns(userRole)} 
-                data={filteredOfficers} 
-                emptyStateMessage="No loan officers found for your role."
-              />
-            </div>
-          </div>
+        <CardContent>
+          <DataTable 
+            columns={columns(userRole)} 
+            data={filteredOfficers} 
+            emptyStateMessage="No loan officers found for your role."
+          />
         </CardContent>
       </Card>
     </div>
