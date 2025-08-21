@@ -16,6 +16,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { Menu, X } from "lucide-react"
 
 const SIDEBAR_COOKIE_NAME = "sidebar:state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
@@ -261,7 +262,7 @@ const SidebarTrigger = React.forwardRef<
   React.ElementRef<typeof Button>,
   React.ComponentProps<typeof Button>
 >(({ className, onClick, ...props }, ref) => {
-  const { toggleSidebar } = useSidebar()
+  const { toggleSidebar, openMobile, isMobile } = useSidebar()
 
   return (
     <Button
@@ -276,7 +277,11 @@ const SidebarTrigger = React.forwardRef<
       }}
       {...props}
     >
-      <PanelLeft />
+      {isMobile && openMobile ? (
+        <X className="h-4 w-4" />
+      ) : (
+        <Menu className="h-4 w-4" />
+      )}
       <span className="sr-only">Toggle Sidebar</span>
     </Button>
   )

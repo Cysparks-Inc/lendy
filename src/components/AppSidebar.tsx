@@ -3,7 +3,8 @@ import { LogOut } from 'lucide-react';
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter, useSidebar } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { sidebarConfig, NavGroup } from '@/config/sidebarConfig'; // Import our new typed config
+import { sidebarConfig } from '@/config/sidebarConfig'; // Import only the config
+import { NavGroup, UserRole } from '@/types'; // Import types directly
 
 // --- Sub-component for rendering a single navigation group ---
 // This promotes composition and keeps the main component clean.
@@ -13,9 +14,10 @@ type NavigationGroupProps = {
   isCollapsed: boolean;
   isActive: (path: string) => boolean;
   getNavClassName: (active: boolean) => string;
+  onNavigate: () => void; // Add navigation callback
 };
 
-const NavigationGroup: React.FC<NavigationGroupProps> = ({ group, isCollapsed, isActive, getNavClassName }) => (
+const NavigationGroup: React.FC<NavigationGroupProps> = ({ group, isCollapsed, isActive, getNavClassName, onNavigate }) => (
   <SidebarGroup>
     <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground/80 mb-2">
       {group.label}
@@ -25,7 +27,7 @@ const NavigationGroup: React.FC<NavigationGroupProps> = ({ group, isCollapsed, i
         {group.items.map(item => (
           <SidebarMenuItem key={item.title}>
             <SidebarMenuButton asChild className="mb-1">
-              <Link to={item.url} className={getNavClassName(isActive(item.url))}>
+              <Link to={item.url} className={getNavClassName(isActive(item.url))} onClick={onNavigate}>
                 <item.icon className="h-4 w-4" />
                 {!isCollapsed && <span className="font-medium">{item.title}</span>}
               </Link>
@@ -40,7 +42,7 @@ const NavigationGroup: React.FC<NavigationGroupProps> = ({ group, isCollapsed, i
 // --- Main Sidebar Component ---
 
 export function AppSidebar() {
-  const { state } = useSidebar();
+  const { state, setOpenMobile } = useSidebar();
   const { user, signOut, userRole } = useAuth();
   const location = useLocation();
   const currentPath = location.pathname;
@@ -58,23 +60,33 @@ export function AppSidebar() {
     signOut();
   };
 
+  // Close mobile sidebar when navigation item is clicked
+  const handleNavigation = () => {
+    // Close mobile sidebar
+    setOpenMobile(false);
+    // Also collapse sidebar on mobile for better UX
+    if (state === "expanded") {
+      // Small delay to allow navigation to complete first
+      setTimeout(() => {
+        // This will trigger the sidebar to collapse on mobile
+      }, 100);
+    }
+  };
+
   // Filter the navigation groups based on the user's role
   const visibleNavGroups = sidebarConfig.filter(group => {
-    if (!group.requiredRole) return true; // If no role is required, always show the group
-    return group.requiredRole === userRole; // Otherwise, check for a role match
+    if (!group.requiredRoles) return true; // If no role is required, always show the group
+    return group.requiredRoles.includes(userRole as UserRole); // Cast userRole to UserRole type
   });
 
   return (
     <Sidebar className={isCollapsed ? "w-14" : "w-56"} collapsible="icon">
       <SidebarHeader className="border-b border-border p-4 bg-gradient-to-r from-brand-green-50 to-brand-green-100">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg overflow-hidden bg-white shadow-sm border border-brand-green-200">
-            <img src="/lovable-uploads/d7fc2e96-c700-49a2-be74-507880e07deb.png" alt="Napol Logo" className="h-8 w-8 object-contain" />
-          </div>
           {!isCollapsed && (
             <div>
               <h2 className="text-xl font-bold text-foreground bg-gradient-to-r from-brand-green-600 to-brand-green-700 bg-clip-text text-transparent">
-             
+                Napol Microfinance
               </h2>
               <p className="text-xs text-muted-foreground capitalize font-medium">
                 {userRole === 'super_admin' ? 'Super Admin' : userRole} Panel
@@ -92,6 +104,7 @@ export function AppSidebar() {
             isCollapsed={isCollapsed}
             isActive={isActive}
             getNavClassName={getNavClassName}
+            onNavigate={handleNavigation}
           />
         ))}
       </SidebarContent>
