@@ -137,43 +137,43 @@ const MembersPage: React.FC = () => {
 
       {/* Summary Cards */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card className="border-brand-green-200 hover:border-brand-green-300 transition-colors">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Members</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <Users className="h-4 w-4 text-brand-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{members.length}</div>
+            <div className="text-2xl font-bold text-brand-green-700">{members.length}</div>
             <p className="text-xs text-muted-foreground">Registered members</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-brand-green-200 hover:border-brand-green-300 transition-colors">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Members</CardTitle>
-            <UserCheck className="h-4 w-4 text-muted-foreground" />
+            <UserCheck className="h-4 w-4 text-brand-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{members.filter(m => m.status === 'active').length}</div>
+            <div className="text-2xl font-bold text-brand-green-700">{members.filter(m => m.status === 'active').length}</div>
             <p className="text-xs text-muted-foreground">Currently active</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-brand-green-200 hover:border-brand-green-300 transition-colors">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Outstanding</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <DollarSign className="h-4 w-4 text-brand-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(members.reduce((sum, m) => sum + m.outstanding_balance, 0))}</div>
+            <div className="text-2xl font-bold text-brand-green-700">{formatCurrency(members.reduce((sum, m) => sum + m.outstanding_balance, 0))}</div>
             <p className="text-xs text-muted-foreground">Combined balance</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-brand-green-200 hover:border-brand-green-300 transition-colors">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">With Loans</CardTitle>
-            <Banknote className="h-4 w-4 text-muted-foreground" />
+            <Banknote className="h-4 w-4 text-brand-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{members.filter(m => m.total_loans > 0).length}</div>
+            <div className="text-2xl font-bold text-brand-green-700">{members.filter(m => m.total_loans > 0).length}</div>
             <p className="text-xs text-muted-foreground">Have active loans</p>
           </CardContent>
         </Card>

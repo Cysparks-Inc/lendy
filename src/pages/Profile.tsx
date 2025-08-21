@@ -158,7 +158,7 @@ const Profile = () => {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 p-2 sm:p-4 md:p-6">
         <h1 className="text-3xl font-bold text-foreground">Profile</h1>
         <div className="animate-pulse">
           <Card>
@@ -176,7 +176,7 @@ const Profile = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-2 sm:p-4 md:p-6">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-foreground">My Profile</h1>

@@ -3,7 +3,6 @@ import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ArrowLeft, Loader2, Phone, Mail, MessageSquare, Briefcase, Home, Banknote, Users, DollarSign, Edit, Eye, UserCheck, PlusCircle, FileText, History } from 'lucide-react';
@@ -11,6 +10,9 @@ import { toast } from 'sonner';
 
 // --- UI/UX FIX: Import the styled Tabs components from shadcn/ui ---
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+// Import DataTable for consistent table styling
+import { DataTable } from '@/components/ui/data-table';
 
 // Import the dialog components
 import GenerateStatementDialog from '@/components/members/GenerateStatementDialog';
@@ -82,43 +84,101 @@ const MemberProfilePage: React.FC = () => {
 
   return (
     <>
-        <div className="space-y-6 p-6">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                    <Button asChild variant="outline" size="sm" className="mb-4"><Link to="/members"><ArrowLeft className="mr-2 h-4 w-4" />Back to Members</Link></Button>
-                    <h1 className="text-3xl font-bold text-foreground">{member.full_name}</h1>
-                    <p className="text-muted-foreground">Member Profile & Financial History</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                    <Button onClick={() => setIsLogDialogOpen(true)} variant="secondary"><History className="mr-2 h-4 w-4" /> Log Activity</Button>
-                    <Button asChild><Link to={`/loans/new?memberId=${member.id}&memberName=${member.full_name}`}><PlusCircle className="mr-2 h-4 w-4" /> New Loan</Link></Button>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild><Button variant="outline">More Actions</Button></DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setIsStatementDialogOpen(true)}><FileText className="mr-2 h-4 w-4" /><span>Generate Statement</span></DropdownMenuItem>
-                            <DropdownMenuItem asChild><Link to={`/members/${member.id}/edit`}><Edit className="mr-2 h-4 w-4" /><span>Edit Member</span></Link></DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+        <div className="space-y-6 p-2 sm:p-4 md:p-6">
+            {/* Modern Mobile-First Header */}
+            <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div className="space-y-2">
+                        <Button asChild variant="outline" size="sm" className="w-full sm:w-auto">
+                            <Link to="/members">
+                                <ArrowLeft className="mr-2 h-4 w-4" />
+                                Back to Members
+                            </Link>
+                        </Button>
+                        <div>
+                            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">{member.full_name}</h1>
+                            <p className="text-muted-foreground text-sm sm:text-base">Member Profile & Financial History</p>
+                        </div>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                        <Button onClick={() => setIsLogDialogOpen(true)} variant="secondary" className="w-full sm:w-auto">
+                            <History className="mr-2 h-4 w-4" /> 
+                            Log Activity
+                        </Button>
+                        <Button asChild className="w-full sm:w-auto">
+                            <Link to={`/loans/new?memberId=${member.id}&memberName=${member.full_name}`}>
+                                <PlusCircle className="mr-2 h-4 w-4" /> 
+                                New Loan
+                            </Link>
+                        </Button>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" className="w-full sm:w-auto">
+                                    More Actions
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48">
+                                <DropdownMenuItem onClick={() => setIsStatementDialogOpen(true)}>
+                                    <FileText className="mr-2 h-4 w-4" />
+                                    <span>Generate Statement</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem asChild>
+                                    <Link to={`/members/${member.id}/edit`}>
+                                        <Edit className="mr-2 h-4 w-4" />
+                                        <span>Edit Member</span>
+                                    </Link>
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
                 </div>
             </div>
 
+            {/* Modern Responsive Layout */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Profile Card - Full width on mobile, left column on desktop */}
                 <div className="lg:col-span-1 space-y-6">
-                    <Card>
-                        <CardHeader className="items-center text-center">
-                            <div className="h-24 w-24 rounded-full bg-secondary flex items-center justify-center mb-4 border">
-                                {member.profile_picture_url ? (<img key={member.profile_picture_url} src={member.profile_picture_url} alt={member.full_name} className="h-full w-full rounded-full object-cover" />) : (<span className="text-4xl font-bold text-primary">{member.full_name.charAt(0)}</span>)}
+                    <Card className="overflow-hidden">
+                        <CardHeader className="items-center text-center pb-6">
+                            <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-secondary flex items-center justify-center mb-4 border-2 border-secondary/20">
+                                {member.profile_picture_url ? (
+                                    <img 
+                                        key={member.profile_picture_url} 
+                                        src={member.profile_picture_url} 
+                                        alt={member.full_name} 
+                                        className="h-full w-full rounded-full object-cover" 
+                                    />
+                                ) : (
+                                    <span className="text-2xl sm:text-4xl font-bold text-primary">
+                                        {member.full_name.charAt(0)}
+                                    </span>
+                                )}
                             </div>
-                            <CardTitle>{member.full_name}</CardTitle>
-                            <CardDescription>ID: {member.id_number}</CardDescription>
+                            <CardTitle className="text-lg sm:text-xl">{member.full_name}</CardTitle>
+                            <CardDescription className="text-sm">ID: {member.id_number}</CardDescription>
                         </CardHeader>
-                        <CardContent>
-                            <div className="space-y-2">
+                        <CardContent className="space-y-4">
+                            <div className="space-y-3">
                                 <InfoItem icon={Phone} label="Phone Number" value={member.phone_number} />
-                                <div className="flex gap-2 pl-8">
-                                    <Button asChild size="sm" variant="outline"><a href={`tel:${member.phone_number}`}><Phone className="mr-2 h-4 w-4"/>Call</a></Button>
-                                    <Button asChild size="sm" variant="outline"><a href={`sms:${member.phone_number}`}><MessageSquare className="mr-2 h-4 w-4"/>SMS</a></Button>
-                                    <Button asChild size="sm" variant="outline"><a href={`https://wa.me/${cleanPhoneNumber}`} target="_blank" rel="noopener noreferrer"><img src="/whatsapp-icon.svg" className="mr-2 h-4 w-4"/>WhatsApp</a></Button>
+                                <div className="flex flex-col sm:flex-row gap-2 pl-8 sm:pl-6">
+                                    <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
+                                        <a href={`tel:${member.phone_number}`}>
+                                            <Phone className="mr-2 h-4 w-4"/>
+                                            Call
+                                        </a>
+                                    </Button>
+                                    <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
+                                        <a href={`sms:${member.phone_number}`}>
+                                            <MessageSquare className="mr-2 h-4 w-4"/>
+                                            SMS
+                                        </a>
+                                    </Button>
+                                    <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
+                                        <a href={`https://wa.me/${cleanPhoneNumber}`} target="_blank" rel="noopener noreferrer">
+                                            <img src="/whatsapp-icon.svg" className="mr-2 h-4 w-4"/>
+                                            WhatsApp
+                                        </a>
+                                    </Button>
                                 </div>
                             </div>
                             <InfoItem icon={Briefcase} label="Profession" value={member.profession} />
@@ -128,42 +188,52 @@ const MemberProfilePage: React.FC = () => {
                     </Card>
                 </div>
 
+                {/* Main Content - Full width on mobile, right columns on desktop */}
                 <div className="lg:col-span-2 space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Stats Cards - Responsive grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                         <StatCard icon={Banknote} title="Active Loans" value={loans.length} />
                         <StatCard icon={DollarSign} title="Total Outstanding" value={formatCurrency(totalOutstanding)} />
                         <StatCard icon={Users} title="Branch" value={member.branch_name} />
                     </div>
+                    
+                    {/* Activity & History Card */}
                     <Card>
-                        <CardHeader><CardTitle>Activity & History</CardTitle></CardHeader>
+                        <CardHeader>
+                            <CardTitle>Activity & History</CardTitle>
+                        </CardHeader>
                         <CardContent>
-                            {/* --- UI/UX FIX: Using the styled shadcn/ui Tabs component --- */}
                             <Tabs defaultValue="loans" className="w-full">
                                 <TabsList className="grid w-full grid-cols-2">
                                     <TabsTrigger value="loans">Loan History</TabsTrigger>
                                     <TabsTrigger value="communication">Communication History</TabsTrigger>
                                 </TabsList>
-                                <TabsContent value="loans" className="mt-4">
-                                    <Table>
-                                        <TableHeader><TableRow><TableHead>Account No.</TableHead><TableHead>Principal</TableHead><TableHead>Outstanding</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
-                                        <TableBody>
-                                            {loans.length > 0 ? loans.map(loan => (
-                                                <TableRow key={loan.id}>
-                                                    <TableCell className="font-mono text-xs">{loan.account_number}</TableCell>
-                                                    <TableCell>{formatCurrency(loan.principal_amount)}</TableCell>
-                                                    <TableCell>{formatCurrency(loan.current_balance)}</TableCell>
-                                                    <TableCell><Badge variant={getStatusVariant(loan.status)} className="capitalize">{loan.status}</Badge></TableCell>
-                                                    <TableCell className="text-right"><Button asChild variant="outline" size="icon"><Link to={`/loans/${loan.id}`}><Eye className="h-4 w-4" /></Link></Button></TableCell>
-                                                </TableRow>
-                                            )) : <TableRow><TableCell colSpan={5} className="h-24 text-center">No loan history for this member.</TableCell></TableRow>}
-                                        </TableBody>
-                                    </Table>
+                                <TabsContent value="loans" className="mt-6">
+                                    <DataTable 
+                                        columns={[
+                                            { header: 'Account No.', cell: (row) => <span className="font-mono text-xs">{row.account_number}</span> },
+                                            { header: 'Principal', cell: (row) => formatCurrency(row.principal_amount) },
+                                            { header: 'Outstanding', cell: (row) => formatCurrency(row.current_balance) },
+                                            { header: 'Status', cell: (row) => <Badge variant={getStatusVariant(row.status)} className="capitalize">{row.status}</Badge> },
+                                            { header: 'Actions', cell: (row) => (
+                                                <div className="text-right">
+                                                    <Button asChild variant="outline" size="icon">
+                                                        <Link to={`/loans/${row.id}`}>
+                                                            <Eye className="h-4 w-4" />
+                                                        </Link>
+                                                    </Button>
+                                                </div>
+                                            ) }
+                                        ]} 
+                                        data={loans} 
+                                        emptyStateMessage="No loan history for this member." 
+                                    />
                                 </TabsContent>
-                                <TabsContent value="communication" className="mt-4">
+                                <TabsContent value="communication" className="mt-6">
                                     <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
                                         {communicationLogs.length > 0 ? communicationLogs.map(log => (
                                             <div key={log.id} className="p-3 rounded-md border bg-muted/50">
-                                                <div className="flex justify-between items-center mb-1">
+                                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
                                                     <p className="font-semibold text-sm">{log.officer_name || 'System'} via {log.communication_type}</p>
                                                     <p className="text-xs text-muted-foreground">{new Date(log.created_at).toLocaleString()}</p>
                                                 </div>
@@ -186,17 +256,27 @@ const MemberProfilePage: React.FC = () => {
 };
 
 const InfoItem: React.FC<{icon: React.ElementType, label: string, value: string | null | undefined}> = ({icon: Icon, label, value}) => (
-    <div className="flex items-start gap-4 pt-4">
-        <Icon className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-1" />
-        <div>
-            <p className="text-sm text-muted-foreground">{label}</p>
-            <p className="font-medium">{value || 'N/A'}</p>
-        </div>
+    <div className="space-y-1">
+        <p className="text-xs sm:text-sm font-medium text-muted-foreground flex items-center gap-2">
+            <Icon className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+            <span className="truncate">{label}</span>
+        </p>
+        <p className="font-semibold text-sm sm:text-base text-foreground truncate">
+            {value || 'N/A'}
+        </p>
     </div>
 );
 
 const StatCard: React.FC<{title: string, value: string | number, icon: React.ElementType}> = ({ title, value, icon: Icon }) => (
-    <Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">{title}</CardTitle><Icon className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{value}</div></CardContent></Card>
+    <Card className="border-brand-green-200 hover:border-brand-green-300 transition-colors">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-xs sm:text-sm font-medium">{title}</CardTitle>
+            <Icon className="h-4 w-4 text-brand-green-600" />
+        </CardHeader>
+        <CardContent>
+            <div className="text-lg sm:text-2xl font-bold text-brand-green-700">{value}</div>
+        </CardContent>
+    </Card>
 );
 
 export default MemberProfilePage;

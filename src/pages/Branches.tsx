@@ -3,9 +3,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Search, Plus, Edit, Trash2, MapPin, Building, Users, ShieldAlert, Loader2, DollarSign } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Plus, Search, Edit, Trash2, Building, Users, CreditCard, DollarSign, Loader2, AlertCircle, ShieldAlert } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/ui/data-table';
@@ -19,6 +22,8 @@ interface Branch {
   member_count: number;
   loan_count: number;
   total_outstanding: number;
+  total_loans?: number; // Added for new summary cards
+  total_portfolio?: number; // Added for new summary cards
 }
 
 const Branches: React.FC = () => {
@@ -139,7 +144,7 @@ const Branches: React.FC = () => {
 
   if (userRole !== 'super_admin') {
     return (
-      <div className="p-6"><Card className="max-w-md mx-auto">
+      <div className="p-2 sm:p-4 md:p-6"><Card className="max-w-md mx-auto">
         <CardHeader className="text-center">
           <ShieldAlert className="mx-auto h-12 w-12 text-yellow-500" />
           <CardTitle className="mt-4">Access Denied</CardTitle>
@@ -151,7 +156,7 @@ const Branches: React.FC = () => {
 
   return (
     <>
-      <div className="space-y-6 p-6">
+      <div className="space-y-6 p-2 sm:p-4 md:p-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold text-foreground">Branch Management</h1>
@@ -160,10 +165,40 @@ const Branches: React.FC = () => {
           <Button onClick={() => openDialog()}><Plus className="h-4 w-4 mr-2" />New Branch</Button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <StatCard title="Total Branches" value={branches.length} icon={Building} />
-          <StatCard title="Total Members" value={branches.reduce((sum, b) => sum + b.member_count, 0)} icon={Users} />
-          <StatCard title="Total Outstanding" value={formatCurrency(branches.reduce((sum, b) => sum + b.total_outstanding, 0))} icon={DollarSign} />
+        {/* Summary Cards */}
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2"><Building className="h-4 w-4 text-muted-foreground" />Total Branches</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{branches.length}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2"><Users className="h-4 w-4 text-muted-foreground" />Total Members</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{branches.reduce((sum, b) => sum + (b.member_count || 0), 0)}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2"><CreditCard className="h-4 w-4 text-muted-foreground" />Total Loans</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{branches.reduce((sum, b) => sum + (b.total_loans || 0), 0)}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2"><DollarSign className="h-4 w-4 text-muted-foreground" />Total Portfolio</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatCurrency(branches.reduce((sum, b) => sum + (b.total_portfolio || 0), 0))}</div>
+            </CardContent>
+          </Card>
         </div>
 
         <Card>
@@ -174,7 +209,7 @@ const Branches: React.FC = () => {
             </div>
           </CardHeader>
           <CardContent>
-            <DataTable columns={columns} data={filteredBranches} emptyStateMessage="No branches found. Click 'New Branch' to create one." />
+            <DataTable columns={columns} data={filteredBranches} emptyStateMessage="No branches found matching your criteria." />
           </CardContent>
         </Card>
       </div>

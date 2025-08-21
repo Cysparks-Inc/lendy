@@ -105,7 +105,7 @@ const MasterRoll: React.FC = () => {
   // --- Frontend Access Control ---
   if (userRole !== 'super_admin' && userRole !== 'branch_manager') {
     return (
-      <div className="p-6">
+      <div className="p-2 sm:p-4 md:p-6">
         <Card className="max-w-md mx-auto">
           <CardHeader className="text-center">
             <ShieldAlert className="mx-auto h-12 w-12 text-yellow-500" />

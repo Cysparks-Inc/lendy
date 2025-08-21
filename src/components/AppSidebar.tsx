@@ -52,7 +52,7 @@ export function AppSidebar() {
   };
 
   const getNavClassName = (active: boolean): string =>
-    active ? "bg-primary text-primary-foreground font-medium shadow-sm" : "hover:bg-accent hover:text-accent-foreground transition-all duration-200";
+    active ? "bg-brand-green-600 text-white font-medium shadow-sm" : "hover:bg-brand-green-50 hover:text-brand-green-700 transition-all duration-200";
 
   const handleSignOut = (): void => {
     signOut();
@@ -66,15 +66,15 @@ export function AppSidebar() {
 
   return (
     <Sidebar className={isCollapsed ? "w-14" : "w-56"} collapsible="icon">
-      <SidebarHeader className="border-b border-border p-4 bg-gradient-to-r from-primary/5 to-primary/10">
+      <SidebarHeader className="border-b border-border p-4 bg-gradient-to-r from-brand-green-50 to-brand-green-100">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg overflow-hidden bg-white shadow-sm">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg overflow-hidden bg-white shadow-sm border border-brand-green-200">
             <img src="/lovable-uploads/d7fc2e96-c700-49a2-be74-507880e07deb.png" alt="Napol Logo" className="h-8 w-8 object-contain" />
           </div>
           {!isCollapsed && (
             <div>
-              <h2 className="text-xl font-bold text-foreground bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
-                Napol
+              <h2 className="text-xl font-bold text-foreground bg-gradient-to-r from-brand-green-600 to-brand-green-700 bg-clip-text text-transparent">
+             
               </h2>
               <p className="text-xs text-muted-foreground capitalize font-medium">
                 {userRole === 'super_admin' ? 'Super Admin' : userRole} Panel

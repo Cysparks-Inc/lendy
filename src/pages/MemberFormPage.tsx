@@ -185,7 +185,7 @@ const MemberFormPage: React.FC = () => {
 
     if (successData) {
         return (
-            <div className="flex flex-col items-center justify-center h-full p-6 text-center">
+            <div className="flex flex-col items-center justify-center h-full p-2 sm:p-4 md:p-6 text-center">
                 <Card className="max-w-md"><CardHeader>
                     <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100"><CheckCircle className="h-6 w-6 text-green-600" /></div>
                     <CardTitle className="mt-4">Success!</CardTitle><CardDescription>Member "{successData.name}" has been saved.</CardDescription>
@@ -199,7 +199,7 @@ const MemberFormPage: React.FC = () => {
     }
 
     return (
-        <div className="p-6 max-w-5xl mx-auto">
+        <div className="p-2 sm:p-4 md:p-6 max-w-5xl mx-auto">
             <Button asChild variant="outline" size="sm" className="mb-4"><Link to="/members"><ArrowLeft className="mr-2 h-4 w-4" />Back to Members</Link></Button>
             <form onSubmit={handleSubmit(onSubmit)}>
                 <Card><CardHeader>

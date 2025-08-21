@@ -1,17 +1,18 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Plus, Search, Edit, Trash2, UsersRound, MapPin, ArrowLeft, Loader2, AlertCircle, Banknote, Landmark, DollarSign, UserCheck, Eye } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Search, Plus, Edit, Trash2, UsersRound, Banknote, DollarSign, Eye, Loader2, Building } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { DataTable } from '@/components/ui/data-table';
+import { GroupForm } from './GroupForm';
+import { GroupProfile } from './GroupProfile';
+import { SecureTable } from '@/components/ui/secure-table';
 
 // --- Interfaces ---
 interface Group {
@@ -214,7 +215,7 @@ const Groups = () => {
   }
 
   if (view.page === 'profile' && view.data) {
-    return <div className="p-6"><GroupProfile group={view.data} onBack={() => setView({ page: 'list', data: null })} /></div>;
+    return <div className="p-2 sm:p-4 md:p-6"><GroupProfile group={view.data} onBack={() => setView({ page: 'list', data: null })} /></div>;
   }
 
   return (
@@ -291,58 +292,45 @@ const Groups = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="table-container border rounded-md">
-                <div className="min-w-full inline-block align-middle">
-                  <div className="overflow-hidden">
-                    <Table className="min-w-full">
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="whitespace-nowrap bg-muted/50 px-4 py-3 text-left text-sm font-medium text-muted-foreground">Group Name</TableHead>
-                          <TableHead className="whitespace-nowrap bg-muted/50 px-4 py-3 text-left text-sm font-medium text-muted-foreground">Location</TableHead>
-                          <TableHead className="whitespace-nowrap bg-muted/50 px-4 py-3 text-left text-sm font-medium text-muted-foreground">Branch</TableHead>
-                          <TableHead className="whitespace-nowrap bg-muted/50 px-4 py-3 text-left text-sm font-medium text-muted-foreground">Members</TableHead>
-                          <TableHead className="whitespace-nowrap bg-muted/50 px-4 py-3 text-left text-sm font-medium text-muted-foreground">Loans</TableHead>
-                          <TableHead className="whitespace-nowrap bg-muted/50 px-4 py-3 text-left text-sm font-medium text-muted-foreground">Outstanding</TableHead>
-                          <TableHead className="whitespace-nowrap bg-muted/50 px-4 py-3 text-left text-sm font-medium text-muted-foreground">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredGroups.map((group) => (
-                          <TableRow key={group.id} className="hover:bg-muted/50 transition-colors">
-                            <TableCell className="whitespace-nowrap px-4 py-3">
-                              <Button variant="link" className="p-0 h-auto font-medium" onClick={() => setView({ page: 'profile', data: group })}>
-                                {group.name}
-                              </Button>
-                            </TableCell>
-                            <TableCell className="whitespace-nowrap px-4 py-3">{group.location}</TableCell>
-                            <TableCell className="whitespace-nowrap px-4 py-3">{group.branch_name}</TableCell>
-                            <TableCell className="whitespace-nowrap px-4 py-3">{group.member_count}</TableCell>
-                            <TableCell className="whitespace-nowrap px-4 py-3">{group.total_loans}</TableCell>
-                            <TableCell className="whitespace-nowrap px-4 py-3">{formatCurrency(group.outstanding_balance)}</TableCell>
-                            <TableCell className="whitespace-nowrap px-4 py-3">
-                              <div className="flex gap-2">
-                                <Button variant="outline" size="icon" onClick={() => setView({ page: 'profile', data: group })}>
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                                {isSuperAdmin && (
-                                  <>
-                                    <Button variant="outline" size="icon" onClick={() => setModal({ type: 'edit', data: group })}>
-                                      <Edit className="h-4 w-4" />
-                                    </Button>
-                                    <Button variant="outline" size="icon" onClick={() => setModal({ type: 'delete', data: group })}>
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </>
-                                )}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
-              </div>
+              <DataTable 
+                columns={[
+                  { 
+                    header: 'Group Name', 
+                    cell: (row) => (
+                      <Button variant="link" className="p-0 h-auto font-medium" onClick={() => setView({ page: 'profile', data: row })}>
+                        {row.name}
+                      </Button>
+                    )
+                  },
+                  { header: 'Location', cell: (row) => row.location },
+                  { header: 'Branch', cell: (row) => row.branch_name },
+                  { header: 'Members', cell: (row) => row.member_count },
+                  { header: 'Loans', cell: (row) => row.total_loans },
+                  { header: 'Outstanding', cell: (row) => formatCurrency(row.outstanding_balance) },
+                  { 
+                    header: 'Actions', 
+                    cell: (row) => (
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="icon" onClick={() => setView({ page: 'profile', data: row })}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        {isSuperAdmin && (
+                          <>
+                            <Button variant="outline" size="icon" onClick={() => setModal({ type: 'edit', data: row })}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button variant="outline" size="icon" onClick={() => setModal({ type: 'delete', data: row })}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    )
+                  }
+                ]} 
+                data={filteredGroups} 
+                emptyStateMessage="No groups found matching your criteria." 
+              />
             </CardContent>
           </Card>
         </>

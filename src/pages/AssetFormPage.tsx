@@ -134,7 +134,7 @@ const AssetFormPage: React.FC = () => {
     }
 
     return (
-        <div className="p-6 max-w-4xl mx-auto">
+        <div className="p-2 sm:p-4 md:p-6 max-w-4xl mx-auto">
             <Button asChild variant="outline" size="sm" className="mb-4"><Link to="/realizable-report"><ArrowLeft className="mr-2 h-4 w-4" />Back to Report</Link></Button>
             <Card>
                 <CardHeader>

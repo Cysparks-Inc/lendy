@@ -13,15 +13,18 @@
   
   /* Ensure tables don't cause page overflow */
   .table-container {
-    overflow-x: auto;
+    overflow-x: auto !important;
     max-width: 100%;
     -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+    scrollbar-width: thin; /* Firefox */
+    scrollbar-color: hsl(var(--muted-foreground) / 0.3) hsl(var(--muted)); /* Firefox */
   }
   
   /* Force table to respect container width */
   table {
     min-width: 100%;
     table-layout: auto;
+    width: 100%;
   }
   
   /* Ensure table cells don't wrap and cause layout issues */
@@ -30,78 +33,208 @@
     white-space: nowrap;
   }
   
-  /* Add custom scrollbar styling for better UX */
+  /* Enhanced card scrolling for wide content - HIGH PRIORITY */
+  .card.overflow-x-auto,
+  .overflow-x-auto,
+  .table-container {
+    overflow-x: auto !important;
+    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.3) hsl(var(--muted));
+  }
+  
+  /* Ensure all cards can handle overflow gracefully - but allow horizontal scrolling when needed */
+  .card {
+    max-width: 100%;
+    /* Remove overflow-x: hidden from cards to allow horizontal scrolling */
+  }
+  
+  /* Force horizontal scrolling for any element with table-container class */
+  div.table-container,
+  .table-container {
+    overflow-x: auto !important;
+    overflow-y: hidden;
+    /* Debug: Make scrollbar more visible */
+    border: 2px solid transparent;
+  }
+  
+  /* Ensure DataTable always has horizontal scrolling */
+  .data-table .table-container,
+  [class*="data-table"] .table-container {
+    overflow-x: auto !important;
+  }
+  
+  /* Debug: Make sure table containers are visible */
+  .table-container:hover {
+    border-color: hsl(var(--primary) / 0.3);
+  }
+  
+  /* Ensure table content doesn't wrap and forces horizontal scroll */
+  .table-container table {
+    min-width: max-content;
+    width: 100%;
+  }
+  
+  /* Force table headers and cells to not wrap */
+  .table-container th,
+  .table-container td {
+    white-space: nowrap !important;
+    min-width: max-content;
+  }
+  
+  /* Additional aggressive rules to ensure horizontal scrolling */
+  [class*="DataTable"] .table-container,
+  [class*="data-table"] .table-container {
+    overflow-x: auto !important;
+  }
+  
+  /* Force any div containing a table to have horizontal scroll */
+  div:has(table) {
+    overflow-x: auto !important;
+  }
+  
+  /* Ensure all table containers have horizontal scrolling regardless of parent */
+  .table-container,
+  div[class*="table-container"] {
+    overflow-x: auto !important;
+    max-width: 100%;
+  }
+  
+  /* Additional CSS to ensure horizontal scrolling works */
+  .table-container {
+    position: relative;
+  }
+  
+  /* Make scrollbars more visible */
   .table-container::-webkit-scrollbar {
-    height: 8px;
+    height: 12px !important;
+    background-color: hsl(var(--muted));
   }
   
   .table-container::-webkit-scrollbar-track {
     background: hsl(var(--muted));
-    border-radius: 4px;
+    border-radius: 6px;
   }
   
   .table-container::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.5);
+    border-radius: 6px;
+    border: 2px solid hsl(var(--muted));
+  }
+  
+  .table-container::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.7);
+  }
+  
+  /* Additional responsive fixes for cards and containers */
+  .space-y-6 {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+  
+  /* Ensure grid layouts don't overflow */
+  .grid {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+  
+  /* Additional responsive container fixes */
+  .p-2.sm\\:p-4.md\\:p-6 {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+  
+  /* Ensure all page containers are responsive */
+  [class*="space-y-6"] {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+  
+  /* Ensure form pages don't overflow */
+  .max-w-2xl,
+  .max-w-4xl,
+  .max-w-5xl {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+  
+  /* Add custom scrollbar styling for better UX */
+  .table-container::-webkit-scrollbar,
+  .overflow-x-auto::-webkit-scrollbar {
+    height: 8px;
+  }
+  
+  .table-container::-webkit-scrollbar-track,
+  .overflow-x-auto::-webkit-scrollbar-track {
+    background: hsl(var(--muted));
+    border-radius: 4px;
+  }
+  
+  .table-container::-webkit-scrollbar-thumb,
+  .overflow-x-auto::-webkit-scrollbar-thumb {
     background: hsl(var(--muted-foreground) / 0.3);
     border-radius: 4px;
   }
   
-  .table-container::-webkit-scrollbar-thumb:hover {
+  .table-container::-webkit-scrollbar-thumb:hover,
+  .overflow-x-auto::-webkit-scrollbar-thumb:hover {
     background: hsl(var(--muted-foreground) / 0.5);
   }
 
   :root {
-    /* Core brand colors - Financial theme with trustworthy blues */
+    /* Core brand colors - Green and Black theme */
     --background: 0 0% 100%;
-    --foreground: 216 28% 15%;
+    --foreground: 0 0% 0%;
 
     --card: 0 0% 100%;
-    --card-foreground: 216 28% 15%;
+    --card-foreground: 0 0% 0%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 216 28% 15%;
+    --popover-foreground: 0 0% 0%;
 
-    /* Primary: Professional navy blue for trust and security */
-    --primary: 216 68% 18%;
-    --primary-foreground: 0 0% 98%;
-    --primary-hover: 216 68% 22%;
+    /* Primary: Brand green for trust and growth */
+    --primary: 142 76% 36%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 142 76% 42%;
 
-    /* Secondary: Light professional gray */
-    --secondary: 210 20% 96%;
-    --secondary-foreground: 216 28% 15%;
+    /* Secondary: Professional black */
+    --secondary: 0 0% 10%;
+    --secondary-foreground: 0 0% 100%;
 
-    --muted: 210 20% 96%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
 
-    --accent: 210 20% 96%;
-    --accent-foreground: 216 28% 15%;
+    --accent: 142 76% 96%;
+    --accent-foreground: 142 76% 36%;
 
-    /* Financial status colors */
+    /* Financial status colors - Green theme */
     --success: 142 76% 36%;
-    --success-foreground: 0 0% 98%;
+    --success-foreground: 0 0% 100%;
     --success-light: 142 76% 96%;
 
     --warning: 48 96% 53%;
-    --warning-foreground: 20 14% 4%;
+    --warning-foreground: 0 0% 0%;
     --warning-light: 48 100% 96%;
 
     --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive-foreground: 0 0% 100%;
     --destructive-light: 0 100% 97%;
 
     /* UI Elements */
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 216 68% 18%;
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 142 76% 36%;
 
-    /* Gradients for financial branding */
-    --gradient-primary: linear-gradient(135deg, hsl(216 68% 18%), hsl(216 68% 22%));
+    /* Gradients for financial branding - Green and Black */
+    --gradient-primary: linear-gradient(135deg, hsl(142 76% 36%), hsl(142 76% 42%));
     --gradient-success: linear-gradient(135deg, hsl(142 76% 36%), hsl(142 76% 42%));
-    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%), hsl(210 20% 98%));
+    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%), hsl(0 0% 98%));
 
     /* Shadows for depth and professionalism */
-    --shadow-card: 0 2px 10px -2px hsl(216 28% 15% / 0.08);
-    --shadow-elevated: 0 8px 25px -8px hsl(216 28% 15% / 0.12);
-    --shadow-financial: 0 4px 20px -4px hsl(216 68% 18% / 0.15);
+    --shadow-card: 0 2px 10px -2px hsl(0 0% 0% / 0.08);
+    --shadow-elevated: 0 8px 25px -8px hsl(0 0% 0% / 0.12);
+    --shadow-financial: 0 4px 20px -4px hsl(142 76% 36% / 0.15);
 
     /* Animation variables */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -110,80 +243,73 @@
     --radius: 0.5rem;
 
     --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-foreground: 0 0% 0%;
+    --sidebar-primary: 142 76% 36%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 142 76% 96%;
+    --sidebar-accent-foreground: 142 76% 36%;
+    --sidebar-border: 0 0% 90%;
+    --sidebar-ring: 142 76% 36%;
   }
 
   .dark {
-    /* Dark mode: Deep financial theme with blue accents */
-    --background: 216 28% 8%;
+    /* Dark mode: Green and Black theme */
+    --background: 0 0% 8%;
     --foreground: 0 0% 95%;
 
-    --card: 216 28% 12%;
+    --card: 0 0% 12%;
     --card-foreground: 0 0% 95%;
 
-    --popover: 216 28% 12%;
+    --popover: 0 0% 12%;
     --popover-foreground: 0 0% 95%;
 
-    --primary: 216 68% 55%;
-    --primary-foreground: 216 28% 8%;
-    --primary-hover: 216 68% 60%;
+    --primary: 142 76% 55%;
+    --primary-foreground: 0 0% 8%;
+    --primary-hover: 142 76% 60%;
 
-    --secondary: 216 20% 18%;
+    --secondary: 0 0% 18%;
     --secondary-foreground: 0 0% 95%;
 
-    --muted: 216 20% 18%;
-    --muted-foreground: 215 16% 65%;
+    --muted: 0 0% 18%;
+    --muted-foreground: 0 0% 65%;
 
-    --accent: 216 20% 18%;
-    --accent-foreground: 0 0% 95%;
+    --accent: 142 76% 18%;
+    --accent-foreground: 142 76% 55%;
 
-    --success: 142 76% 45%;
-    --success-foreground: 216 28% 8%;
+    --success: 142 76% 55%;
+    --success-foreground: 0 0% 8%;
     --success-light: 142 76% 8%;
 
     --warning: 48 96% 60%;
-    --warning-foreground: 20 14% 4%;
+    --warning-foreground: 0 0% 0%;
     --warning-light: 48 100% 8%;
 
     --destructive: 0 84% 65%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive-foreground: 0 0% 100%;
     --destructive-light: 0 100% 8%;
 
-    --border: 216 20% 20%;
-    --input: 216 20% 20%;
-    --ring: 216 68% 55%;
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 142 76% 55%;
 
-    --sidebar-background: 216 28% 10%;
+    --sidebar-background: 0 0% 10%;
     --sidebar-foreground: 0 0% 90%;
-    --sidebar-primary: 216 68% 55%;
-    --sidebar-primary-foreground: 216 28% 8%;
-    --sidebar-accent: 216 20% 15%;
-    --sidebar-accent-foreground: 0 0% 90%;
-    --sidebar-border: 216 20% 18%;
-    --sidebar-ring: 216 68% 55%;
+    --sidebar-primary: 142 76% 55%;
+    --sidebar-primary-foreground: 0 0% 8%;
+    --sidebar-accent: 142 76% 18%;
+    --sidebar-accent-foreground: 142 76% 55%;
+    --sidebar-border: 0 0% 18%;
+    --sidebar-ring: 142 76% 55%;
 
-    /* Dark mode gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(216 68% 45%), hsl(216 68% 55%));
-    --gradient-success: linear-gradient(135deg, hsl(142 76% 35%), hsl(142 76% 45%));
-    --gradient-card: linear-gradient(180deg, hsl(216 28% 12%), hsl(216 28% 10%));
+    /* Dark mode gradients - Green and Black */
+    --gradient-primary: linear-gradient(135deg, hsl(142 76% 45%), hsl(142 76% 55%));
+    --gradient-success: linear-gradient(135deg, hsl(142 76% 45%), hsl(142 76% 55%));
+    --gradient-card: linear-gradient(180deg, hsl(0 0% 12%), hsl(0 0% 10%));
 
     /* Dark mode shadows */
     --shadow-card: 0 2px 10px -2px hsl(0 0% 0% / 0.25);
     --shadow-elevated: 0 8px 25px -8px hsl(0 0% 0% / 0.35);
-    --shadow-financial: 0 4px 20px -4px hsl(216 68% 18% / 0.35);
+    --shadow-financial: 0 4px 20px -4px hsl(142 76% 36% / 0.35);
   }
 }
 

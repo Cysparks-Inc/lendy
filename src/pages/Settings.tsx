@@ -96,7 +96,7 @@ const Settings: React.FC = () => {
   // --- Frontend Access Control ---
   if (userRole !== 'super_admin') {
     return (
-      <div className="p-6">
+      <div className="p-2 sm:p-4 md:p-6">
         <Card className="max-w-md mx-auto">
           <CardHeader className="text-center">
             <ShieldAlert className="mx-auto h-12 w-12 text-yellow-500" />
@@ -109,7 +109,7 @@ const Settings: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-2 sm:p-4 md:p-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground">System Settings</h1>

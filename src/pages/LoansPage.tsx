@@ -108,43 +108,43 @@ const LoansPage: React.FC = () => {
 
       {/* Summary Cards */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card className="border-brand-green-200 hover:border-brand-green-300 transition-colors">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Loans</CardTitle>
-            <CreditCard className="h-4 w-4 text-muted-foreground" />
+            <CreditCard className="h-4 w-4 text-brand-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{loans.length}</div>
+            <div className="text-2xl font-bold text-brand-green-700">{loans.length}</div>
             <p className="text-xs text-muted-foreground">Active accounts</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-brand-green-200 hover:border-brand-green-300 transition-colors">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Outstanding Balance</CardTitle>
-            <Landmark className="h-4 w-4 text-muted-foreground" />
+            <Landmark className="h-4 w-4 text-brand-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalOutstanding)}</div>
+            <div className="text-2xl font-bold text-brand-green-700">{formatCurrency(totalOutstanding)}</div>
             <p className="text-xs text-muted-foreground">Total due</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-brand-green-200 hover:border-brand-green-300 transition-colors">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Loans</CardTitle>
-            <Banknote className="h-4 w-4 text-muted-foreground" />
+            <Banknote className="h-4 w-4 text-brand-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{loans.filter(l => l.status === 'active').length}</div>
+            <div className="text-2xl font-bold text-brand-green-700">{loans.filter(l => l.status === 'active').length}</div>
             <p className="text-xs text-muted-foreground">Currently active</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-brand-green-200 hover:border-brand-green-300 transition-colors">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Defaulted</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            <AlertTriangle className="h-4 w-4 text-brand-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{loans.filter(l => l.status === 'defaulted').length}</div>
+            <div className="text-2xl font-bold text-brand-green-700">{loans.filter(l => l.status === 'defaulted').length}</div>
             <p className="text-xs text-muted-foreground">Require attention</p>
           </CardContent>
         </Card>

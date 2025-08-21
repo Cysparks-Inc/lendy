@@ -47,8 +47,8 @@ const AppLayout = () => {
                   alt="Napol Logo" 
                   className="h-10 w-20 md:h-12 md:w-12 object-contain" 
                 />
-                <h1 className="font-bold text-xl md:text-2xl bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
-                  {/* Add your app title here if needed */}
+                <h1 className="font-bold text-xl md:text-2xl bg-gradient-to-r from-brand-green-600 to-brand-green-700 bg-clip-text text-transparent">
+                  Napol Microfinace
                 </h1>
               </div>
             </div>

@@ -95,7 +95,7 @@ const LoanDetailsPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-2 sm:p-4 md:p-6">
       <div className="flex justify-between items-center">
         <div>
           <Button asChild variant="outline" size="sm" className="mb-4">

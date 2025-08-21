@@ -1,7 +1,7 @@
 import React from 'react';
 
-// Using generics to make the component truly reusable
-interface DataTableProps<TData> {
+// Bulletproof table component with !important CSS rules
+interface SecureTableProps<TData> {
   columns: {
     header: string;
     cell: (row: TData) => React.ReactNode;
@@ -11,31 +11,41 @@ interface DataTableProps<TData> {
   className?: string;
 }
 
-export function DataTable<TData>({
+export function SecureTable<TData>({
   columns,
   data,
   emptyStateMessage = "No results found.",
   className = ""
-}: DataTableProps<TData>) {
+}: SecureTableProps<TData>) {
   return (
-    // --- ENHANCED MOBILE RESPONSIVE TABLE WRAPPER ---
-    // This wrapper provides horizontal scrolling ONLY within the table container
-    // The table maintains its natural width while the container scrolls horizontally
-    // without affecting the page layout or causing page-level side scroll
-    <div className={`w-full ${className}`}>
+    <div className={`w-full ${className}`} style={{ maxWidth: '100% !important' }}>
+      {/* Bulletproof container with !important rules */}
       <div 
         className="border rounded-md table-container"
         style={{
-          overflowX: 'auto',
-          maxWidth: '100%',
-          WebkitOverflowScrolling: 'touch'
+          overflowX: 'auto !important',
+          overflowY: 'hidden !important',
+          maxWidth: '100% !important',
+          width: '100% !important',
+          WebkitOverflowScrolling: 'touch !important'
         }}
       >
-        <table className="w-full min-w-full">
+        <table 
+          className="w-full min-w-full"
+          style={{
+            minWidth: '100% !important',
+            tableLayout: 'auto !important',
+            borderCollapse: 'collapse !important'
+          }}
+        >
           <thead>
             <tr className="border-b bg-muted/50">
               {columns.map((column, index) => (
-                <th key={index} className="px-4 py-3 text-left text-sm font-medium text-muted-foreground whitespace-nowrap">
+                <th 
+                  key={index} 
+                  className="whitespace-nowrap px-4 py-3 text-left text-sm font-medium text-muted-foreground"
+                  style={{ whiteSpace: 'nowrap !important' }}
+                >
                   {column.header}
                 </th>
               ))}
@@ -46,9 +56,13 @@ export function DataTable<TData>({
               data.map((row, rowIndex) => (
                 <tr key={rowIndex} className="border-b hover:bg-muted/50 transition-colors">
                   {columns.map((column, colIndex) => (
-                    <td key={colIndex} className="px-4 py-3 whitespace-nowrap">
+                    <td 
+                      key={colIndex} 
+                      className="whitespace-nowrap px-4 py-3"
+                      style={{ whiteSpace: 'nowrap !important' }}
+                    >
                       {column.cell(row)}
-                    </td>
+                  </td>
                   ))}
                 </tr>
               ))
@@ -64,4 +78,4 @@ export function DataTable<TData>({
       </div>
     </div>
   );
-}
+} 

@@ -63,7 +63,7 @@ const SearchMemberPage: React.FC = () => {
   const formatCurrency = (amount: number) => new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(amount || 0);
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-2 sm:p-4 md:p-6">
       <div>
         <h1 className="text-3xl font-bold text-foreground">Search Member</h1>
         <p className="text-muted-foreground">Securely find members by name, ID number, or phone number.</p>

@@ -103,52 +103,92 @@ const LoanOfficerProfilePage: React.FC = () => {
   if (!officer) { return <div className="text-center p-10"><h2 className="text-xl font-semibold">Loan Officer Not Found</h2></div>; }
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex justify-between items-start">
-        <div>
-            <Button asChild variant="outline" size="sm" className="mb-4"><Link to="/loan-officer"><ArrowLeft className="mr-2 h-4 w-4" />Back to Officer List</Link></Button>
-            <h1 className="text-3xl font-bold">{officer.name}</h1>
-            <p className="text-muted-foreground">Performance and portfolio overview.</p>
+    <div className="space-y-6 p-2 sm:p-4 md:p-6">
+      {/* Modern Mobile-First Header */}
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="space-y-2">
+            <Button asChild variant="outline" size="sm" className="w-full sm:w-auto">
+              <Link to="/loan-officer">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Officer List
+              </Link>
+            </Button>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">{officer.name}</h1>
+              <p className="text-muted-foreground text-sm sm:text-base">Performance and portfolio overview</p>
+            </div>
+          </div>
+          <Button asChild className="w-full sm:w-auto">
+            <Link to={`/users/${officer.id}/edit`}>
+              <Edit className="mr-2 h-4 w-4" />
+              Edit Profile
+            </Link>
+          </Button>
         </div>
-        <Button asChild><Link to={`/users/${officer.id}/edit`}><Edit className="mr-2 h-4 w-4" />Edit Profile</Link></Button>
       </div>
       
-      <Card>
-        <CardHeader className="flex flex-col md:flex-row items-start gap-6">
-          <div className="flex-shrink-0 h-24 w-24 rounded-full bg-primary/10 flex items-center justify-center border">
-            {officer.profile_picture_url ? <img src={officer.profile_picture_url} alt={officer.name} className="h-24 w-24 rounded-full object-cover" /> : <span className="text-4xl font-bold text-primary">{officer.name.charAt(0)}</span>}
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-4 flex-grow pt-2">
-            <InfoItem icon={Mail} label="Email Address" value={officer.email} />
-            <InfoItem icon={Phone} label="Phone Number" value={officer.phone} />
-            <InfoItem icon={MapPin} label="Assigned Branch" value={officer.branch_name} />
-            <InfoItem icon={Banknote} label="Total Loans Managed" value={officer.total_loans} />
-            <InfoItem icon={DollarSign} label="Total Outstanding" value={formatCurrency(officer.total_balance)} />
-            <InfoItem icon={TrendingUp} label="Total Disbursed" value={formatCurrency(officer.total_disbursed)} />
+      {/* Modern Profile Card with Better Mobile Layout */}
+      <Card className="overflow-hidden">
+        <CardHeader className="pb-6">
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
+            {/* Profile Picture - Centered on mobile, left-aligned on desktop */}
+            <div className="flex-shrink-0 h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-primary/10 flex items-center justify-center border-2 border-primary/20">
+              {officer.profile_picture_url ? (
+                <img 
+                  src={officer.profile_picture_url} 
+                  alt={officer.name} 
+                  className="h-full w-full rounded-full object-cover" 
+                />
+              ) : (
+                <span className="text-2xl sm:text-4xl font-bold text-primary">
+                  {officer.name.charAt(0)}
+                </span>
+              )}
+            </div>
+            
+            {/* Info Grid - Responsive layout */}
+            <div className="w-full space-y-4 sm:space-y-0">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                <InfoItem icon={Mail} label="Email Address" value={officer.email} />
+                <InfoItem icon={Phone} label="Phone Number" value={officer.phone} />
+                <InfoItem icon={MapPin} label="Assigned Branch" value={officer.branch_name} />
+                <InfoItem icon={Banknote} label="Total Loans Managed" value={officer.total_loans} />
+                <InfoItem icon={DollarSign} label="Total Outstanding" value={formatCurrency(officer.total_balance)} />
+                <InfoItem icon={TrendingUp} label="Total Disbursed" value={formatCurrency(officer.total_disbursed)} />
+              </div>
+            </div>
           </div>
         </CardHeader>
       </Card>
       
+      {/* Tabs Section */}
       <Tabs defaultValue="loans" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="loans">Loan Portfolio ({loans.length})</TabsTrigger>
           <TabsTrigger value="members">Member Portfolio ({members.length})</TabsTrigger>
         </TabsList>
-        <TabsContent value="loans">
+        <TabsContent value="loans" className="mt-6">
           <Card>
-            <CardHeader><CardTitle>Loan Portfolio</CardTitle><CardDescription>All loans managed by {officer.name}.</CardDescription></CardHeader>
+            <CardHeader>
+              <CardTitle>Loan Portfolio</CardTitle>
+              <CardDescription>All loans managed by {officer.name}.</CardDescription>
+            </CardHeader>
             <CardContent>
-                <DataTable columns={loanColumns} data={loans} emptyStateMessage="This officer has not managed any loans yet." />
+              <DataTable columns={loanColumns} data={loans} emptyStateMessage="This officer has not managed any loans yet." />
             </CardContent>
           </Card>
         </TabsContent>
-        <TabsContent value="members">
-            <Card>
-                <CardHeader><CardTitle>Member Portfolio</CardTitle><CardDescription>All members assigned to {officer.name}.</CardDescription></CardHeader>
-                <CardContent>
-                    <DataTable columns={memberColumns} data={members} emptyStateMessage="This officer is not assigned to any members." />
-                </CardContent>
-            </Card>
+        <TabsContent value="members" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Member Portfolio</CardTitle>
+              <CardDescription>All members assigned to {officer.name}.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <DataTable columns={memberColumns} data={members} emptyStateMessage="This officer is not assigned to any members." />
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
@@ -156,9 +196,14 @@ const LoanOfficerProfilePage: React.FC = () => {
 };
 
 const InfoItem: React.FC<{icon: React.ElementType, label: string, value: string | number | null | undefined}> = ({icon: Icon, label, value}) => (
-    <div>
-        <p className="text-sm font-medium text-muted-foreground flex items-center gap-2"><Icon className="h-4 w-4" />{label}</p>
-        <p className="font-semibold text-lg">{value || 'N/A'}</p>
+    <div className="space-y-1">
+        <p className="text-xs sm:text-sm font-medium text-muted-foreground flex items-center gap-2">
+            <Icon className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+            <span className="truncate">{label}</span>
+        </p>
+        <p className="font-semibold text-sm sm:text-lg text-foreground truncate">
+            {value || 'N/A'}
+        </p>
     </div>
 );
 

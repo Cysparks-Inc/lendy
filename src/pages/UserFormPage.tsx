@@ -136,7 +136,7 @@ const UserFormPage: React.FC = () => {
     if (loadingData) { return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>; }
 
     return (
-        <div className="p-6 max-w-2xl mx-auto">
+        <div className="p-2 sm:p-4 md:p-6 max-w-2xl mx-auto">
             <Button asChild variant="outline" size="sm" className="mb-4"><Link to="/users"><ArrowLeft className="mr-2 h-4 w-4" />Back to Users</Link></Button>
             <Card>
                 <CardHeader>

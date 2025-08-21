@@ -89,7 +89,7 @@ const DormantMembers = () => {
   if (loading) return <Loader size="lg" />;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-2 sm:p-4 md:p-6">
       <div>
         <h1 className="text-3xl font-bold text-foreground">Dormant Members List</h1>
         <p className="text-muted-foreground">Members with no recent activity (90+ days)</p>

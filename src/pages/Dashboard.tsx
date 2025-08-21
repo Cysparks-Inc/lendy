@@ -79,7 +79,7 @@ const AdminDashboard: React.FC<{ stats: DashboardStats; recentLoans: RecentLoan[
     const defaultRate = stats.total_loans > 0 ? (stats.defaulted_loans / stats.total_loans) * 100 : 0;
     
     const recentLoanColumns = [
-        { header: 'Member', cell: (row: RecentLoan) => <Link to={`/members/${row.member_id}`} className="font-medium text-primary hover:underline">{row.member_name}</Link> },
+        { header: 'Member', cell: (row: RecentLoan) => <Link to={`/members/${row.member_id}`} className="font-medium text-brand-green-600 hover:text-brand-green-700 hover:underline">{row.member_name}</Link> },
         { header: 'Amount', cell: (row: RecentLoan) => formatCurrency(row.principal_amount) },
         { header: 'Status', cell: (row: RecentLoan) => <Badge variant={row.status === 'pending' ? 'warning' : 'default'} className="capitalize">{row.status}</Badge> },
         { header: 'Actions', cell: (row: RecentLoan) => <div className="text-right"><Button asChild variant="outline" size="sm"><Link to={`/loans/${row.id}`}>View Loan</Link></Button></div> },
@@ -146,10 +146,13 @@ const LoanOfficerView: React.FC<{ stats: DashboardStats; recentLoans: RecentLoan
 
 // --- Reusable Helper Components ---
 const StatCard: React.FC<{ title: string; value: string | number; icon: React.ElementType; subtitle?: string; }> = ({ title, value, icon: Icon, subtitle }) => (
-  <Card>
-    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">{title}</CardTitle><Icon className="h-4 w-4 text-muted-foreground" /></CardHeader>
+  <Card className="border-brand-green-200 hover:border-brand-green-300 transition-colors">
+    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <CardTitle className="text-sm font-medium">{title}</CardTitle>
+      <Icon className="h-4 w-4 text-brand-green-600" />
+    </CardHeader>
     <CardContent>
-      <div className="text-2xl font-bold">{value}</div>
+      <div className="text-2xl font-bold text-brand-green-700">{value}</div>
       {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
     </CardContent>
   </Card>
@@ -161,7 +164,12 @@ const HealthMetric: React.FC<{label: string, value: number, totalValue: number, 
     const description = variant === 'destructive' ? `${partialValue} of ${totalValue} loans` : `${formattedPartial} of ${formattedTotal}`;
     return (
         <div>
-            <div className="flex justify-between mb-1"><p className="text-sm font-medium">{label}</p><span className={`text-sm font-bold ${variant === 'destructive' ? 'text-destructive' : 'text-primary'}`}>{value.toFixed(1)}%</span></div>
+            <div className="flex justify-between mb-1">
+              <p className="text-sm font-medium">{label}</p>
+              <span className={`text-sm font-bold ${variant === 'destructive' ? 'text-destructive' : 'text-brand-green-600'}`}>
+                {value.toFixed(1)}%
+              </span>
+            </div>
             <Progress value={value} className="h-2" />
             <p className="text-xs text-muted-foreground mt-1">{description}</p>
         </div>
