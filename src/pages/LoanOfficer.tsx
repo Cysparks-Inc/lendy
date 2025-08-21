@@ -167,7 +167,7 @@ const LoanOfficerPage: React.FC = () => {
           <p className="text-muted-foreground">Manage loan officer profiles and performance.</p>
         </div>
         {userRole === 'super_admin' && (
-          <Button asChild><Link to="/loan-officer/new"><Plus className="h-4 w-4 mr-2" />Add Officer</Link></Button>
+          <Button asChild><Link to="/users/new"><Plus className="h-4 w-4 mr-2" />Add Officer</Link></Button>
         )}
       </div>
 

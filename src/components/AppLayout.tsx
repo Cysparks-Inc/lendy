@@ -69,7 +69,7 @@ const AppLayout = () => {
           </header>
 
           {/* Main Content - Ensure top is visible first */}
-          <main ref={mainRef} className="flex-1 p-2 sm:p-4 md:p-6 bg-background/50 overflow-x-hidden">
+          <main ref={mainRef} className="flex-1 p-2 sm:p-4 md:p-6 bg-background/50 overflow-x-hidden mt-4">
             <Outlet />
           </main>
         </div>

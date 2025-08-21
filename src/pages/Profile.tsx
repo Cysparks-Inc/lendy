@@ -77,6 +77,14 @@ const Profile = () => {
         created_at: profile.created_at,
         profile_picture_url: profile.profile_picture_url || ''
       });
+      
+      // Debug logging
+      console.log('Profile data loaded:', {
+        full_name: profile.full_name,
+        profile_picture_url: profile.profile_picture_url,
+        role: roleData?.role,
+        branch: roleData?.branches?.name
+      });
     } catch (error) {
       console.error('Error fetching profile:', error);
       toast.error('Failed to load profile');
@@ -119,14 +127,32 @@ const Profile = () => {
     const file = event.target.files?.[0];
     if (!file || !user) return;
 
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File too large', { description: 'Please select an image smaller than 5MB' });
+      return;
+    }
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Invalid file type', { description: 'Please select a valid image file' });
+      return;
+    }
+
     setUploading(true);
     try {
+      // Compress image before upload for faster processing
+      const compressedFile = await compressImage(file);
+      
       const fileExt = file.name.split('.').pop();
       const fileName = `${user.id}/profile.${fileExt}`;
 
+      // Show upload progress
+      toast.loading('Uploading profile picture...', { id: 'upload' });
+
       const { error: uploadError } = await supabase.storage
         .from('profile-pictures')
-        .upload(fileName, file, {
+        .upload(fileName, compressedFile, {
           cacheControl: '3600',
           upsert: true
         });
@@ -137,14 +163,85 @@ const Profile = () => {
         .from('profile-pictures')
         .getPublicUrl(fileName);
 
-      setProfileData(prev => ({ ...prev, profile_picture_url: data.publicUrl }));
-      toast.success('Profile picture uploaded successfully');
+      // Update profile data immediately for better UX
+      const newProfilePictureUrl = data.publicUrl;
+      setProfileData(prev => ({ ...prev, profile_picture_url: newProfilePictureUrl }));
+      
+      // Update the profile in database
+      await supabase
+        .from('profiles')
+        .update({ profile_picture_url: newProfilePictureUrl })
+        .eq('id', user.id);
+
+      toast.success('Profile picture updated successfully', { id: 'upload' });
+      
+      // Clear the file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      
+      // Force a re-render to ensure the image displays
+      setTimeout(() => {
+        setProfileData(prev => ({ ...prev }));
+      }, 100);
+      
     } catch (error) {
       console.error('Error uploading file:', error);
-      toast.error('Failed to upload profile picture');
+      toast.error('Failed to upload profile picture', { id: 'upload' });
     } finally {
       setUploading(false);
     }
+  };
+
+  // Image compression function for faster uploads
+  const compressImage = (file: File): Promise<File> => {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      
+      img.onload = () => {
+        // Calculate new dimensions (max 512x512 for profile pictures)
+        const maxSize = 512;
+        let { width, height } = img;
+        
+        if (width > height) {
+          if (width > maxSize) {
+            height = (height * maxSize) / width;
+            width = maxSize;
+          }
+        } else {
+          if (height > maxSize) {
+            width = (width * maxSize) / height;
+            height = maxSize;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        // Draw and compress
+        ctx?.drawImage(img, 0, 0, width, height);
+        
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              const compressedFile = new File([blob], file.name, {
+                type: 'image/jpeg',
+                lastModified: Date.now(),
+              });
+              resolve(compressedFile);
+            } else {
+              resolve(file); // Fallback to original if compression fails
+            }
+          },
+          'image/jpeg',
+          0.8 // 80% quality for good balance of size and quality
+        );
+      };
+      
+      img.src = URL.createObjectURL(file);
+    });
   };
 
   const getInitials = (name: string) => {
@@ -211,33 +308,79 @@ const Profile = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="flex items-center gap-6">
-            <Avatar className="h-24 w-24">
-              <AvatarImage src={profileData.profile_picture_url} alt={profileData.full_name} />
-              <AvatarFallback className="bg-primary/10 text-primary text-lg">
-                {profileData.full_name ? getInitials(profileData.full_name) : <User className="h-8 w-8" />}
-              </AvatarFallback>
-            </Avatar>
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">
-                Upload a new profile picture. Recommended size is 256x256 pixels.
-              </p>
-              <div className="flex gap-2">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileUpload}
-                  className="hidden"
+            <div className="relative">
+              <Avatar className="h-24 w-24">
+                <AvatarImage 
+                  src={profileData.profile_picture_url} 
+                  alt={profileData.full_name}
+                  onError={(e) => {
+                    console.error('Avatar image failed to load:', profileData.profile_picture_url);
+                    console.error('Error event:', e);
+                  }}
+                  onLoad={() => {
+                    console.log('Avatar image loaded successfully:', profileData.profile_picture_url);
+                  }}
                 />
-                <Button 
-                  variant="outline" 
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                >
-                  <Upload className="h-4 w-4 mr-2" />
-                  {uploading ? 'Uploading...' : 'Upload Photo'}
-                </Button>
+                <AvatarFallback className="bg-primary/10 text-primary text-lg">
+                  {profileData.full_name ? getInitials(profileData.full_name) : <User className="h-8 w-8" />}
+                </AvatarFallback>
+              </Avatar>
+              {uploading && (
+                <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                </div>
+              )}
+            </div>
+            <div className="space-y-4 flex-1">
+              <div>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Upload a new profile picture. Recommended size is 256x256 pixels. Maximum file size: 5MB.
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                  <Button 
+                    variant="outline" 
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="flex items-center gap-2"
+                  >
+                    <Upload className="h-4 w-4" />
+                    {uploading ? 'Uploading...' : 'Upload Photo'}
+                  </Button>
+                  {profileData.profile_picture_url && (
+                    <Button 
+                      variant="outline" 
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                      className="flex items-center gap-2"
+                    >
+                      <Camera className="h-4 w-4" />
+                      Change Photo
+                    </Button>
+                  )}
+                </div>
               </div>
+              
+              {/* Upload Progress and Tips */}
+              {uploading && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center gap-2 text-blue-700">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-700"></div>
+                    <span className="text-sm font-medium">Processing and uploading your image...</span>
+                  </div>
+                  <p className="text-xs text-blue-600 mt-1">
+                    This may take a few seconds. Please don't close this page.
+                  </p>
+                </div>
+              )}
+              
+              {/* Remove the success notification - it's not needed */}
             </div>
           </CardContent>
         </Card>
