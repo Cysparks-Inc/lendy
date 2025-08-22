@@ -124,13 +124,13 @@ const LoanFormPage: React.FC = () => {
     if (successId) {
         return (
             <div className="flex flex-col items-center justify-center h-full p-2 sm:p-4 md:p-6 text-center">
-                <Card className="max-w-md bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
+                <Card className="max-w-md">
                   <CardHeader>
-                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-brand-green-100">
-                      <CheckCircle className="h-6 w-6 text-brand-green-600" />
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
+                      <CheckCircle className="h-6 w-6 text-green-600" />
                     </div>
-                    <CardTitle className="mt-4 text-brand-green-800">Loan Created Successfully!</CardTitle>
-                    <CardDescription className="text-brand-green-600">The new loan is now pending approval.</CardDescription>
+                    <CardTitle className="mt-4">Loan Created Successfully!</CardTitle>
+                    <CardDescription>The new loan is now pending approval.</CardDescription>
                   </CardHeader>
                 <CardContent className="flex flex-col gap-3">
                     <Button asChild><Link to={`/loans/${successId}`}>View Loan Details</Link></Button>
@@ -144,10 +144,10 @@ const LoanFormPage: React.FC = () => {
     return (
         <div className="p-2 sm:p-4 md:p-6 max-w-2xl mx-auto">
             <Button asChild variant="outline" size="sm" className="mb-4"><Link to={prefilledMemberId ? `/members/${prefilledMemberId}` : '/loans'}><ArrowLeft className="mr-2 h-4 w-4" />Back</Link></Button>
-            <Card className="bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
+            <Card>
               <CardHeader>
-                <CardTitle className="text-brand-green-800">{isEditMode ? 'Edit Loan' : 'Create New Loan'}</CardTitle>
-                <CardDescription className="text-brand-green-600">Fill in the details below to disburse a new loan.</CardDescription>
+                <CardTitle>{isEditMode ? 'Edit Loan' : 'Create New Loan'}</CardTitle>
+                <CardDescription>Fill in the details below to disburse a new loan.</CardDescription>
               </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
