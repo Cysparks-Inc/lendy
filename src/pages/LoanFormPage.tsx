@@ -41,6 +41,8 @@ const LoanFormPage: React.FC = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [formError, setFormError] = useState<string | null>(null);
     const [successId, setSuccessId] = useState<string | null>(null);
+    const [memberSearchTerm, setMemberSearchTerm] = useState('');
+    const [showMemberResults, setShowMemberResults] = useState(false);
     
     const prefilledMemberId = searchParams.get('memberId');
     const prefilledMemberName = searchParams.get('memberName');
@@ -60,7 +62,13 @@ const LoanFormPage: React.FC = () => {
                 setMembers(membersRes.data || []);
                 setOfficers(officersRes.data || []);
                 
-                if (prefilledMemberId) { setValue('customer_id', prefilledMemberId); }
+                if (prefilledMemberId) { 
+                    setValue('customer_id', prefilledMemberId);
+                    const member = membersRes.data?.find(m => m.id === prefilledMemberId);
+                    if (member) {
+                        setMemberSearchTerm(member.full_name);
+                    }
+                }
                 setValue('issue_date', new Date().toISOString().split('T')[0]);
 
             } catch (e: any) {
@@ -116,10 +124,15 @@ const LoanFormPage: React.FC = () => {
     if (successId) {
         return (
             <div className="flex flex-col items-center justify-center h-full p-2 sm:p-4 md:p-6 text-center">
-                <Card className="max-w-md"><CardHeader>
-                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100"><CheckCircle className="h-6 w-6 text-green-600" /></div>
-                    <CardTitle className="mt-4">Loan Created Successfully!</CardTitle><CardDescription>The new loan is now pending approval.</CardDescription>
-                </CardHeader><CardContent className="flex flex-col gap-3">
+                <Card className="max-w-md bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
+                  <CardHeader>
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-brand-green-100">
+                      <CheckCircle className="h-6 w-6 text-brand-green-600" />
+                    </div>
+                    <CardTitle className="mt-4 text-brand-green-800">Loan Created Successfully!</CardTitle>
+                    <CardDescription className="text-brand-green-600">The new loan is now pending approval.</CardDescription>
+                  </CardHeader>
+                <CardContent className="flex flex-col gap-3">
                     <Button asChild><Link to={`/loans/${successId}`}>View Loan Details</Link></Button>
                     {prefilledMemberId && <Button variant="outline" asChild><Link to={`/members/${prefilledMemberId}`}>Back to Member Profile</Link></Button>}
                     <Button variant="ghost" asChild><Link to="/loans">Go to Loans List</Link></Button>
@@ -131,11 +144,11 @@ const LoanFormPage: React.FC = () => {
     return (
         <div className="p-2 sm:p-4 md:p-6 max-w-2xl mx-auto">
             <Button asChild variant="outline" size="sm" className="mb-4"><Link to={prefilledMemberId ? `/members/${prefilledMemberId}` : '/loans'}><ArrowLeft className="mr-2 h-4 w-4" />Back</Link></Button>
-            <Card>
-                <CardHeader>
-                    <CardTitle>{isEditMode ? 'Edit Loan' : 'Create New Loan'}</CardTitle>
-                    <CardDescription>Fill in the details below to disburse a new loan.</CardDescription>
-                </CardHeader>
+            <Card className="bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
+              <CardHeader>
+                <CardTitle className="text-brand-green-800">{isEditMode ? 'Edit Loan' : 'Create New Loan'}</CardTitle>
+                <CardDescription className="text-brand-green-600">Fill in the details below to disburse a new loan.</CardDescription>
+              </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                         {formError && <Alert variant="destructive"><AlertDescription>{formError}</AlertDescription></Alert>}
@@ -144,10 +157,65 @@ const LoanFormPage: React.FC = () => {
 
                         <FormField label="Member" error={errors.customer_id} required>
                             <Controller name="customer_id" control={control} render={({ field }) => (
-                                <Select onValueChange={field.onChange} value={field.value} disabled={!!prefilledMemberId}>
-                                    <SelectTrigger><SelectValue placeholder="Select a member..." /></SelectTrigger>
-                                    <SelectContent>{members.map(m => <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>)}</SelectContent>
-                                </Select>
+                                <div className="relative">
+                                    <Input
+                                        type="text"
+                                        placeholder="Search for a member..."
+                                        value={memberSearchTerm}
+                                        onChange={(e) => {
+                                            const searchTerm = e.target.value;
+                                            setMemberSearchTerm(searchTerm);
+                                            setShowMemberResults(true);
+                                            
+                                            if (!searchTerm) {
+                                                field.onChange('');
+                                                setShowMemberResults(false);
+                                                return;
+                                            }
+                                        }}
+                                        onFocus={() => setShowMemberResults(true)}
+                                        onBlur={() => {
+                                            // Delay hiding results to allow clicking on them
+                                            setTimeout(() => setShowMemberResults(false), 200);
+                                        }}
+                                        disabled={!!prefilledMemberId}
+                                        className="w-full"
+                                    />
+                                    
+                                    {/* Search Results Dropdown */}
+                                    {showMemberResults && !prefilledMemberId && memberSearchTerm && (
+                                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
+                                            {members
+                                                .filter(member => 
+                                                    member.full_name.toLowerCase().includes(memberSearchTerm.toLowerCase())
+                                                )
+                                                .slice(0, 10) // Limit to 10 results
+                                                .map(member => (
+                                                    <div
+                                                        key={member.id}
+                                                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
+                                                        onMouseDown={(e) => {
+                                                            e.preventDefault(); // Prevent onBlur from firing
+                                                            field.onChange(member.id);
+                                                            setMemberSearchTerm(member.full_name);
+                                                            setShowMemberResults(false);
+                                                        }}
+                                                    >
+                                                        <div className="font-medium text-gray-900">{member.full_name}</div>
+                                                        <div className="text-sm text-gray-500">ID: {member.id}</div>
+                                                    </div>
+                                                ))
+                                            }
+                                            {members.filter(member => 
+                                                member.full_name.toLowerCase().includes(memberSearchTerm.toLowerCase())
+                                            ).length === 0 && (
+                                                <div className="px-4 py-2 text-gray-500 text-center">
+                                                    No members found
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                             )} />
                         </FormField>
 

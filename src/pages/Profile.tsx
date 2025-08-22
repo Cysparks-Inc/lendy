@@ -300,10 +300,10 @@ const Profile = () => {
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Profile Picture */}
-        <Card className="md:col-span-2">
+        <Card className="md:col-span-2 bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Camera className="h-5 w-5" />
+            <CardTitle className="flex items-center gap-2 text-brand-green-800">
+              <Camera className="h-5 w-5 text-brand-green-600" />
               Profile Picture
             </CardTitle>
           </CardHeader>
@@ -386,10 +386,10 @@ const Profile = () => {
         </Card>
 
         {/* Personal Information */}
-        <Card>
+        <Card className="bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="h-5 w-5" />
+            <CardTitle className="flex items-center gap-2 text-brand-green-800">
+              <User className="h-5 w-5 text-brand-green-600" />
               Personal Information
             </CardTitle>
           </CardHeader>
@@ -439,10 +439,10 @@ const Profile = () => {
         </Card>
 
         {/* Work Information */}
-        <Card>
+        <Card className="bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building className="h-5 w-5" />
+            <CardTitle className="flex items-center gap-2 text-brand-green-800">
+              <Building className="h-5 w-5 text-brand-green-600" />
               Work Information
             </CardTitle>
           </CardHeader>
@@ -492,7 +492,7 @@ const Profile = () => {
         </Card>
 
         {/* Account Stats */}
-        <Card className="md:col-span-2">
+        <Card className="md:col-span-2 bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
           <CardHeader>
             <CardTitle>Account Statistics</CardTitle>
           </CardHeader>
@@ -522,7 +522,7 @@ const Profile = () => {
       </div>
 
       {/* Security Notice */}
-      <Card>
+      <Card className="bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
         <CardContent className="p-4">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Key className="h-4 w-4" />

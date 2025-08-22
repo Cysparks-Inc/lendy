@@ -60,7 +60,7 @@ const Dashboard: React.FC = () => {
     <div className="space-y-6 p-2 sm:p-4 md:p-6">
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground">Welcome back, {profile?.full_name || user?.email}.</p>
+        <p className="text-muted-foreground">Welcome back, {user?.email}.</p>
       </div>
 
       {userRole === 'super_admin' && <AdminDashboard stats={stats} recentLoans={recentLoans} scope="System-Wide" />}
@@ -81,7 +81,7 @@ const AdminDashboard: React.FC<{ stats: DashboardStats; recentLoans: RecentLoan[
     const recentLoanColumns = [
         { header: 'Member', cell: (row: RecentLoan) => <Link to={`/members/${row.member_id}`} className="font-medium text-brand-green-600 hover:text-brand-green-700 hover:underline">{row.member_name}</Link> },
         { header: 'Amount', cell: (row: RecentLoan) => formatCurrency(row.principal_amount) },
-        { header: 'Status', cell: (row: RecentLoan) => <Badge variant={row.status === 'pending' ? 'warning' : 'default'} className="capitalize">{row.status}</Badge> },
+        { header: 'Status', cell: (row: RecentLoan) => <Badge variant={row.status === 'pending' ? 'secondary' : 'default'} className="capitalize">{row.status}</Badge> },
         { header: 'Actions', cell: (row: RecentLoan) => <div className="text-right"><Button asChild variant="outline" size="sm"><Link to={`/loans/${row.id}`}>View Loan</Link></Button></div> },
     ];
 
@@ -146,16 +146,16 @@ const LoanOfficerView: React.FC<{ stats: DashboardStats; recentLoans: RecentLoan
 
 // --- Reusable Helper Components ---
 const StatCard: React.FC<{ title: string; value: string | number; icon: React.ElementType; subtitle?: string; }> = ({ title, value, icon: Icon, subtitle }) => (
-  <Card className="border-brand-green-200 hover:border-brand-green-300 transition-colors">
-    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-      <CardTitle className="text-sm font-medium">{title}</CardTitle>
-      <Icon className="h-4 w-4 text-brand-green-600" />
-    </CardHeader>
-    <CardContent>
-      <div className="text-2xl font-bold text-brand-green-700">{value}</div>
-      {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
-    </CardContent>
-  </Card>
+    <Card className="bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-brand-green-800">{title}</CardTitle>
+            <Icon className="h-4 w-4 text-brand-green-600" />
+        </CardHeader>
+        <CardContent>
+            <div className="text-2xl font-bold text-brand-green-700">{value}</div>
+            {subtitle && <p className="text-xs text-brand-green-600 mt-1">{subtitle}</p>}
+        </CardContent>
+    </Card>
 );
 
 const HealthMetric: React.FC<{label: string, value: number, totalValue: number, partialValue: number, variant?: "default" | "destructive"}> = ({label, value, totalValue, partialValue, variant}) => {

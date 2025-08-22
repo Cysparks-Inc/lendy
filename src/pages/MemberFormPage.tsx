@@ -186,14 +186,20 @@ const MemberFormPage: React.FC = () => {
     if (successData) {
         return (
             <div className="flex flex-col items-center justify-center h-full p-2 sm:p-4 md:p-6 text-center">
-                <Card className="max-w-md"><CardHeader>
-                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100"><CheckCircle className="h-6 w-6 text-green-600" /></div>
-                    <CardTitle className="mt-4">Success!</CardTitle><CardDescription>Member "{successData.name}" has been saved.</CardDescription>
-                </CardHeader><CardContent className="flex flex-col gap-3">
-                    <Button asChild><Link to={`/members/${successData.id}`}>View Member Profile</Link></Button>
-                    <Button variant="outline" onClick={handleAddAnother}><UserPlus className="mr-2 h-4 w-4" />Add Another Member</Button>
-                    <Button variant="ghost" asChild><Link to="/members">Back to Members List</Link></Button>
-                </CardContent></Card>
+                <Card className="max-w-md bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
+                    <CardHeader>
+                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-brand-green-100">
+                            <CheckCircle className="h-6 w-6 text-brand-green-600" />
+                        </div>
+                        <CardTitle className="mt-4 text-brand-green-800">Success!</CardTitle>
+                        <CardDescription className="text-brand-green-600">Member "{successData.name}" has been saved.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex flex-col gap-3">
+                        <Button asChild><Link to={`/members/${successData.id}`}>View Member Profile</Link></Button>
+                        <Button variant="outline" onClick={handleAddAnother}><UserPlus className="mr-2 h-4 w-4" />Add Another Member</Button>
+                        <Button variant="ghost" asChild><Link to="/members">Back to Members List</Link></Button>
+                    </CardContent>
+                </Card>
             </div>
         );
     }
@@ -202,75 +208,82 @@ const MemberFormPage: React.FC = () => {
         <div className="p-2 sm:p-4 md:p-6 max-w-5xl mx-auto">
             <Button asChild variant="outline" size="sm" className="mb-4"><Link to="/members"><ArrowLeft className="mr-2 h-4 w-4" />Back to Members</Link></Button>
             <form onSubmit={handleSubmit(onSubmit)}>
-                <Card><CardHeader>
-                    <CardTitle>{isEditMode ? 'Edit Member' : 'Register New Member'}</CardTitle>
-                    <CardDescription>Fill in all required fields to manage member information.</CardDescription>
-                </CardHeader><CardContent className="space-y-8">
-                    {formError && <Alert variant="destructive"><AlertDescription>{formError}</AlertDescription></Alert>}
+                <Card className="bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
+                    <CardHeader>
+                        <CardTitle className="text-2xl font-bold text-brand-green-800">
+                            {isEditMode ? 'Edit Member' : 'Add New Member'}
+                        </CardTitle>
+                        <CardDescription className="text-brand-green-600">
+                            {isEditMode ? 'Update member information below.' : 'Fill in the details below to register a new member.'}
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-8">
+                        {formError && <Alert variant="destructive"><AlertDescription>{formError}</AlertDescription></Alert>}
 
-                    <FormSection title="Profile Picture">
-                        <ImageUploader currentImageUrl={watch("profile_picture_url")} onImageSelect={setProfilePictureFile} />
-                    </FormSection>
+                        <FormSection title="Profile Picture">
+                            <ImageUploader currentImageUrl={watch("profile_picture_url")} onImageSelect={setProfilePictureFile} />
+                        </FormSection>
 
-                    <FormSection title="Personal Details">
-                        <FormField label="Full Name" error={errors.full_name} required><Input {...register("full_name")} /></FormField>
-                        <FormField label="Date of Birth" error={errors.dob}><Input type="date" {...register("dob")} /></FormField>
-                        <FormField label="Sex" error={errors.sex}><Controller name="sex" control={control} render={({ field }) => <Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue placeholder="Select sex..." /></SelectTrigger><SelectContent><SelectItem value="Male">Male</SelectItem><SelectItem value="Female">Female</SelectItem></SelectContent></Select>} /></FormField>
-                        <FormField label="Phone Number" error={errors.phone_number} required><Input {...register("phone_number")} /></FormField>
-                        <FormField label="Marital Status" error={errors.marital_status}><Controller name="marital_status" control={control} render={({ field }) => <Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue placeholder="Select status..." /></SelectTrigger><SelectContent><SelectItem value="Single">Single</SelectItem><SelectItem value="Married">Married</SelectItem><SelectItem value="Divorced">Divorced</SelectItem><SelectItem value="Widowed">Widowed</SelectItem></SelectContent></Select>} /></FormField>
-                        {watch("marital_status") === "Married" && <FormField label="Spouse Date of Birth" error={errors.spouse_dob}><Input type="date" {...register("spouse_dob")} /></FormField>}
-                    </FormSection>
+                        <FormSection title="Personal Details">
+                            <FormField label="Full Name" error={errors.full_name} required><Input {...register("full_name")} /></FormField>
+                            <FormField label="Date of Birth" error={errors.dob}><Input type="date" {...register("dob")} /></FormField>
+                            <FormField label="Sex" error={errors.sex}><Controller name="sex" control={control} render={({ field }) => <Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue placeholder="Select sex..." /></SelectTrigger><SelectContent><SelectItem value="Male">Male</SelectItem><SelectItem value="Female">Female</SelectItem></SelectContent></Select>} /></FormField>
+                            <FormField label="Phone Number" error={errors.phone_number} required><Input {...register("phone_number")} /></FormField>
+                            <FormField label="Marital Status" error={errors.marital_status}><Controller name="marital_status" control={control} render={({ field }) => <Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue placeholder="Select status..." /></SelectTrigger><SelectContent><SelectItem value="Single">Single</SelectItem><SelectItem value="Married">Married</SelectItem><SelectItem value="Divorced">Divorced</SelectItem><SelectItem value="Widowed">Widowed</SelectItem></SelectContent></Select>} /></FormField>
+                            {watch("marital_status") === "Married" && <FormField label="Spouse Date of Birth" error={errors.spouse_dob}><Input type="date" {...register("spouse_dob")} /></FormField>}
+                        </FormSection>
 
-                    <FormSection title="KYC & Financial Information">
-                        <FormField label="KYC ID Type" error={errors.kyc_id_type} required><Controller name="kyc_id_type" control={control} render={({ field }) => <Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue placeholder="Select ID type..." /></SelectTrigger><SelectContent><SelectItem value="National ID">National ID</SelectItem><SelectItem value="Passport">Passport</SelectItem><SelectItem value="Other">Other</SelectItem></SelectContent></Select>} /></FormField>
-                        <FormField label="ID Number" error={errors.id_number} required><Input {...register("id_number")} /></FormField>
-                        <FormField label="KRA PIN (Optional)" error={errors.kra_pin}><Input {...register("kra_pin")} /></FormField>
-                        <FormField label="Profession" error={errors.profession}><Input {...register("profession")} /></FormField>
-                        <FormField label="Monthly Income (KES, Optional)" error={errors.monthly_income}><Input type="number" {...register("monthly_income")} /></FormField>
-                    </FormSection>
+                        <FormSection title="KYC & Financial Information">
+                            <FormField label="KYC ID Type" error={errors.kyc_id_type} required><Controller name="kyc_id_type" control={control} render={({ field }) => <Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue placeholder="Select ID type..." /></SelectTrigger><SelectContent><SelectItem value="National ID">National ID</SelectItem><SelectItem value="Passport">Passport</SelectItem><SelectItem value="Other">Other</SelectItem></SelectContent></Select>} /></FormField>
+                            <FormField label="ID Number" error={errors.id_number} required><Input {...register("id_number")} /></FormField>
+                            <FormField label="KRA PIN (Optional)" error={errors.kra_pin}><Input {...register("kra_pin")} /></FormField>
+                            <FormField label="Profession" error={errors.profession}><Input {...register("profession")} /></FormField>
+                            <FormField label="Monthly Income (KES, Optional)" error={errors.monthly_income}><Input type="number" {...register("monthly_income")} /></FormField>
+                        </FormSection>
 
-                    <FormSection title="Address & Housing">
-                        <FormField label="Location / Estate" error={errors.location}><Input {...register("location")} /></FormField>
-                        <FormField label="Address" error={errors.address_1}><Input {...register("address_1")} /></FormField>
-                        <FormField label="House Type" error={errors.house_type}><Input {...register("house_type")} /></FormField>
-                    </FormSection>
+                        <FormSection title="Address & Housing">
+                            <FormField label="Location / Estate" error={errors.location}><Input {...register("location")} /></FormField>
+                            <FormField label="Address" error={errors.address_1}><Input {...register("address_1")} /></FormField>
+                            <FormField label="House Type" error={errors.house_type}><Input {...register("house_type")} /></FormField>
+                        </FormSection>
 
-                    <div>
-                        <h3 className="text-lg font-medium">Next of Kin</h3>
-                        <div className="space-y-4 mt-4">
-                            {fields.map((field, index) => (
-                                <div key={field.id} className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 border rounded-lg relative">
-                                    <FormField label="Full Name" error={errors.next_of_kin?.[index]?.full_name} required><Input {...register(`next_of_kin.${index}.full_name`)} /></FormField>
-                                    <FormField label="Relationship" error={errors.next_of_kin?.[index]?.relationship} required><Controller name={`next_of_kin.${index}.relationship`} control={control} render={({ field }) => <Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger><SelectContent>{relationshipOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}</SelectContent></Select>} /></FormField>
-                                    <FormField label="Contact Number" error={errors.next_of_kin?.[index]?.contact_number}><Input {...register(`next_of_kin.${index}.contact_number`)} /></FormField>
-                                    <div className="md:col-start-4 flex items-end">{fields.length > 1 && <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}><Trash2 className="h-4 w-4 text-red-500" /></Button>}</div>
-                                </div>
-                            ))}
-                            <Button type="button" variant="outline" size="sm" onClick={() => append({ full_name: '', relationship: '', contact_number: '' })}><PlusCircle className="mr-2 h-4 w-4" />Add Next of Kin</Button>
+                        <div>
+                            <h3 className="text-lg font-medium">Next of Kin</h3>
+                            <div className="space-y-4 mt-4">
+                                {fields.map((field, index) => (
+                                    <div key={field.id} className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 border rounded-lg relative">
+                                        <FormField label="Full Name" error={errors.next_of_kin?.[index]?.full_name} required><Input {...register(`next_of_kin.${index}.full_name`)} /></FormField>
+                                        <FormField label="Relationship" error={errors.next_of_kin?.[index]?.relationship} required><Controller name={`next_of_kin.${index}.relationship`} control={control} render={({ field }) => <Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger><SelectContent>{relationshipOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}</SelectContent></Select>} /></FormField>
+                                        <FormField label="Contact Number" error={errors.next_of_kin?.[index]?.contact_number}><Input {...register(`next_of_kin.${index}.contact_number`)} /></FormField>
+                                        <div className="md:col-start-4 flex items-end">{fields.length > 1 && <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}><Trash2 className="h-4 w-4 text-red-500" /></Button>}</div>
+                                    </div>
+                                ))}
+                                <Button type="button" variant="outline" size="sm" onClick={() => append({ full_name: '', relationship: '', contact_number: '' })}><PlusCircle className="mr-2 h-4 w-4" />Add Next of Kin</Button>
+                            </div>
                         </div>
-                    </div>
 
-                    <FormSection title="Branch & Officer Assignment">
-                         <FormField label="Branch" error={errors.branch_id} required><Controller name="branch_id" control={control} render={({ field }) => <Select onValueChange={field.onChange} value={String(field.value || '')}><SelectTrigger><SelectValue placeholder="Assign a branch..." /></SelectTrigger><SelectContent>{branches.map(b => <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>)}</SelectContent></Select>} /></FormField>
-                        {userRole !== 'loan_officer' && (
-                            <FormField label="Assign to Officer" error={errors.assigned_officer_id} required>
-                                <Controller name="assigned_officer_id" control={control} render={({ field }) => (
-                                    <Select onValueChange={field.onChange} value={field.value}>
-                                        <SelectTrigger><SelectValue placeholder="Select an officer..." /></SelectTrigger>
-                                        <SelectContent>{assignableOfficers.map(o => <SelectItem key={o.id} value={o.id}>{o.full_name}</SelectItem>)}</SelectContent>
-                                    </Select>
-                                )} />
-                            </FormField>
-                        )}
-                    </FormSection>
+                        <FormSection title="Branch & Officer Assignment">
+                            <FormField label="Branch" error={errors.branch_id} required><Controller name="branch_id" control={control} render={({ field }) => <Select onValueChange={field.onChange} value={String(field.value || '')}><SelectTrigger><SelectValue placeholder="Assign a branch..." /></SelectTrigger><SelectContent>{branches.map(b => <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>)}</SelectContent></Select>} /></FormField>
+                            {userRole !== 'loan_officer' && (
+                                <FormField label="Assign to Officer" error={errors.assigned_officer_id} required>
+                                    <Controller name="assigned_officer_id" control={control} render={({ field }) => (
+                                        <Select onValueChange={field.onChange} value={field.value}>
+                                            <SelectTrigger><SelectValue placeholder="Select an officer..." /></SelectTrigger>
+                                            <SelectContent>{assignableOfficers.map(o => <SelectItem key={o.id} value={o.id}>{o.full_name}</SelectItem>)}</SelectContent>
+                                        </Select>
+                                    )} />
+                                </FormField>
+                            )}
+                        </FormSection>
 
-                    <div className="flex justify-end pt-4">
-                        <Button type="submit" disabled={isSubmitting}>
-                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            {isEditMode ? 'Save Changes' : 'Create Member'}
-                        </Button>
-                    </div>
-                </CardContent></Card>
+                        <div className="flex justify-end pt-4">
+                            <Button type="submit" disabled={isSubmitting}>
+                                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                {isEditMode ? 'Save Changes' : 'Create Member'}
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
             </form>
         </div>
     );

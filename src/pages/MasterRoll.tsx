@@ -162,7 +162,14 @@ const MasterRoll: React.FC = () => {
 };
 
 const StatCard: React.FC<{title: string, value: string | number}> = ({ title, value }) => (
-    <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium">{title}</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{value}</div></CardContent></Card>
+  <Card className="bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
+    <CardHeader className="pb-2">
+      <CardTitle className="text-sm font-medium text-brand-green-800">{title}</CardTitle>
+    </CardHeader>
+    <CardContent>
+      <div className="text-2xl font-bold text-brand-green-700">{value}</div>
+    </CardContent>
+  </Card>
 );
 
 export default MasterRoll;

@@ -369,7 +369,17 @@ const Groups = () => {
 // --- Helper Sub-components ---
 const InputWithLabel = ({ id, label, ...props }) => (<div><Label htmlFor={id} className="text-sm font-medium">{label}</Label><Input id={id} className="mt-1" {...props} /></div>);
 const SelectWithLabel = ({ id, label, placeholder, options, ...props }) => (<div><Label htmlFor={id}>{label}</Label><Select {...props}><SelectTrigger><SelectValue placeholder={placeholder} /></SelectTrigger><SelectContent>{options.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}</SelectContent></Select></div>);
-const StatCard = ({ title, value, icon: Icon }) => (<Card><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">{title}</CardTitle><Icon className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{value}</div></CardContent></Card>);
+const StatCard = ({ title, value, icon: Icon }) => (
+  <Card className="bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
+    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <CardTitle className="text-sm font-medium text-brand-green-800">{title}</CardTitle>
+      <Icon className="h-4 w-4 text-brand-green-600" />
+    </CardHeader>
+    <CardContent>
+      <div className="text-2xl font-bold text-brand-green-700">{value}</div>
+    </CardContent>
+  </Card>
+);
 const InfoItem = ({ icon: Icon, label, value }) => (<div className="flex items-start gap-3"><Icon className="h-5 w-5 text-muted-foreground mt-1" /><div className="flex flex-col"><Label>{label}</Label><p className="font-medium">{value || 'N/A'}</p></div></div>);
 
 export default Groups;

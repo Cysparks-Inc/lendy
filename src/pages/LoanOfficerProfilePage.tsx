@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Loader2, Mail, Phone, MapPin, Banknote, Users, TrendingUp, DollarSign, Eye, Edit } from 'lucide-react';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/ui/data-table'; // Reusable component
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 // --- Type Definitions ---
 interface OfficerProfile {
@@ -102,6 +103,12 @@ const LoanOfficerProfilePage: React.FC = () => {
   if (loading) { return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>; }
   if (!officer) { return <div className="text-center p-10"><h2 className="text-xl font-semibold">Loan Officer Not Found</h2></div>; }
 
+  const getInitials = (name: string) => {
+    const names = name.split(' ');
+    if (names.length === 1) return names[0].charAt(0);
+    return names[0].charAt(0) + names[names.length - 1].charAt(0);
+  };
+
   return (
     <div className="space-y-6 p-2 sm:p-4 md:p-6">
       {/* Modern Mobile-First Header */}
@@ -129,34 +136,21 @@ const LoanOfficerProfilePage: React.FC = () => {
       </div>
       
       {/* Modern Profile Card with Better Mobile Layout */}
-      <Card className="overflow-hidden">
+      {/* Profile Card */}
+      <Card className="overflow-hidden bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-6">
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
-            {/* Profile Picture - Centered on mobile, left-aligned on desktop */}
-            <div className="flex-shrink-0 h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-primary/10 flex items-center justify-center border-2 border-primary/20">
-              {officer.profile_picture_url ? (
-                <img 
-                  src={officer.profile_picture_url} 
-                  alt={officer.name} 
-                  className="h-full w-full rounded-full object-cover" 
-                />
-              ) : (
-                <span className="text-2xl sm:text-4xl font-bold text-primary">
-                  {officer.name.charAt(0)}
-                </span>
-              )}
+            <div className="relative">
+              <Avatar className="h-20 w-20 sm:h-24 sm:w-24 border-2 border-brand-green-200">
+                <AvatarImage src={officer.profile_picture_url} alt={officer.name} />
+                <AvatarFallback className="bg-brand-green-100 text-brand-green-700 text-lg">
+                  {getInitials(officer.name)}
+                </AvatarFallback>
+              </Avatar>
             </div>
-            
-            {/* Info Grid - Responsive layout */}
-            <div className="w-full space-y-4 sm:space-y-0">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                <InfoItem icon={Mail} label="Email Address" value={officer.email} />
-                <InfoItem icon={Phone} label="Phone Number" value={officer.phone} />
-                <InfoItem icon={MapPin} label="Assigned Branch" value={officer.branch_name} />
-                <InfoItem icon={Banknote} label="Total Loans Managed" value={officer.total_loans} />
-                <InfoItem icon={DollarSign} label="Total Outstanding" value={formatCurrency(officer.total_balance)} />
-                <InfoItem icon={TrendingUp} label="Total Disbursed" value={formatCurrency(officer.total_disbursed)} />
-              </div>
+            <div className="text-center sm:text-left">
+              <CardTitle className="text-2xl sm:text-3xl text-brand-green-800 mb-2">{officer.name}</CardTitle>
+              <CardDescription className="text-brand-green-600">{officer.email}</CardDescription>
             </div>
           </div>
         </CardHeader>

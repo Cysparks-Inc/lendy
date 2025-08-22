@@ -138,25 +138,20 @@ const MemberProfilePage: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Profile Card - Full width on mobile, left column on desktop */}
                 <div className="lg:col-span-1 space-y-6">
-                    <Card className="overflow-hidden">
-                        <CardHeader className="items-center text-center pb-6">
-                            <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-secondary flex items-center justify-center mb-4 border-2 border-secondary/20">
-                                {member.profile_picture_url ? (
-                                    <img 
-                                        key={member.profile_picture_url} 
-                                        src={member.profile_picture_url} 
-                                        alt={member.full_name} 
-                                        className="h-full w-full rounded-full object-cover" 
-                                    />
-                                ) : (
-                                    <span className="text-2xl sm:text-4xl font-bold text-primary">
-                                        {member.full_name.charAt(0)}
-                                    </span>
-                                )}
-                            </div>
-                            <CardTitle className="text-lg sm:text-xl">{member.full_name}</CardTitle>
-                            <CardDescription className="text-sm">ID: {member.id_number}</CardDescription>
-                        </CardHeader>
+                    {/* Profile Card */}
+                    <Card className="overflow-hidden bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
+                      <CardHeader className="items-center text-center pb-6">
+                        <div className="relative mb-4">
+                          <Avatar className="h-20 w-20 sm:h-24 w-24 border-2 border-brand-green-200">
+                            <AvatarImage src={member.profile_picture_url} alt={member.full_name} />
+                            <AvatarFallback className="bg-brand-green-100 text-brand-green-700 text-lg">
+                              {getInitials(member.full_name)}
+                            </AvatarFallback>
+                          </Avatar>
+                        </div>
+                        <CardTitle className="text-lg sm:text-xl text-brand-green-800">{member.full_name}</CardTitle>
+                        <CardDescription className="text-sm text-brand-green-600">ID: {member.id_number}</CardDescription>
+                      </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="space-y-3">
                                 <InfoItem icon={Phone} label="Phone Number" value={member.phone_number} />

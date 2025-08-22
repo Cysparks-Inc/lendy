@@ -208,15 +208,13 @@ const LoanOfficerPage: React.FC = () => {
 
 // Mobile-Optimized StatCard Component
 const StatCard: React.FC<{ title: string; value: string | number; icon: React.ElementType }> = ({ title, value, icon: Icon }) => (
-  <Card>
-    <CardHeader className="flex flex-row items-center justify-between pb-2">
-      <CardTitle className="text-sm font-medium">{title}</CardTitle>
-      <Icon className="h-4 w-4 text-muted-foreground" />
+  <Card className="bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
+    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <CardTitle className="text-sm font-medium text-brand-green-800">{title}</CardTitle>
+      <Icon className="h-4 w-4 text-brand-green-600" />
     </CardHeader>
     <CardContent>
-      <div className="text-xl sm:text-2xl font-bold truncate" title={value.toString()}>
-        {typeof value === 'string' && value.length > 12 ? `${value.substring(0, 10)}...` : value}
-      </div>
+      <div className="text-lg sm:text-2xl font-bold text-brand-green-700">{value}</div>
     </CardContent>
   </Card>
 );

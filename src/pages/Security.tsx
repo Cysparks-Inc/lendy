@@ -18,11 +18,11 @@ const Security: React.FC = () => {
   if (userRole !== 'super_admin') {
     return (
       <div className="p-2 sm:p-4 md:p-6">
-        <Card className="max-w-md mx-auto">
+        <Card className="max-w-md mx-auto bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
           <CardHeader className="text-center">
-            <ShieldAlert className="mx-auto h-12 w-12 text-yellow-500" />
-            <CardTitle className="mt-4">Access Denied</CardTitle>
-            <CardDescription>Only Super Admins can access the Security page.</CardDescription>
+            <ShieldAlert className="mx-auto h-12 w-12 text-brand-green-600" />
+            <CardTitle className="mt-4 text-brand-green-800">Access Denied</CardTitle>
+            <CardDescription className="text-brand-green-600">You do not have permission to view this page.</CardDescription>
           </CardHeader>
         </Card>
       </div>
@@ -41,9 +41,12 @@ const Security: React.FC = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* User Security Actions */}
-          <Card>
+          <Card className="bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><UserCog className="h-5 w-5" />User Security Actions</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-brand-green-800">
+                <UserCog className="h-5 w-5 text-brand-green-600" />
+                User Security Actions
+              </CardTitle>
               <CardDescription>Perform administrative security actions on user accounts.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -58,9 +61,12 @@ const Security: React.FC = () => {
           </Card>
 
           {/* Password Policy */}
-          <Card>
+          <Card className="bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Lock className="h-5 w-5" />Password Policy</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-brand-green-800">
+                <Lock className="h-5 w-5 text-brand-green-600" />
+                Password Policy
+              </CardTitle>
               <CardDescription>These settings are enforced by Supabase Auth.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">

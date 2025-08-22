@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Settings as SettingsIcon, Save, AlertCircle, ShieldAlert, Loader2 } from 'lucide-react';
+import { Settings as SettingsIcon, Save, AlertCircle, ShieldAlert, Loader2, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -97,11 +97,11 @@ const Settings: React.FC = () => {
   if (userRole !== 'super_admin') {
     return (
       <div className="p-2 sm:p-4 md:p-6">
-        <Card className="max-w-md mx-auto">
+        <Card className="max-w-md mx-auto bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
           <CardHeader className="text-center">
-            <ShieldAlert className="mx-auto h-12 w-12 text-yellow-500" />
-            <CardTitle className="mt-4">Access Denied</CardTitle>
-            <CardDescription>Only Super Admins can access the System Settings page.</CardDescription>
+            <AlertTriangle className="mx-auto h-12 w-12 text-brand-green-600" />
+            <CardTitle className="mt-4 text-brand-green-800">Access Denied</CardTitle>
+            <CardDescription className="text-brand-green-600">You do not have permission to view this page.</CardDescription>
           </CardHeader>
         </Card>
       </div>

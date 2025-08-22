@@ -114,7 +114,7 @@ const SearchMemberPage: React.FC = () => {
                 {searchResults.map((member) => (
                   // --- THE CRITICAL FIX: The entire card is now a clickable Link ---
                   <Link to={`/members/${member.id}`} key={member.id} className="block group">
-                    <Card className="transition-all group-hover:shadow-md group-hover:border-primary">
+                    <Card className="transition-all group-hover:shadow-md group-hover:border-brand-green-300 bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300">
                       <CardContent className="p-4 grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
                         <div className="flex items-center gap-4 col-span-1">
                           <div className="h-12 w-12 rounded-full bg-secondary flex-shrink-0 flex items-center justify-center border">

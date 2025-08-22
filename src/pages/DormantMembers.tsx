@@ -18,6 +18,17 @@ interface DormantMember {
   status: string;
 }
 
+const StatCard: React.FC<{title: string, value: string | number}> = ({ title, value }) => (
+  <Card className="bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
+    <CardHeader className="pb-2">
+      <CardTitle className="text-sm font-medium text-brand-green-800">{title}</CardTitle>
+    </CardHeader>
+    <CardContent>
+      <div className="text-2xl font-bold text-brand-green-700">{value}</div>
+    </CardContent>
+  </Card>
+);
+
 const DormantMembers = () => {
   const [dormantMembers, setDormantMembers] = useState<DormantMember[]>([]);
   const [loading, setLoading] = useState(true);
@@ -97,36 +108,9 @@ const DormantMembers = () => {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Total Dormant</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-destructive">{dormantMembers.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Avg Days Inactive</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-muted-foreground">
-              {dormantMembers.length > 0 
-                ? Math.round(dormantMembers.reduce((sum, m) => sum + m.days_inactive, 0) / dormantMembers.length)
-                : 0}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Critical Cases</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-destructive">
-              {dormantMembers.filter(m => m.days_inactive > 180).length}
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard title="Total Dormant" value={dormantMembers.length} />
+        <StatCard title="Avg Days Inactive" value={dormantMembers.length > 0 ? Math.round(dormantMembers.reduce((sum, m) => sum + m.days_inactive, 0) / dormantMembers.length) : 0} />
+        <StatCard title="Critical Cases" value={dormantMembers.filter(m => m.days_inactive > 180).length} />
       </div>
       
       <Card>

@@ -50,26 +50,28 @@ const AppLayout = () => {
         
         <div className="flex-1 flex flex-col">
           {/* Header */}
-          <header className="h-16 flex items-center justify-between border-b border-border bg-card/50 backdrop-blur-sm px-4 sm:px-6 sticky top-0 z-10">
+          <header className="h-16 flex items-center justify-between border-b border-border bg-white/95 backdrop-blur-md px-4 sm:px-6 fixed top-0 left-0 right-0 z-50 shadow-sm">
             <div className="flex items-center gap-3">
               <SidebarTrigger className="hover:bg-accent hover:text-accent-foreground transition-colors p-2 h-10 w-10 rounded-md" />
-              
-              {/* Company Name - Single line for mobile, responsive sizing */}
-              <h1 className="font-bold text-lg sm:text-xl md:text-2xl bg-gradient-to-r from-brand-green-600 to-brand-green-700 bg-clip-text text-transparent whitespace-nowrap">
-                Napol Microfinance
-              </h1>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-gradient-to-br from-brand-green-600 to-brand-green-700 rounded-lg flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">N</span>
+                </div>
+                <h1 className="font-bold text-lg sm:text-xl md:text-2xl bg-gradient-to-r from-brand-green-600 to-brand-green-800 bg-clip-text text-transparent whitespace-nowrap">
+                  Napol Microfinance
+                </h1>
+              </div>
             </div>
-
             <div className="flex items-center gap-2 sm:gap-4">
               <span className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
-                {formatRoleDisplay(userRole)}
-              </span>
+                 {formatRoleDisplay(userRole)}
+               </span>
               <ProfileDropdown />
             </div>
           </header>
 
           {/* Main Content - Ensure top is visible first */}
-          <main ref={mainRef} className="flex-1 p-2 sm:p-4 md:p-6 bg-background/50 overflow-x-hidden mt-4">
+          <main ref={mainRef} className="flex-1 p-2 sm:p-4 md:p-6 bg-background/50 overflow-x-hidden mt-20">
             <Outlet />
           </main>
         </div>
