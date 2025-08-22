@@ -307,9 +307,9 @@ const Profile = () => {
               Profile Picture
             </CardTitle>
           </CardHeader>
-          <CardContent className="flex items-center gap-6">
-            <div className="relative">
-              <Avatar className="h-24 w-24">
+          <CardContent className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6">
+            <div className="relative flex-shrink-0">
+              <Avatar className="h-20 w-20 sm:h-24 sm:w-24">
                 <AvatarImage 
                   src={profileData.profile_picture_url} 
                   alt={profileData.full_name}
@@ -331,12 +331,12 @@ const Profile = () => {
                 </div>
               )}
             </div>
-            <div className="space-y-4 flex-1">
+            <div className="space-y-4 flex-1 w-full text-center sm:text-left">
               <div>
                 <p className="text-sm text-muted-foreground mb-3">
                   Upload a new profile picture. Recommended size is 256x256 pixels. Maximum file size: 5MB.
                 </p>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2 justify-center sm:justify-start">
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -348,7 +348,7 @@ const Profile = () => {
                     variant="outline" 
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploading}
-                    className="flex items-center gap-2"
+                    className="flex items-center justify-center gap-2 w-full sm:w-auto"
                   >
                     <Upload className="h-4 w-4" />
                     {uploading ? 'Uploading...' : 'Upload Photo'}
@@ -358,7 +358,7 @@ const Profile = () => {
                       variant="outline" 
                       onClick={() => fileInputRef.current?.click()}
                       disabled={uploading}
-                      className="flex items-center gap-2"
+                      className="flex items-center justify-center gap-2 w-full sm:w-auto"
                     >
                       <Camera className="h-4 w-4" />
                       Change Photo
@@ -370,17 +370,15 @@ const Profile = () => {
               {/* Upload Progress and Tips */}
               {uploading && (
                 <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="flex items-center gap-2 text-blue-700">
+                  <div className="flex items-center justify-center sm:justify-start gap-2 text-blue-700">
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-700"></div>
                     <span className="text-sm font-medium">Processing and uploading your image...</span>
                   </div>
-                  <p className="text-xs text-blue-600 mt-1">
+                  <p className="text-xs text-blue-600 mt-1 text-center sm:text-left">
                     This may take a few seconds. Please don't close this page.
                   </p>
                 </div>
               )}
-              
-              {/* Remove the success notification - it's not needed */}
             </div>
           </CardContent>
         </Card>

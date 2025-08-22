@@ -17,6 +17,7 @@ import { DataTable } from '@/components/ui/data-table';
 // Import the dialog components
 import GenerateStatementDialog from '@/components/members/GenerateStatementDialog';
 import { LogCommunicationDialog } from '@/components/members/LogCommunicationDialog';
+import { Avatar, AvatarImage, AvatarFallback } from '@radix-ui/react-avatar';
 
 // --- Type Definitions ---
 interface NextOfKin { full_name: string; relationship: string; contact_number: string | null; }
