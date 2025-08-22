@@ -17,7 +17,7 @@ import { DataTable } from '@/components/ui/data-table';
 // Import the dialog components
 import GenerateStatementDialog from '@/components/members/GenerateStatementDialog';
 import { LogCommunicationDialog } from '@/components/members/LogCommunicationDialog';
-import { Avatar, AvatarImage, AvatarFallback } from '@radix-ui/react-avatar';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
 // --- Type Definitions ---
 interface NextOfKin { full_name: string; relationship: string; contact_number: string | null; }
@@ -75,6 +75,13 @@ const MemberProfilePage: React.FC = () => {
   const formatCurrency = (amount: number) => new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(amount || 0);
   const getStatusVariant = (status: MemberLoan['status']) => {
     switch (status) { case 'active': return 'default'; case 'repaid': return 'success'; case 'defaulted': return 'destructive'; case 'pending': return 'warning'; default: return 'secondary'; }
+  };
+  
+  const getInitials = (name: string) => {
+    if (!name) return '';
+    const names = name.split(' ');
+    if (names.length === 1) return names[0].charAt(0).toUpperCase();
+    return (names[0].charAt(0) + names[names.length - 1].charAt(0)).toUpperCase();
   };
 
   if (loading) { return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>; }
