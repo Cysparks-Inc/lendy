@@ -11,6 +11,8 @@ import { Search, Plus, Eye, CreditCard, Landmark, Banknote, Loader2, DollarSign,
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/ui/data-table'; // Reusable component
+import { ExportDropdown } from '@/components/ui/ExportDropdown';
+import { DateRangeFilter, DateRange, filterDataByDateRange } from '@/components/ui/DateRangeFilter';
 
 // --- Type Definitions ---
 type LoanStatus = 'active' | 'repaid' | 'defaulted' | 'pending';
@@ -31,6 +33,7 @@ const LoansPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [dateRange, setDateRange] = useState<DateRange>({ from: undefined, to: undefined });
 
   // --- THE CRITICAL FIX: Simplified and Corrected Data Fetching ---
   const fetchLoans = async () => {
@@ -73,6 +76,9 @@ const LoansPage: React.FC = () => {
     return searchMatch && statusMatch;
   });
 
+  // Apply date filtering to the already filtered loans
+  const dateFilteredLoans = filterDataByDateRange(filteredLoans, dateRange, 'due_date');
+
   const formatCurrency = (amount: number) => new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(amount || 0);
   const getStatusVariant = (status: LoanStatus) => {
     switch (status) { case 'active': return 'default'; case 'repaid': return 'success'; case 'defaulted': return 'destructive'; case 'pending': return 'warning'; default: return 'secondary'; }
@@ -92,6 +98,22 @@ const LoansPage: React.FC = () => {
     { header: 'Actions', cell: (row: LoanSummary) => <div className="text-right"><Button asChild variant="outline" size="icon"><Link to={`/loans/${row.id}`}><Eye className="h-4 w-4" /></Link></Button></div> },
   ];
 
+  // Export columns configuration
+  const exportColumns = [
+    { header: 'Member Name', accessorKey: 'member_name' },
+    { header: 'Branch', accessorKey: 'branch_name' },
+    { header: 'Principal Amount', accessorKey: (row: LoanSummary) => formatCurrency(row.principal_amount) },
+    { header: 'Current Balance', accessorKey: (row: LoanSummary) => formatCurrency(row.current_balance) },
+    { header: 'Total Paid', accessorKey: (row: LoanSummary) => formatCurrency(row.total_paid) },
+    { header: 'Due Date', accessorKey: (row: LoanSummary) => new Date(row.due_date).toLocaleDateString() },
+    { header: 'Status', accessorKey: 'status' },
+    { header: 'Progress %', accessorKey: (row: LoanSummary) => {
+      const totalDue = row.principal_amount + (row.current_balance - row.principal_amount + row.total_paid);
+      const progress = totalDue > 0 ? (row.total_paid / totalDue) * 100 : (row.status === 'repaid' ? 100 : 0);
+      return `${progress.toFixed(0)}%`;
+    }},
+  ];
+
   const totalOutstanding = loans.reduce((sum, loan) => sum + (loan.current_balance > 0 ? loan.current_balance : 0), 0);
   
   if (loading) { return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>; }
@@ -103,83 +125,84 @@ const LoansPage: React.FC = () => {
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Loan Accounts</h1>
           <p className="text-muted-foreground">Manage and monitor all loan accounts in your scope.</p>
         </div>
-        <Button asChild><Link to="/loans/new"><Plus className="h-4 w-4 mr-2" />New Loan</Link></Button>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <ExportDropdown 
+            data={dateFilteredLoans} 
+            columns={exportColumns} 
+            fileName="loans-report" 
+            reportTitle="Loans Report"
+            dateRange={dateRange}
+          />
+          <Button asChild><Link to="/loans/new"><Plus className="h-4 w-4 mr-2" />New Loan</Link></Button>
+        </div>
       </div>
 
       {/* Summary Cards */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-brand-green-200 hover:border-brand-green-300 transition-colors">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Loans</CardTitle>
-            <CreditCard className="h-4 w-4 text-brand-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-brand-green-700">{loans.length}</div>
-            <p className="text-xs text-muted-foreground">Active accounts</p>
-          </CardContent>
-        </Card>
-        <Card className="border-brand-green-200 hover:border-brand-green-300 transition-colors">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Outstanding Balance</CardTitle>
-            <Landmark className="h-4 w-4 text-brand-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-brand-green-700">{formatCurrency(totalOutstanding)}</div>
-            <p className="text-xs text-muted-foreground">Total due</p>
-          </CardContent>
-        </Card>
-        <Card className="border-brand-green-200 hover:border-brand-green-300 transition-colors">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Loans</CardTitle>
-            <Banknote className="h-4 w-4 text-brand-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-brand-green-700">{loans.filter(l => l.status === 'active').length}</div>
-            <p className="text-xs text-muted-foreground">Currently active</p>
-          </CardContent>
-        </Card>
-        <Card className="border-brand-green-200 hover:border-brand-green-300 transition-colors">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Defaulted</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-brand-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-brand-green-700">{loans.filter(l => l.status === 'defaulted').length}</div>
-            <p className="text-xs text-muted-foreground">Require attention</p>
-          </CardContent>
-        </Card>
+        <StatCard title="Total Loans" value={loans.length} icon={CreditCard} />
+        <StatCard title="Outstanding Balance" value={formatCurrency(totalOutstanding)} icon={Landmark} />
+        <StatCard title="Active Loans" value={loans.filter(l => l.status === 'active').length} icon={Banknote} />
+        <StatCard title="Defaulted" value={loans.filter(l => l.status === 'defaulted').length} icon={AlertTriangle} />
       </div>
 
       {/* Search and Filters */}
       <Card>
         <CardHeader>
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <CardTitle>Loan Accounts</CardTitle>
-              <CardDescription>Showing {filteredLoans.length} of {loans.length} loans.</CardDescription>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-              <div className="relative w-full sm:w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Search by member name..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9" />
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <CardTitle>Loan Accounts</CardTitle>
+                <CardDescription>
+                  Showing {dateFilteredLoans.length} of {filteredLoans.length} loans
+                  {dateRange.from && dateRange.to && (
+                    <span className="text-brand-green-600 font-medium">
+                      {' '}• Filtered by date range
+                    </span>
+                  )}
+                </CardDescription>
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full sm:w-32">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="repaid">Repaid</SelectItem>
-                  <SelectItem value="defaulted">Defaulted</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                </SelectContent>
-              </Select>
+            </div>
+            
+            {/* Filters Row - Better positioned and spaced */}
+            <div className="flex flex-col lg:flex-row gap-4 w-full">
+              {/* Date Filter - Takes priority */}
+              <div className="flex-shrink-0">
+                <DateRangeFilter
+                  onDateRangeChange={setDateRange}
+                  placeholder="Filter by date"
+                  className="w-full lg:w-auto"
+                />
+              </div>
+              
+              {/* Search and Status Filters */}
+              <div className="flex flex-col sm:flex-row gap-3 flex-1">
+                <div className="relative flex-1 min-w-0">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    placeholder="Search by member name..." 
+                    value={searchTerm} 
+                    onChange={e => setSearchTerm(e.target.value)} 
+                    className="pl-9 w-full" 
+                  />
+                </div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-full sm:w-32">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="repaid">Repaid</SelectItem>
+                    <SelectItem value="defaulted">Defaulted</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          <DataTable columns={columns} data={filteredLoans} emptyStateMessage="No loans found matching your criteria." />
+          <DataTable columns={columns} data={dateFilteredLoans} emptyStateMessage="No loans found matching your criteria." />
         </CardContent>
       </Card>
     </div>

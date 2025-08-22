@@ -10,6 +10,8 @@ import { Plus, Search, Edit, Trash2, Users, Eye, Banknote, DollarSign, Loader2, 
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/ui/data-table'; // We will use our new reusable component
+import { ExportDropdown } from '@/components/ui/ExportDropdown';
+import { DateRangeFilter, DateRange, filterDataByDateRange } from '@/components/ui/DateRangeFilter';
 
 // --- Type Definitions ---
 // This type matches the output of our secure database function
@@ -31,6 +33,7 @@ const MembersPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [deleteCandidate, setDeleteCandidate] = useState<MemberSummary | null>(null);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [dateRange, setDateRange] = useState<DateRange>({ from: undefined, to: undefined });
 
   // Fetch members when the component mounts or the user changes
   useEffect(() => {
@@ -75,6 +78,9 @@ const MembersPage: React.FC = () => {
     (member.id_number && member.id_number.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (member.phone_number && member.phone_number.includes(searchTerm))
   );
+
+  // Apply date filtering to the already filtered members
+  const dateFilteredMembers = filterDataByDateRange(filteredMembers, dateRange, 'created_at');
 
   const formatCurrency = (amount: number) => new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(amount || 0);
 
@@ -121,6 +127,17 @@ const MembersPage: React.FC = () => {
     }
   ];
 
+  // Export columns configuration
+  const exportColumns = [
+    { header: 'Member Name', accessorKey: 'full_name' },
+    { header: 'ID Number', accessorKey: 'id_number' },
+    { header: 'Phone Number', accessorKey: 'phone_number' },
+    { header: 'Status', accessorKey: 'status' },
+    { header: 'Branch', accessorKey: 'branch_name' },
+    { header: 'Total Loans', accessorKey: 'total_loans' },
+    { header: 'Outstanding Balance', accessorKey: (row: MemberSummary) => formatCurrency(row.outstanding_balance) },
+  ];
+
   if (loading) {
     return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   }
@@ -130,71 +147,74 @@ const MembersPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Members</h1>
-          <p className="text-muted-foreground">Manage member registrations and profiles.</p>
+          <p className="text-muted-foreground">Manage and monitor all registered members.</p>
         </div>
-        <Button asChild><Link to="/members/new"><Plus className="h-4 w-4 mr-2" />Add Member</Link></Button>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <ExportDropdown 
+            data={dateFilteredMembers} 
+            columns={exportColumns} 
+            fileName="members-report" 
+            reportTitle="Members Report"
+            dateRange={dateRange}
+          />
+          <Button asChild><Link to="/members/new"><Plus className="h-4 w-4 mr-2" />New Member</Link></Button>
+        </div>
       </div>
 
       {/* Summary Cards */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-brand-green-200 hover:border-brand-green-300 transition-colors">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Members</CardTitle>
-            <Users className="h-4 w-4 text-brand-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-brand-green-700">{members.length}</div>
-            <p className="text-xs text-muted-foreground">Registered members</p>
-          </CardContent>
-        </Card>
-        <Card className="border-brand-green-200 hover:border-brand-green-300 transition-colors">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Members</CardTitle>
-            <UserCheck className="h-4 w-4 text-brand-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-brand-green-700">{members.filter(m => m.status === 'active').length}</div>
-            <p className="text-xs text-muted-foreground">Currently active</p>
-          </CardContent>
-        </Card>
-        <Card className="border-brand-green-200 hover:border-brand-green-300 transition-colors">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Outstanding</CardTitle>
-            <DollarSign className="h-4 w-4 text-brand-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-brand-green-700">{formatCurrency(members.reduce((sum, m) => sum + m.outstanding_balance, 0))}</div>
-            <p className="text-xs text-muted-foreground">Combined balance</p>
-          </CardContent>
-        </Card>
-        <Card className="border-brand-green-200 hover:border-brand-green-300 transition-colors">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">With Loans</CardTitle>
-            <Banknote className="h-4 w-4 text-brand-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-brand-green-700">{members.filter(m => m.total_loans > 0).length}</div>
-            <p className="text-xs text-muted-foreground">Have active loans</p>
-          </CardContent>
-        </Card>
+        <StatCard title="Total Members" value={members.length} icon={Users} />
+        <StatCard title="Active Members" value={members.filter(m => m.status === 'active').length} icon={UserCheck} />
+        <StatCard title="With Loans" value={members.filter(m => m.total_loans > 0).length} icon={Banknote} />
+        <StatCard title="Total Outstanding" value={formatCurrency(members.reduce((sum, m) => sum + m.outstanding_balance, 0))} icon={DollarSign} />
       </div>
 
-      {/* Members Table */}
+      {/* Search and Filters */}
       <Card>
         <CardHeader>
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <CardTitle>Member Directory</CardTitle>
-              <CardDescription>Showing {filteredMembers.length} of {members.length} members.</CardDescription>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <CardTitle>Member Records</CardTitle>
+                <CardDescription>
+                  Showing {dateFilteredMembers.length} of {filteredMembers.length} members
+                  {dateRange.from && dateRange.to && (
+                    <span className="text-brand-green-600 font-medium">
+                      {' '}• Filtered by date range
+                    </span>
+                  )}
+                </CardDescription>
+              </div>
             </div>
-            <div className="relative w-full sm:w-80">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search by name, ID, or phone..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9" />
+            
+            {/* Filters Row - Better positioned and spaced */}
+            <div className="flex flex-col lg:flex-row gap-4 w-full">
+              {/* Date Filter - Takes priority */}
+              <div className="flex-shrink-0">
+                <DateRangeFilter
+                  onDateRangeChange={setDateRange}
+                  placeholder="Filter by date"
+                  className="w-full lg:w-auto"
+                />
+              </div>
+              
+              {/* Search Filter */}
+              <div className="flex-1 min-w-0">
+                <div className="relative w-full">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    placeholder="Search by name, ID, or phone..." 
+                    value={searchTerm} 
+                    onChange={e => setSearchTerm(e.target.value)} 
+                    className="pl-9 w-full" 
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          <DataTable columns={columns} data={filteredMembers} emptyStateMessage="No members found matching your criteria." />
+          <DataTable columns={columns} data={dateFilteredMembers} emptyStateMessage="No members found matching your criteria." />
         </CardContent>
       </Card>
       

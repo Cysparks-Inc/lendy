@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/ui/data-table';
 import { ExportDropdown } from '@/components/ui/ExportDropdown';
+import { DateRangeFilter, DateRange, filterDataByDateRange } from '@/components/ui/DateRangeFilter';
 
 // --- Type Definitions ---
 interface MasterRecord {
@@ -31,6 +32,7 @@ const MasterRoll: React.FC = () => {
   const [records, setRecords] = useState<MasterRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [dateRange, setDateRange] = useState<DateRange>({ from: undefined, to: undefined });
 
   useEffect(() => {
     if (userRole === 'super_admin' || userRole === 'branch_manager') {
@@ -67,6 +69,9 @@ const MasterRoll: React.FC = () => {
     record.id_number.includes(searchTerm) ||
     record.phone_number.includes(searchTerm)
   );
+
+  // Apply date filtering to the already filtered records
+  const dateFilteredRecords = filterDataByDateRange(filteredRecords, dateRange, 'created_at');
 
   const formatCurrency = (amount: number) => new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(amount || 0);
 
@@ -125,10 +130,11 @@ const MasterRoll: React.FC = () => {
           <p className="text-muted-foreground">Complete member registry and financial overview.</p>
         </div>
         <ExportDropdown 
-          data={filteredRecords} 
+          data={dateFilteredRecords} 
           columns={exportColumns} 
           fileName="master-roll-report" 
           reportTitle="Master Roll Report"
+          dateRange={dateRange}
         />
       </div>
 
@@ -142,19 +148,49 @@ const MasterRoll: React.FC = () => {
 
       <Card>
         <CardHeader>
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <div>
-                <CardTitle>Member Records</CardTitle>
-                <CardDescription>Showing {filteredRecords.length} of {records.length} members.</CardDescription>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+              <div>
+                  <CardTitle>Member Records</CardTitle>
+                  <CardDescription>
+                    Showing {dateFilteredRecords.length} of {filteredRecords.length} members
+                    {dateRange.from && dateRange.to && (
+                      <span className="text-brand-green-600 font-medium">
+                        {' '}• Filtered by date range
+                      </span>
+                    )}
+                  </CardDescription>
+              </div>
             </div>
-            <div className="relative w-full md:w-80">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Search by name, ID, or phone..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9" />
+            
+            {/* Filters Row - Better positioned and spaced */}
+            <div className="flex flex-col lg:flex-row gap-4 w-full">
+              {/* Date Filter - Takes priority */}
+              <div className="flex-shrink-0">
+                <DateRangeFilter
+                  onDateRangeChange={setDateRange}
+                  placeholder="Filter by date"
+                  className="w-full lg:w-auto"
+                />
+              </div>
+              
+              {/* Search Filter */}
+              <div className="flex-1 min-w-0">
+                <div className="relative w-full">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                      placeholder="Search by name, ID, or phone..." 
+                      value={searchTerm} 
+                      onChange={e => setSearchTerm(e.target.value)} 
+                      className="pl-9 w-full" 
+                    />
+                </div>
+              </div>
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          <DataTable columns={columns} data={filteredRecords} emptyStateMessage="No member records found." />
+          <DataTable columns={columns} data={dateFilteredRecords} emptyStateMessage="No member records found." />
         </CardContent>
       </Card>
     </div>

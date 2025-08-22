@@ -1,197 +1,123 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ScrollableContainer } from '@/components/ui/scrollable-container';
-import { Users, Clock, Phone, MapPin } from 'lucide-react';
-import { Loader } from '@/components/ui/loader';
+import { Clock, Users, ShieldAlert, Loader2, AlertTriangle, TrendingDown } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { DataTable } from '@/components/ui/data-table';
+import { ExportDropdown } from '@/components/ui/ExportDropdown';
 
+// --- Type Definitions ---
 interface DormantMember {
   id: string;
   full_name: string;
   phone_number: string;
-  group_name?: string;
   branch_name?: string;
   last_payment_date?: string;
   days_inactive: number;
   status: string;
+  profile_picture_url?: string;
+  outstanding_balance: number;
 }
 
-const StatCard: React.FC<{title: string, value: string | number}> = ({ title, value }) => (
-  <Card className="bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
-    <CardHeader className="pb-2">
-      <CardTitle className="text-sm font-medium text-brand-green-800">{title}</CardTitle>
-    </CardHeader>
-    <CardContent>
-      <div className="text-2xl font-bold text-brand-green-700">{value}</div>
-    </CardContent>
-  </Card>
-);
-
-const DormantMembers = () => {
+const DormantMembers: React.FC = () => {
+  const { user, userRole } = useAuth();
   const [dormantMembers, setDormantMembers] = useState<DormantMember[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchDormantMembers();
-  }, []);
+    // Access control is handled by the RPC function, but we can prevent unnecessary fetches.
+    if (user) {
+      fetchDormantMembers();
+
+      // Subscribe to changes that could affect dormancy status
+      const subscription = supabase.channel('dormant-members-realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, fetchDormantMembers)
+        .subscribe();
+      
+      return () => { supabase.removeChannel(subscription); };
+    } else {
+      setLoading(false);
+    }
+  }, [user]);
 
   const fetchDormantMembers = async () => {
+    if (!user) return;
     try {
-      // Query members who haven't made payments in the last 90 days
-      const { data: membersData, error: membersError } = await supabase
-        .from('members')
-        .select(`
-          id,
-          full_name,
-          phone_number,
-          status,
-          groups:group_id (
-            id,
-            name
-          ),
-          branches:branch_id (
-            id,
-            name
-          )
-        `);
-
-      if (membersError) throw membersError;
-
-      // For each member, check their last payment date
-      const dormantMembersData: DormantMember[] = [];
-      
-      for (const member of membersData || []) {
-        const { data: repayments } = await supabase
-          .from('repayments')
-          .select('payment_date')
-          .eq('loan_id', member.id)
-          .order('payment_date', { ascending: false })
-          .limit(1);
-
-        const lastPaymentDate = repayments?.[0]?.payment_date;
-        const daysSinceLastPayment = lastPaymentDate 
-          ? Math.floor((new Date().getTime() - new Date(lastPaymentDate).getTime()) / (1000 * 3600 * 24))
-          : 999; // If no payments, consider as very dormant
-
-        if (daysSinceLastPayment > 90) {
-          dormantMembersData.push({
-            id: member.id,
-            full_name: member.full_name,
-            phone_number: member.phone_number,
-            group_name: member.groups?.name,
-            branch_name: member.branches?.name,
-            last_payment_date: lastPaymentDate,
-            days_inactive: daysSinceLastPayment,
-            status: member.status
-          });
-        }
-      }
-
-      setDormantMembers(dormantMembersData);
-    } catch (error) {
-      console.error('Error fetching dormant members:', error);
+      const { data, error } = await supabase.rpc('get_dormant_members_report', { requesting_user_id: user.id });
+      if (error) throw error;
+      setDormantMembers(data || []);
+    } catch (error: any) {
+      toast.error('Failed to fetch dormant members', { description: error.message });
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading) return <Loader size="lg" />;
+  const formatCurrency = (amount: number) => new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(amount || 0);
+
+  const columns = [
+    { header: 'Member', cell: (row: DormantMember) => (
+      <Link to={`/members/${row.id}`} className="flex items-center gap-3 group">
+        <div className="h-10 w-10 rounded-full bg-secondary flex-shrink-0 flex items-center justify-center border">
+          {row.profile_picture_url ? (<img src={row.profile_picture_url} alt={row.full_name} className="h-full w-full object-cover rounded-full" />) : (<Users className="h-5 w-5 text-muted-foreground" />)}
+        </div>
+        <div>
+          <div className="font-medium group-hover:underline">{row.full_name}</div>
+          <div className="text-xs text-muted-foreground">{row.phone_number}</div>
+        </div>
+      </Link>
+    )},
+    { header: 'Branch', cell: (row: DormantMember) => row.branch_name || 'N/A' },
+    { header: 'Last Payment', cell: (row: DormantMember) => row.last_payment_date ? new Date(row.last_payment_date).toLocaleDateString() : <span className="text-xs text-muted-foreground">No Payments</span> },
+    { header: 'Days Inactive', cell: (row: DormantMember) => <Badge variant={row.days_inactive > 180 ? 'destructive' : 'secondary'}>{row.days_inactive} days</Badge> },
+    { header: 'Outstanding', cell: (row: DormantMember) => <div className="font-mono text-right">{formatCurrency(row.outstanding_balance)}</div> },
+  ];
+
+  const exportColumns = columns.map(c => ({ header: c.header, accessorKey: (row: DormantMember) => c.cell(row) }));
+
+  if (loading) { return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>; }
 
   return (
-    <div className="space-y-6 p-2 sm:p-4 md:p-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Dormant Members List</h1>
-        <p className="text-muted-foreground">Members with no recent activity (90+ days)</p>
+    <div className="space-y-6 p-4 md:p-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground">Dormant Members Report</h1>
+          <p className="text-muted-foreground mt-1">Members with no payment activity for over 90 days.</p>
+        </div>
+        <ExportDropdown data={dormantMembers} columns={exportColumns} fileName="dormant_members_report" reportTitle="Dormant Members Report" />
       </div>
 
-      {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <StatCard title="Total Dormant" value={dormantMembers.length} />
-        <StatCard title="Avg Days Inactive" value={dormantMembers.length > 0 ? Math.round(dormantMembers.reduce((sum, m) => sum + m.days_inactive, 0) / dormantMembers.length) : 0} />
-        <StatCard title="Critical Cases" value={dormantMembers.filter(m => m.days_inactive > 180).length} />
+        <StatCard title="Total Dormant Members" value={dormantMembers.length} icon={Users} />
+        <StatCard title="Avg. Days Inactive" value={dormantMembers.length > 0 ? Math.round(dormantMembers.reduce((sum, m) => sum + m.days_inactive, 0) / dormantMembers.length) : 0} icon={Clock} />
+        <StatCard title="Critical Cases (>180 Days)" value={dormantMembers.filter(m => m.days_inactive > 180).length} icon={AlertTriangle} />
       </div>
       
       <Card>
         <CardHeader>
-          <CardTitle>Dormant Members</CardTitle>
-          <CardDescription>Members inactive for over 90 days</CardDescription>
+          <CardTitle>Dormant Members List</CardTitle>
+          <CardDescription>This report is generated based on the last payment date for any loan associated with a member.</CardDescription>
         </CardHeader>
         <CardContent>
-          {dormantMembers.length === 0 ? (
-            <div className="text-center py-8">
-              <Clock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">No dormant members found.</p>
-            </div>
-          ) : (
-            <ScrollableContainer>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Member</TableHead>
-                    <TableHead>Contact</TableHead>
-                    <TableHead>Group & Branch</TableHead>
-                    <TableHead>Last Activity</TableHead>
-                    <TableHead>Days Inactive</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {dormantMembers.map((member) => (
-                    <TableRow key={member.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-full bg-destructive/10 flex items-center justify-center">
-                            <Users className="h-5 w-5 text-destructive" />
-                          </div>
-                          <div className="font-medium">{member.full_name}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1 text-sm">
-                          <Phone className="h-3 w-3" />
-                          {member.phone_number}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          <div className="text-sm">{member.group_name || 'No Group'}</div>
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <MapPin className="h-3 w-3" />
-                            {member.branch_name || 'No Branch'}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {member.last_payment_date ? (
-                          <div className="text-sm">
-                            {new Date(member.last_payment_date).toLocaleDateString()}
-                          </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">No payments</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={member.days_inactive > 180 ? 'destructive' : 'secondary'}>
-                          {member.days_inactive} days
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={member.status === 'active' ? 'default' : 'secondary'}>
-                          {member.status}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </ScrollableContainer>
-          )}
+          <DataTable columns={columns} data={dormantMembers} emptyStateMessage="No dormant members found." />
         </CardContent>
       </Card>
     </div>
   );
 };
+
+const StatCard: React.FC<{title: string, value: string | number, icon: React.ElementType}> = ({ title, value, icon: Icon }) => (
+    <Card>
+        <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2"><Icon className="h-4 w-4 text-muted-foreground" />{title}</CardTitle>
+        </CardHeader>
+        <CardContent>
+            <div className="text-2xl font-bold">{value}</div>
+        </CardContent>
+    </Card>
+);
 
 export default DormantMembers;

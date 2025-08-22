@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { User, Upload, Camera, Check, X, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -251,6 +251,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Take a Photo</DialogTitle>
+            <DialogDescription>Use your camera to take a profile picture. Position yourself in the frame and click capture when ready.</DialogDescription>
           </DialogHeader>
           <video ref={videoRef} autoPlay playsInline className="w-full rounded-md bg-black" />
           <canvas ref={canvasRef} className="hidden" />

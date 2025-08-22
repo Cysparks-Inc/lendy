@@ -54,9 +54,11 @@ const AppLayout = () => {
             <div className="flex items-center gap-3">
               <SidebarTrigger className="hover:bg-accent hover:text-accent-foreground transition-colors p-2 h-10 w-10 rounded-md" />
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-gradient-to-br from-brand-green-600 to-brand-green-700 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">N</span>
-                </div>
+                <img
+                  src="/lovable-uploads/logo-napol.png"
+                  alt="Napol Logo"
+                  className="w-8 h-8 object-contain"
+                />
                 <h1 className="font-bold text-lg sm:text-xl md:text-2xl bg-gradient-to-r from-brand-green-600 to-brand-green-800 bg-clip-text text-transparent whitespace-nowrap">
                   Napol Microfinance
                 </h1>

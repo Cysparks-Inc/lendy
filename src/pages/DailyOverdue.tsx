@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/ui/data-table';
 import { ExportDropdown } from '@/components/ui/ExportDropdown';
+import { DateRangeFilter, DateRange, filterDataByDateRange } from '@/components/ui/DateRangeFilter';
 
 // --- Type Definitions ---
 type RiskLevel = 'low' | 'medium' | 'high' | 'critical';
@@ -33,6 +34,7 @@ const DailyOverdue: React.FC = () => {
   const [overdueItems, setOverdueItems] = useState<OverdueItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [dateRange, setDateRange] = useState<DateRange>({ from: undefined, to: undefined });
 
   const fetchOverdueLoans = async () => {
     if (!user) return;
@@ -63,6 +65,9 @@ const DailyOverdue: React.FC = () => {
     item.member_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     item.account_number.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Apply date filtering to the already filtered items
+  const dateFilteredItems = filterDataByDateRange(filteredItems, dateRange, 'last_payment_date');
 
   const formatCurrency = (amount: number) => new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(amount || 0);
   const getRiskBadgeVariant = (risk: RiskLevel) => {
@@ -102,7 +107,8 @@ const DailyOverdue: React.FC = () => {
     { header: 'Risk Level', accessorKey: 'risk_level' },
   ];
   
-  const totalOverdueAmount = filteredItems.reduce((sum, item) => sum + item.overdue_amount, 0);
+  const totalOverdueAmount = overdueItems.reduce((sum, item) => sum + item.overdue_amount, 0);
+  const criticalRiskCount = overdueItems.filter(item => item.risk_level === 'critical').length;
 
   if (loading) { return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>; }
 
@@ -111,85 +117,82 @@ const DailyOverdue: React.FC = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Daily Overdue Report</h1>
-          <p className="text-muted-foreground">Monitor and manage overdue loan payments.</p>
+          <p className="text-muted-foreground">Monitor overdue loans and payment collection progress.</p>
         </div>
         <ExportDropdown 
-          data={filteredItems} 
+          data={dateFilteredItems} 
           columns={exportColumns} 
           fileName="daily-overdue-report" 
           reportTitle="Daily Overdue Report"
+          dateRange={dateRange}
         />
       </div>
 
-      {/* Summary Stats */}
+      {/* Summary Cards */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Overdue</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{filteredItems.length}</div>
-            <p className="text-xs text-muted-foreground">Accounts overdue</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Amount</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(filteredItems.reduce((sum, item) => sum + item.overdue_amount, 0))}</div>
-            <p className="text-xs text-muted-foreground">Overdue balance</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">High Risk</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-destructive" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{filteredItems.filter(item => item.risk_level === 'high' || item.risk_level === 'critical').length}</div>
-            <p className="text-xs text-muted-foreground">Critical accounts</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg Days</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{Math.round(filteredItems.reduce((sum, item) => sum + item.days_overdue, 0) / Math.max(filteredItems.length, 1))}</div>
-            <p className="text-xs text-muted-foreground">Days overdue</p>
-          </CardContent>
-        </Card>
+        <StatCard title="Total Overdue" value={overdueItems.length} icon={Clock} />
+        <StatCard title="Overdue Amount" value={formatCurrency(totalOverdueAmount)} icon={AlertTriangle} />
+        <StatCard title="Critical Risk" value={criticalRiskCount} icon={AlertTriangle} />
+        <StatCard title="Average Days" value={`${Math.round(overdueItems.reduce((sum, item) => sum + item.days_overdue, 0) / Math.max(overdueItems.length, 1))} days`} icon={Clock} />
       </div>
 
+      {/* Search and Filters */}
       <Card>
         <CardHeader>
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <CardTitle>Overdue Accounts</CardTitle>
-              <CardDescription>Showing {filteredItems.length} of {overdueItems.length} overdue accounts.</CardDescription>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <CardTitle>Overdue Loans</CardTitle>
+                <CardDescription>
+                  Showing {dateFilteredItems.length} of {filteredItems.length} overdue items
+                  {dateRange.from && dateRange.to && (
+                    <span className="text-brand-green-600 font-medium">
+                      {' '}• Filtered by date range
+                    </span>
+                  )}
+                </CardDescription>
+              </div>
             </div>
-            <div className="relative w-full sm:w-80">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search by member or account..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9" />
+            
+            {/* Filters Row - Better positioned and spaced */}
+            <div className="flex flex-col lg:flex-row gap-4 w-full">
+              {/* Date Filter - Takes priority */}
+              <div className="flex-shrink-0">
+                <DateRangeFilter
+                  onDateRangeChange={setDateRange}
+                  placeholder="Filter by date"
+                  className="w-full lg:w-auto"
+                />
+              </div>
+              
+              {/* Search Filter */}
+              <div className="flex-1 min-w-0">
+                <div className="relative w-full">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    placeholder="Search by member or account..." 
+                    value={searchTerm} 
+                    onChange={e => setSearchTerm(e.target.value)} 
+                    className="pl-9 w-full" 
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          <DataTable columns={columns} data={filteredItems} emptyStateMessage="No overdue accounts found." />
+          <DataTable columns={columns} data={dateFilteredItems} emptyStateMessage="No overdue loans found matching your criteria." />
         </CardContent>
       </Card>
     </div>
   );
 };
 
-const StatCard: React.FC<{title: string, value: string | number}> = ({ title, value }) => (
+const StatCard: React.FC<{ title: string; value: string | number; icon: React.ElementType }> = ({ title, value, icon: Icon }) => (
   <Card className="bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
-    <CardHeader className="pb-2">
+    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
       <CardTitle className="text-sm font-medium text-brand-green-800">{title}</CardTitle>
+      <Icon className="h-4 w-4 text-brand-green-600" />
     </CardHeader>
     <CardContent>
       <div className="text-2xl font-bold text-brand-green-700">{value}</div>

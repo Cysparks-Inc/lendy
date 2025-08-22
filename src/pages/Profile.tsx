@@ -14,10 +14,10 @@ interface ProfileData {
   full_name: string;
   email: string;
   phone_number: string;
-  branch_name: string;
   role: string;
-  created_at: string;
-  profile_picture_url: string;
+  branch: string;
+  member_since: string;
+  profile_picture_url: string | null;
 }
 
 const Profile = () => {
@@ -26,10 +26,10 @@ const Profile = () => {
     full_name: '',
     email: '',
     phone_number: '',
-    branch_name: '',
     role: '',
-    created_at: '',
-    profile_picture_url: ''
+    branch: '',
+    member_since: '',
+    profile_picture_url: null
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -45,7 +45,6 @@ const Profile = () => {
     if (!user) return;
     
     try {
-      // Fetch user profile with branch and role information
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -54,43 +53,53 @@ const Profile = () => {
 
       if (profileError) throw profileError;
 
-      // Fetch user role and branch
       const { data: roleData, error: roleError } = await supabase
         .from('user_branch_roles')
         .select(`
           role,
-          branches:branch_id (name)
+          branches!branch_id (
+            name
+          )
         `)
         .eq('user_id', user.id)
         .single();
 
       if (roleError && roleError.code !== 'PGRST116') {
-        console.error('Error fetching role data:', roleError);
+        console.warn('Role data not found:', roleError);
       }
 
       setProfileData({
-        full_name: profile.full_name,
-        email: profile.email,
+        full_name: profile.full_name || '',
+        email: user.email || '',
         phone_number: profile.phone_number || '',
-        branch_name: roleData?.branches?.name || 'No Branch Assigned',
-        role: roleData?.role || 'No Role Assigned',
-        created_at: profile.created_at,
-        profile_picture_url: profile.profile_picture_url || ''
+        profile_picture_url: profile.profile_picture_url || null,
+        role: roleData?.role || 'Not Set',
+        branch: roleData?.branches?.name || 'Not Assigned',
+        member_since: profile.created_at ? new Date(profile.created_at).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        }) : 'N/A'
       });
-      
-      // Debug logging
+
       console.log('Profile data loaded:', {
         full_name: profile.full_name,
         profile_picture_url: profile.profile_picture_url,
         role: roleData?.role,
         branch: roleData?.branches?.name
       });
+
     } catch (error) {
       console.error('Error fetching profile:', error);
-      toast.error('Failed to load profile');
+      toast.error('Failed to load profile data');
     } finally {
       setLoading(false);
     }
+  };
+
+  // Function to refresh profile data
+  const refreshProfileData = async () => {
+    await fetchProfile();
   };
 
   const handleSave = async () => {
@@ -153,7 +162,7 @@ const Profile = () => {
       const { error: uploadError } = await supabase.storage
         .from('profile-pictures')
         .upload(fileName, compressedFile, {
-          cacheControl: '3600',
+          cacheControl: '0', // Disable caching
           upsert: true
         });
 
@@ -163,8 +172,11 @@ const Profile = () => {
         .from('profile-pictures')
         .getPublicUrl(fileName);
 
+      // Add cache-busting parameter to prevent browser caching
+      const timestamp = Date.now();
+      const newProfilePictureUrl = `${data.publicUrl}?t=${timestamp}`;
+      
       // Update profile data immediately for better UX
-      const newProfilePictureUrl = data.publicUrl;
       setProfileData(prev => ({ ...prev, profile_picture_url: newProfilePictureUrl }));
       
       // Update the profile in database
@@ -180,10 +192,8 @@ const Profile = () => {
         fileInputRef.current.value = '';
       }
       
-      // Force a re-render to ensure the image displays
-      setTimeout(() => {
-        setProfileData(prev => ({ ...prev }));
-      }, 100);
+      // Refresh profile data to ensure consistency
+      await refreshProfileData();
       
     } catch (error) {
       console.error('Error uploading file:', error);
@@ -311,6 +321,7 @@ const Profile = () => {
             <div className="relative flex-shrink-0">
               <Avatar className="h-20 w-20 sm:h-24 sm:w-24">
                 <AvatarImage 
+                  key={profileData.profile_picture_url} // Force re-render when URL changes
                   src={profileData.profile_picture_url} 
                   alt={profileData.full_name}
                   onError={(e) => {
@@ -466,7 +477,7 @@ const Profile = () => {
                 <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="branch"
-                  value={profileData.branch_name}
+                  value={profileData.branch}
                   disabled
                   className="pl-9 bg-muted"
                 />
@@ -477,11 +488,7 @@ const Profile = () => {
               <Label htmlFor="created_at">Member Since</Label>
               <Input
                 id="created_at"
-                value={new Date(profileData.created_at).toLocaleDateString('en-US', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric'
-                })}
+                value={profileData.member_since}
                 disabled
                 className="bg-muted"
               />
@@ -502,7 +509,10 @@ const Profile = () => {
               </div>
               <div className="text-center p-4 border rounded-lg">
                 <div className="text-2xl font-bold text-primary">
-                  {Math.floor((Date.now() - new Date(profileData.created_at).getTime()) / (1000 * 60 * 60 * 24))}
+                  {profileData.member_since !== 'N/A' ? 
+                    Math.floor((Date.now() - new Date(profileData.member_since).getTime()) / (1000 * 60 * 60 * 24)) : 
+                    'N/A'
+                  }
                 </div>
                 <div className="text-sm text-muted-foreground">Days Active</div>
               </div>
