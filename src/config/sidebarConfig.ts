@@ -8,60 +8,70 @@ import { NavGroup, UserRole } from '@/types'; // Import our new, robust types
 export const sidebarConfig: NavGroup[] = [
   {
     label: 'Main Operations',
-    // This group is visible to everyone, but its ITEMS have specific permissions.
     items: [
-      { title: 'Dashboard', url: '/', icon: LayoutDashboard }, // Visible to all
-      { title: 'Loan Officer', url: '/loan-officer', icon: UserCheck }, // Visible to all
-      { title: 'Members', url: '/members', icon: Users }, // Visible to all
-      { title: 'Groups', url: '/groups', icon: UsersRound }, // Visible to all
-      { title: 'Loans', url: '/loans', icon: Banknote }, // Visible to all
-      { title: 'Search Member', url: '/search-member', icon: Search }, // Visible to all
+      { title: 'Dashboard', url: '/', icon: LayoutDashboard }, // All roles
+      { title: 'Members', url: '/members', icon: Users }, // All roles
+      { title: 'Loans', url: '/loans', icon: Banknote }, // All roles
+      { title: 'Search Member', url: '/search-member', icon: Search }, // All roles
+      { 
+        title: 'Groups', 
+        url: '/groups', 
+        icon: UsersRound,
+        requiredRoles: ['super_admin'] // Only super admin can manage groups
+      },
       { 
         title: 'Master Roll', 
         url: '/master-roll', 
         icon: Folder,
-        // ITEM-LEVEL SECURITY: Only these roles can see this link.
-        requiredRoles: ['super_admin', 'branch_manager'] 
+        requiredRoles: ['super_admin', 'branch_admin', 'loan_officer', 'teller', 'auditor'] // All roles except basic users
       },
     ],
   },
   {
     label: 'Reports & Analytics',
-    // This entire group is restricted.
-    requiredRoles: ['super_admin', 'branch_manager'],
+    requiredRoles: ['super_admin', 'branch_admin', 'loan_officer', 'auditor'],
     items: [
-      { title: 'Daily Overdue', url: '/daily-overdue', icon: Clock },
-      { title: 'Realizable Report', url: '/realizable-report', icon: FileText },
+      { 
+        title: 'Daily Overdue', 
+        url: '/daily-overdue', 
+        icon: Clock,
+        requiredRoles: ['super_admin', 'branch_admin', 'loan_officer', 'auditor']
+      },
+      { 
+        title: 'Realizable Report', 
+        url: '/realizable-report', 
+        icon: FileText,
+        requiredRoles: ['super_admin'] // Only super admin
+      },
       { 
         title: 'Dormant Members', 
         url: '/dormant-members', 
         icon: AlertTriangle,
-        // This item is even MORE restricted than its parent group.
-        requiredRoles: ['super_admin']
+        requiredRoles: ['super_admin', 'branch_admin']
       },
       { 
         title: 'Bad Debt Accounts', 
         url: '/bad-debt', 
         icon: Trash2,
-        requiredRoles: ['super_admin']
+        requiredRoles: ['super_admin', 'branch_admin']
       },
     ],
   },
   {
     label: 'Administration',
     items: [
-      { title: 'Profile', url: '/profile', icon: User }, // Visible to all
+      { title: 'Profile', url: '/profile', icon: User }, // All roles
+      { title: 'Loan Officer', url: '/loan-officer', icon: UserCheck }, // All roles
       { 
         title: 'Settings', 
         url: '/settings', 
         icon: Settings,
-        requiredRoles: ['super_admin'] // Only super admins can see settings
+        requiredRoles: ['super_admin', 'branch_admin'] // Admin roles only
       },
     ],
   },
   {
     label: 'Super Admin',
-    // GROUP-LEVEL SECURITY: Only Super Admins can see this entire section.
     requiredRoles: ['super_admin'],
     items: [
       { title: 'Users Management', url: '/users', icon: Users },

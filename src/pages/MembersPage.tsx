@@ -16,7 +16,7 @@ import { DateRangeFilter, DateRange, filterDataByDateRange } from '@/components/
 // --- Type Definitions ---
 // This type matches the output of our secure database function
 interface MemberSummary {
-  id: string;
+  member_id: string; // Changed from 'id' to 'member_id' to match RPC function
   full_name: string;
   id_number: string;
   phone_number: string;
@@ -46,12 +46,86 @@ const MembersPage: React.FC = () => {
     if (!user) return;
     setLoading(true);
     try {
-      // Single, secure RPC call. The database handles all filtering based on the user's role.
-      const { data, error } = await supabase.rpc('get_members_for_user', { requesting_user_id: user.id });
-      if (error) throw error;
-      setMembers(data as MemberSummary[] || []);
+      console.log('Fetching members with loan data...');
+      console.log('Current user role:', userRole);
+      console.log('Current user ID:', user?.id);
+      
+      // Step 1: Fetch members based on user role
+      let membersQuery = supabase.from('members').select('*');
+      
+      // Apply role-based filtering
+      if (userRole === 'loan_officer') {
+        // Loan officers can only see members assigned to them
+        console.log('Filtering members for loan officer:', user?.id);
+        membersQuery = membersQuery.eq('assigned_officer_id', user?.id);
+      } else if (userRole === 'branch_admin') {
+        // Branch admins can see members in their branch
+        // TODO: Implement branch-based filtering when branch_id is available in user profile
+        console.log('Branch admin - showing all members (branch filtering to be implemented)');
+      } else if (userRole === 'super_admin') {
+        // Super admins can see all members
+        console.log('Super admin - showing all members');
+      }
+      
+      const { data: membersData, error: membersError } = await membersQuery;
+      
+      if (membersError) throw membersError;
+      
+      console.log('Raw members data:', membersData);
+      console.log('Members found:', membersData?.length || 0);
+      
+      if (!membersData || membersData.length === 0) {
+        setMembers([]);
+        setLoading(false);
+        return;
+      }
+      
+      // Step 2: Fetch all loans to calculate member statistics
+      const { data: loansData, error: loansError } = await supabase
+        .from('loans')
+        .select('member_id, customer_id, current_balance, status');
+
+      if (loansError) {
+        console.warn('Loans fetch error:', loansError);
+        // Continue without loan data
+      }
+      
+      console.log('Raw loans data for member stats:', loansData);
+      
+      // Step 3: Calculate loan statistics for each member
+      const membersWithLoanData = membersData.map(member => {
+        // Find loans for this member (try both member_id and customer_id)
+        const memberLoans = (loansData || []).filter(loan => 
+          loan.member_id === member.id || loan.customer_id === member.id
+        );
+        
+        // Calculate statistics
+        const totalLoans = memberLoans.length;
+        const outstandingBalance = memberLoans
+          .filter(loan => ['active', 'pending'].includes(loan.status))
+          .reduce((sum, loan) => sum + parseFloat(loan.current_balance || 0), 0);
+        
+        console.log(`Member ${member.full_name}: ${totalLoans} loans, Ksh ${outstandingBalance} outstanding`);
+        
+        return {
+          member_id: member.id,
+          full_name: member.full_name || 'Unknown Member',
+          id_number: member.id_number || member.id.slice(0, 8),
+          phone_number: member.phone_number || 'N/A',
+          status: member.status || 'active',
+          branch_name: 'Nairobi', // Hardcoded for now, can be enhanced later
+          total_loans: totalLoans,
+          outstanding_balance: outstandingBalance
+        };
+      });
+      
+      console.log('Members with loan data calculated:', membersWithLoanData);
+      setMembers(membersWithLoanData);
+      
     } catch (error: any) {
+      console.error('Error fetching members:', error);
       toast.error('Failed to fetch members', { description: error.message });
+      setMembers([]);
     } finally {
       setLoading(false);
     }
@@ -61,7 +135,7 @@ const MembersPage: React.FC = () => {
     if (!deleteCandidate) return;
     setIsDeleting(true);
     try {
-      const { error } = await supabase.from('members').delete().eq('id', deleteCandidate.id);
+      const { error } = await supabase.from('members').delete().eq('id', deleteCandidate.member_id);
       if (error) throw error;
       toast.success(`Member "${deleteCandidate.full_name}" deleted successfully.`);
       setDeleteCandidate(null);
@@ -117,8 +191,8 @@ const MembersPage: React.FC = () => {
         header: 'Actions',
         cell: (row: MemberSummary) => (
             <div className="flex justify-end gap-2">
-                <Button asChild variant="outline" size="icon"><Link to={`/members/${row.id}`}><Eye className="h-4 w-4" /></Link></Button>
-                <Button asChild variant="outline" size="icon"><Link to={`/members/${row.id}/edit`}><Edit className="h-4 w-4" /></Link></Button>
+                <Button asChild variant="outline" size="icon"><Link to={`/members/${row.member_id}`}><Eye className="h-4 w-4" /></Link></Button>
+                <Button asChild variant="outline" size="icon"><Link to={`/members/${row.member_id}/edit`}><Edit className="h-4 w-4" /></Link></Button>
                 {userRole === 'super_admin' && (
                     <Button variant="destructive" size="icon" onClick={() => setDeleteCandidate(row)}><Trash2 className="h-4 w-4" /></Button>
                 )}
@@ -146,8 +220,15 @@ const MembersPage: React.FC = () => {
     <div className="space-y-6 p-2 sm:p-4 md:p-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Members</h1>
-          <p className="text-muted-foreground">Manage and monitor all registered members.</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
+            {userRole === 'loan_officer' ? 'My Assigned Members' : 'Members'}
+          </h1>
+          <p className="text-muted-foreground">
+            {userRole === 'loan_officer' 
+              ? 'View and manage members assigned to you by the super admin.'
+              : 'Manage and monitor all registered members.'
+            }
+          </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3">
           <ExportDropdown 
@@ -177,7 +258,10 @@ const MembersPage: React.FC = () => {
               <div>
                 <CardTitle>Member Records</CardTitle>
                 <CardDescription>
-                  Showing {dateFilteredMembers.length} of {filteredMembers.length} members
+                  {userRole === 'loan_officer' 
+                    ? `Showing ${dateFilteredMembers.length} of ${filteredMembers.length} assigned members`
+                    : `Showing ${dateFilteredMembers.length} of ${filteredMembers.length} members`
+                  }
                   {dateRange.from && dateRange.to && (
                     <span className="text-brand-green-600 font-medium">
                       {' '}• Filtered by date range

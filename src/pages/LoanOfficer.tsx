@@ -40,12 +40,88 @@ const LoanOfficerPage: React.FC = () => {
     if (!user) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase.rpc('get_officer_performance_data', { requesting_user_id: user.id });
-      if (error) throw error;
-      const mappedOfficers: LoanOfficer[] = (data || []).map(o => ({ ...o, status: o.total_loans > 0 ? 'active' : 'inactive' }));
-      setOfficers(mappedOfficers);
+      console.log('Fetching loan officers with performance data...');
+      
+      // Step 1: Fetch all loan officers (profiles with loan_officer role)
+      const { data: officersData, error: officersError } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, phone_number, branch_id, role')
+        .eq('role', 'loan_officer');
+
+      if (officersError) throw officersError;
+      
+      console.log('Raw officers data:', officersData);
+      
+      if (!officersData || officersData.length === 0) {
+        setOfficers([]);
+        setLoading(false);
+        return;
+      }
+      
+      // Step 2: Fetch all loans to calculate officer performance
+      const { data: loansData, error: loansError } = await supabase
+        .from('loans')
+        .select('loan_officer_id, principal_amount, current_balance, status');
+
+      if (loansError) {
+        console.warn('Loans fetch error:', loansError);
+      }
+      
+      console.log('Raw loans data for officer stats:', loansData);
+      
+      // Step 3: Calculate performance metrics for each officer
+      const officersWithPerformance = officersData.map(officer => {
+        // Find loans managed by this officer
+        const officerLoans = (loansData || []).filter(loan => 
+          loan.loan_officer_id === officer.id
+        );
+        
+        // Calculate metrics
+        const totalLoans = officerLoans.length;
+        const pendingLoans = officerLoans.filter(loan => loan.status === 'pending').length;
+        const completedLoans = officerLoans.filter(loan => loan.status === 'repaid').length;
+        const defaultedLoans = officerLoans.filter(loan => loan.status === 'defaulted').length;
+        const activeLoans = officerLoans.filter(loan => loan.status === 'active').length;
+        
+        const totalPortfolio = officerLoans
+          .filter(loan => ['active', 'pending'].includes(loan.status))
+          .reduce((sum, loan) => sum + parseFloat(loan.principal_amount || 0), 0);
+        
+        const outstandingBalance = officerLoans
+          .filter(loan => ['active', 'pending'].includes(loan.status))
+          .reduce((sum, loan) => sum + parseFloat(loan.current_balance || 0), 0);
+        
+        const performance = totalLoans > 0 ? 
+          ((completedLoans / totalLoans) * 100) : 0;
+        
+        console.log(`Officer ${officer.full_name}: ${totalLoans} loans, Ksh ${totalPortfolio} portfolio, Ksh ${outstandingBalance} outstanding`);
+        
+        return {
+          id: officer.id,
+          name: officer.full_name || 'Unknown Officer',
+          email: officer.email || 'N/A',
+          phone: officer.phone_number || 'N/A',
+          branch_name: 'Nakuru', // Hardcoded for now, can be enhanced later
+          total_loans: totalLoans,
+          total_disbursed: totalPortfolio,
+          total_balance: outstandingBalance,
+          status: totalLoans > 0 ? 'active' : 'inactive',
+          // Additional fields for display
+          pending_loans: pendingLoans,
+          completed_loans: completedLoans,
+          defaulted_loans: defaultedLoans,
+          active_loans: activeLoans,
+          performance: performance
+        };
+      });
+      
+      console.log('Officers with performance data calculated:', officersWithPerformance);
+      setOfficers(officersWithPerformance);
+      
     } catch (error: any) {
+      console.error('Error fetching officer data:', error);
       toast.error('Failed to fetch officer data', { description: error.message });
+      setOfficers([]);
     } finally {
       setLoading(false);
     }
@@ -174,9 +250,9 @@ const LoanOfficerPage: React.FC = () => {
       {/* Summary Stats */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard title="Total Officers" value={officers.length} icon={Users} />
-        <StatCard title="Active Officers" value={officers.filter(o => o.status === 'active').length} icon={UserCheck} />
-        <StatCard title="Total Portfolio" value={formatCurrency(officers.reduce((sum, o) => sum + (o.total_portfolio || 0), 0))} icon={DollarSign} />
-        <StatCard title="Avg Performance" value={`${Math.round(officers.reduce((sum, o) => sum + (o.performance_score || 0), 0) / Math.max(officers.length, 1))}%`} icon={TrendingUp} />
+        <StatCard title="Active Officers" value={activeOfficers} icon={UserCheck} />
+        <StatCard title="Total Portfolio" value={formatCurrency(totalDisbursed)} icon={DollarSign} />
+        <StatCard title="Avg Performance" value={`${Math.round(officers.reduce((sum, o) => sum + (o.performance || 0), 0) / Math.max(officers.length, 1))}%`} icon={TrendingUp} />
       </div>
 
       <Card>

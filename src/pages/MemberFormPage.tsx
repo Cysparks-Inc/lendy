@@ -41,6 +41,7 @@ const memberSchema = z.object({
   profession: z.string().optional().default(''),
   monthly_income: z.preprocess(val => (val === '' || val === null) ? 0 : Number(val), z.number().min(0).optional().default(0)),
   branch_id: z.string().min(1, "Branch is required"),
+  group_id: z.string().optional().default('none'), // Optional group assignment
   // Officer assignment is now mandatory
   assigned_officer_id: z.string().min(1, "Assigning an officer is required"),
   next_of_kin: z.array(nextOfKinSchema).optional(),
@@ -49,6 +50,7 @@ const memberSchema = z.object({
 type MemberFormData = z.infer<typeof memberSchema>;
 type Branch = { id: number; name: string; };
 type AssignableOfficer = { id: string; full_name: string; };
+type Group = { id: string; name: string; branch_id: string; };
 
 const relationshipOptions = ["Spouse", "Parent", "Sibling", "Child", "Guardian", "Other"];
 
@@ -71,6 +73,8 @@ const MemberFormPage: React.FC = () => {
     
     const [branches, setBranches] = useState<Branch[]>([]);
     const [assignableOfficers, setAssignableOfficers] = useState<AssignableOfficer[]>([]);
+    const [groups, setGroups] = useState<Group[]>([]);
+    const [filteredGroups, setFilteredGroups] = useState<Group[]>([]);
     const [loadingData, setLoadingData] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [formError, setFormError] = useState<string | null>(null);
@@ -88,13 +92,15 @@ const MemberFormPage: React.FC = () => {
         const fetchData = async () => {
             setLoadingData(true);
             try {
-                // Query now includes all roles that can be assigned a member
-                const [branchesRes, officersRes] = await Promise.all([
+                // Query now includes all roles that can be assigned a member and groups
+                const [branchesRes, officersRes, groupsRes] = await Promise.all([
                     supabase.from('branches').select('id, name'),
-                    supabase.from('profiles').select('id, full_name').in('role', ['loan_officer', 'branch_manager', 'super_admin'])
+                    supabase.from('profiles').select('id, full_name').in('role', ['loan_officer', 'branch_admin', 'super_admin']),
+                    supabase.from('groups').select('id, name, branch_id')
                 ]);
                 setBranches(branchesRes.data || []);
                 setAssignableOfficers(officersRes.data || []);
+                setGroups(groupsRes.data || []);
 
                 if (isEditMode && id) {
                     const { data: memberData, error } = await supabase.from('members').select('*, next_of_kin(*)').eq('id', id).single();
@@ -114,6 +120,21 @@ const MemberFormPage: React.FC = () => {
         };
         fetchData();
     }, [id, isEditMode, reset]);
+
+    // Filter groups based on selected branch
+    const selectedBranchId = watch("branch_id");
+    useEffect(() => {
+        if (selectedBranchId) {
+            const branchGroups = groups.filter(group => group.branch_id === selectedBranchId);
+            setFilteredGroups(branchGroups);
+        } else {
+            setFilteredGroups([]);
+        }
+        // Clear group selection if branch changes
+        if (selectedBranchId) {
+            setValue("group_id", "none");
+        }
+    }, [selectedBranchId, groups, setValue]);
 
     const onSubmit = async (data: MemberFormData) => {
         setIsSubmitting(true);
@@ -142,6 +163,7 @@ const MemberFormPage: React.FC = () => {
                 ...memberData,
                 profile_picture_url: pictureUrl,
                 branch_id: Number(data.branch_id),
+                group_id: data.group_id === 'none' ? null : data.group_id || null, // Include group assignment
                 assigned_officer_id: assignedOfficer,
                 created_by: user?.id
             };
@@ -214,7 +236,12 @@ const MemberFormPage: React.FC = () => {
                             {isEditMode ? 'Edit Member' : 'Add New Member'}
                         </CardTitle>
                         <CardDescription className="text-brand-green-600">
-                            {isEditMode ? 'Update member information below.' : 'Fill in the details below to register a new member.'}
+                            {isEditMode 
+                                ? 'Update member information below.' 
+                                : userRole === 'loan_officer'
+                                    ? 'Register a new member who will be automatically assigned to you.'
+                                    : 'Fill in the details below to register a new member.'
+                            }
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-8">
@@ -262,8 +289,19 @@ const MemberFormPage: React.FC = () => {
                             </div>
                         </div>
 
-                        <FormSection title="Branch & Officer Assignment">
+                        <FormSection title={userRole === 'loan_officer' ? 'Branch & Group Assignment' : 'Branch, Group & Officer Assignment'}>
                             <FormField label="Branch" error={errors.branch_id} required><Controller name="branch_id" control={control} render={({ field }) => <Select onValueChange={field.onChange} value={String(field.value || '')}><SelectTrigger><SelectValue placeholder="Assign a branch..." /></SelectTrigger><SelectContent>{branches.map(b => <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>)}</SelectContent></Select>} /></FormField>
+                            <FormField label="Group (Optional)" error={errors.group_id}>
+                                <Controller name="group_id" control={control} render={({ field }) => (
+                                    <Select onValueChange={field.onChange} value={field.value} disabled={!selectedBranchId}>
+                                        <SelectTrigger><SelectValue placeholder={selectedBranchId ? "Select a group..." : "Select branch first"} /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="none">No Group</SelectItem>
+                                            {filteredGroups.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                )} />
+                            </FormField>
                             {userRole !== 'loan_officer' && (
                                 <FormField label="Assign to Officer" error={errors.assigned_officer_id} required>
                                     <Controller name="assigned_officer_id" control={control} render={({ field }) => (
@@ -273,6 +311,15 @@ const MemberFormPage: React.FC = () => {
                                         </Select>
                                     )} />
                                 </FormField>
+                            )}
+                            {userRole === 'loan_officer' && (
+                                <div className="col-span-full">
+                                    <Alert className="bg-brand-green-50 border-brand-green-200 text-brand-green-800">
+                                        <AlertDescription>
+                                            <strong>Note:</strong> New members you create will be automatically assigned to you as their loan officer.
+                                        </AlertDescription>
+                                    </Alert>
+                                </div>
                             )}
                         </FormSection>
 

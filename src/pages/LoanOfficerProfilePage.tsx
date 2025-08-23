@@ -55,21 +55,93 @@ const LoanOfficerProfilePage: React.FC = () => {
       if (!id) return;
       setLoading(true);
       try {
-        const [profileRes, loansRes, membersRes] = await Promise.all([
-          supabase.rpc('get_officer_performance_data', { requesting_user_id: id }).single(),
-          supabase.from('loans_with_details').select('id, customer_id, account_number, member_name, principal_amount, current_balance, status, due_date').eq('loan_officer_id', id),
-          supabase.rpc('get_members_by_officer', { officer_id: id })
-        ]);
+        console.log('Fetching officer data for ID:', id);
+        
+        // Step 1: Fetch officer profile data
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, full_name, email, phone_number, branch_id')
+          .eq('id', id)
+          .single();
 
-        if (profileRes.error) throw profileRes.error;
-        if (loansRes.error) throw loansRes.error;
-        if (membersRes.error) throw membersRes.error;
+        if (profileError) throw profileError;
+        
+        console.log('Officer profile data:', profileData);
+        
+        // Step 2: Fetch officer's loans with member names
+        const { data: loansData, error: loansError } = await supabase
+          .from('loans')
+          .select('id, principal_amount, current_balance, status, due_date, member_id, customer_id, loan_officer_id')
+          .eq('loan_officer_id', id);
 
-        setOfficer(profileRes.data as OfficerProfile);
-        setLoans(loansRes.data as OfficerLoan[]);
-        setMembers(membersRes.data as OfficerMember[]);
+        if (loansError) throw loansError;
+        
+        console.log('Officer loans data:', loansData);
+        
+        // Step 3: Fetch member names for the loans
+        const memberIds = [...new Set(loansData.map(loan => loan.member_id || loan.customer_id).filter(Boolean))];
+        const { data: membersData, error: membersError } = await supabase
+          .from('members')
+          .select('id, full_name')
+          .in('id', memberIds);
 
+        if (membersError) {
+          console.warn('Members fetch error:', membersError);
+        }
+        
+        // Step 4: Create lookup map for member names
+        const membersMap = new Map((membersData || []).map(m => [m.id, m.full_name]));
+        
+        // Step 5: Transform loans data with member names
+        const transformedLoans = loansData.map(loan => {
+          const memberId = loan.member_id || loan.customer_id;
+          const memberName = memberId ? (membersMap.get(memberId) || `Unknown Member (${memberId.slice(0, 8)})`) : 'Unassigned Member';
+          
+          return {
+            id: loan.id,
+            customer_id: memberId,
+            account_number: `LN-${loan.id.slice(0, 8).toUpperCase()}`,
+            member_name: memberName,
+            principal_amount: loan.principal_amount || 0,
+            current_balance: loan.current_balance || 0,
+            status: loan.status || 'pending',
+            due_date: loan.due_date || new Date().toISOString().split('T')[0]
+          };
+        });
+        
+        console.log('Transformed loans with member names:', transformedLoans);
+        
+        // Step 6: Calculate officer performance metrics
+        const totalLoans = transformedLoans.length;
+        const totalDisbursed = transformedLoans
+          .filter(loan => ['active', 'pending'].includes(loan.status))
+          .reduce((sum, loan) => sum + loan.principal_amount, 0);
+        const totalBalance = transformedLoans
+          .filter(loan => ['active', 'pending'].includes(loan.status))
+          .reduce((sum, loan) => sum + loan.current_balance, 0);
+        
+        // Step 7: Create officer profile object
+        const officerProfile: OfficerProfile = {
+          id: profileData.id,
+          name: profileData.full_name || 'Unknown Officer',
+          email: profileData.email || 'N/A',
+          phone: profileData.phone_number,
+          branch_name: 'Nakuru', // Hardcoded for now, can be enhanced later
+          profile_picture_url: null,
+          total_loans: totalLoans,
+          total_disbursed: totalDisbursed,
+          total_balance: totalBalance
+        };
+        
+        console.log('Officer profile calculated:', officerProfile);
+        
+        // Step 8: Set state
+        setOfficer(officerProfile);
+        setLoans(transformedLoans);
+        setMembers([]); // We'll implement member portfolio later if needed
+        
       } catch (error: any) {
+        console.error('Error fetching officer data:', error);
         toast.error('Failed to load officer data', { description: error.message });
       } finally {
         setLoading(false);

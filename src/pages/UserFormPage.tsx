@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, ArrowLeft, CheckCircle, UserPlus, Eye, EyeOff } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 // --- Zod Validation Schema ---
 const userSchema = z.object({
@@ -20,13 +21,22 @@ const userSchema = z.object({
   full_name: z.string().min(3, "Full name is required"),
   phone_number: z.string().optional().default(''),
   role: z.string().min(1, "A role must be selected"),
-  branch_id: z.string().min(1, "A branch must be assigned"),
+  branch_id: z.string().optional(), // Made optional since super admins don't need branch
 }).refine(data => {
     // In edit mode, password is not required. In create mode, it is.
     return !data.password || data.password.length === 0 || data.password.length >= 6;
 }, {
     message: "Password must be at least 6 characters",
     path: ["password"],
+}).refine(data => {
+    // Branch is required for all roles except super_admin
+    if (data.role === 'super_admin') {
+        return true; // Super admin doesn't need branch
+    }
+    return data.branch_id && data.branch_id.length > 0;
+}, {
+    message: "Branch is required for this role",
+    path: ["branch_id"],
 });
 
 type UserFormData = z.infer<typeof userSchema>;
@@ -34,13 +44,16 @@ type Branch = { id: number; name: string; };
 
 const roles = [
     { value: 'super_admin', label: 'Super Admin' },
-    { value: 'branch_manager', label: 'Branch Manager' },
+    { value: 'branch_admin', label: 'Branch Admin' },
     { value: 'loan_officer', label: 'Loan Officer' },
+    { value: 'teller', label: 'Teller' },
+    { value: 'auditor', label: 'Auditor' },
 ];
 
 const UserFormPage: React.FC = () => {
     const { id: userId } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const { user } = useAuth();
     const isEditMode = Boolean(userId);
 
     const [branches, setBranches] = useState<Branch[]>([]);
@@ -48,10 +61,14 @@ const UserFormPage: React.FC = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [formError, setFormError] = useState<string | null>(null);
     const [showPassword, setShowPassword] = useState(false);
+    const [selectedRole, setSelectedRole] = useState<string>('');
 
-    const { register, handleSubmit, control, reset, formState: { errors } } = useForm<UserFormData>({
+    const { register, handleSubmit, control, reset, watch, formState: { errors } } = useForm<UserFormData>({
         resolver: zodResolver(userSchema),
     });
+
+    // Watch the role field to conditionally show/hide branch field
+    const watchedRole = watch('role');
 
     useEffect(() => {
         const fetchData = async () => {
@@ -64,6 +81,7 @@ const UserFormPage: React.FC = () => {
                     const { data: userData } = await supabase.from('profiles').select('*').eq('id', userId).single();
                     if (userData) {
                         reset({ ...userData, branch_id: String(userData.branch_id), password: '' });
+                        setSelectedRole(userData.role || '');
                     }
                 }
             } catch (error: any) {
@@ -87,7 +105,7 @@ const UserFormPage: React.FC = () => {
                         full_name: data.full_name,
                         phone_number: data.phone_number,
                         role: data.role,
-                        branch_id: Number(data.branch_id)
+                        branch_id: data.branch_id ? Number(data.branch_id) : null
                     })
                     .eq('id', userId);
                 if (profileError) throw profileError;
@@ -107,6 +125,8 @@ const UserFormPage: React.FC = () => {
                     setIsSubmitting(false);
                     return;
                 }
+                
+                // Pass the current user's ID as the creator
                 const response = await supabase.functions.invoke('create-user', {
                     body: {
                         email: data.email.trim().toLowerCase(),
@@ -115,7 +135,8 @@ const UserFormPage: React.FC = () => {
                             full_name: data.full_name,
                             phone_number: data.phone_number,
                             role: data.role,
-                            branchId: Number(data.branch_id)
+                            branchId: data.branch_id ? Number(data.branch_id) : null,
+                            created_by: user?.id // Pass the current user's ID
                         }
                     }
                 });
@@ -153,20 +174,27 @@ const UserFormPage: React.FC = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <FormField label="Role" error={errors.role} required>
                                 <Controller name="role" control={control} render={({ field }) => (
-                                    <Select onValueChange={field.onChange} value={field.value}>
+                                    <Select onValueChange={(value) => {
+                                        field.onChange(value);
+                                        setSelectedRole(value);
+                                    }} value={field.value}>
                                         <SelectTrigger><SelectValue placeholder="Select a role..." /></SelectTrigger>
                                         <SelectContent>{roles.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}</SelectContent>
                                     </Select>
                                 )} />
                             </FormField>
-                            <FormField label="Branch" error={errors.branch_id} required>
-                                <Controller name="branch_id" control={control} render={({ field }) => (
-                                    <Select onValueChange={field.onChange} value={String(field.value || '')}>
-                                        <SelectTrigger><SelectValue placeholder="Assign a branch..." /></SelectTrigger>
-                                        <SelectContent>{branches.map(b => <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>)}</SelectContent>
-                                    </Select>
-                                )} />
-                            </FormField>
+                            
+                            {/* Only show branch field if role is not super_admin */}
+                            {watchedRole && watchedRole !== 'super_admin' && (
+                                <FormField label="Branch" error={errors.branch_id} required>
+                                    <Controller name="branch_id" control={control} render={({ field }) => (
+                                        <Select onValueChange={field.onChange} value={String(field.value || '')}>
+                                            <SelectTrigger><SelectValue placeholder="Assign a branch..." /></SelectTrigger>
+                                            <SelectContent>{branches.map(b => <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>)}</SelectContent>
+                                        </Select>
+                                    )} />
+                                </FormField>
+                            )}
                         </div>
 
                         <FormField label={isEditMode ? "New Password (Optional)" : "Password"} error={errors.password} required={!isEditMode}>

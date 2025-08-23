@@ -35,19 +35,89 @@ const LoansPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateRange, setDateRange] = useState<DateRange>({ from: undefined, to: undefined });
 
-  // --- THE CRITICAL FIX: Simplified and Corrected Data Fetching ---
+  // --- THE PROPER FIX: Fetch Names Without Relationship Conflicts ---
   const fetchLoans = async () => {
     try {
-      // We no longer call the RPC function. We query the view directly.
-      // The new, simple RLS policies on the `loans` table handle all the security automatically.
-      const { data, error } = await supabase
-        .from('loans_with_details') // Query the view
-        .select('*');             // Select all columns from the view
+      setLoading(true);
+      console.log('Starting to fetch loans...');
+      
+      // Step 1: Fetch all loans
+      const { data: loansData, error: loansError } = await supabase
+        .from('loans')
+        .select('*');
 
-      if (error) throw error;
-      setLoans(data || []);
+      if (loansError) {
+        console.error('Loans query error:', loansError);
+        throw loansError;
+      }
+      
+      console.log('Raw loans data from database:', loansData);
+      
+      if (!loansData || loansData.length === 0) {
+        console.log('No loans found');
+        setLoans([]);
+        setLoading(false);
+        return;
+      }
+      
+      // Step 2: Collect all unique IDs for batch fetching
+      const memberIds = [...new Set(loansData.map(loan => loan.member_id || loan.customer_id).filter(Boolean))];
+      const branchIds = [...new Set(loansData.map(loan => loan.branch_id).filter(Boolean))];
+      const officerIds = [...new Set(loansData.map(loan => loan.loan_officer_id).filter(Boolean))];
+      
+      console.log('Unique IDs to fetch:', { memberIds, branchIds, officerIds });
+      
+      // Step 3: Batch fetch related data
+      const [membersRes, branchesRes, officersRes] = await Promise.all([
+        memberIds.length > 0 ? supabase.from('members').select('id, full_name').in('id', memberIds) : { data: [], error: null },
+        branchIds.length > 0 ? supabase.from('branches').select('id, name').in('id', branchIds) : { data: [], error: null },
+        officerIds.length > 0 ? supabase.from('profiles').select('id, full_name').in('id', officerIds) : { data: [], error: null }
+      ]);
+      
+      if (membersRes.error) console.error('Members fetch error:', membersRes.error);
+      if (branchesRes.error) console.error('Branches fetch error:', branchesRes.error);
+      if (officersRes.error) console.error('Officers fetch error:', officersRes.error);
+      
+      // Step 4: Create lookup maps
+      const membersMap = new Map((membersRes.data || []).map(m => [m.id, m.full_name]));
+      const branchesMap = new Map((branchesRes.data || []).map(b => [b.id, b.name]));
+      const officersMap = new Map((officersRes.data || []).map(o => [o.id, o.full_name]));
+      
+      console.log('Lookup maps created:', {
+        members: Object.fromEntries(membersMap),
+        branches: Object.fromEntries(branchesMap),
+        officers: Object.fromEntries(officersMap)
+      });
+      
+      // Step 5: Transform loans with real names
+      const transformedLoans = loansData.map(loan => {
+        const memberId = loan.member_id || loan.customer_id;
+        const memberName = memberId ? (membersMap.get(memberId) || `Unknown Member (${memberId.slice(0, 8)})`) : 'Unassigned Member';
+        const branchName = loan.branch_id ? (branchesMap.get(loan.branch_id) || `Unknown Branch (${loan.branch_id})`) : 'Unknown Branch';
+        const officerName = loan.loan_officer_id ? (officersMap.get(loan.loan_officer_id) || `Unknown Officer (${loan.loan_officer_id.slice(0, 8)})`) : 'Unassigned Officer';
+        
+        return {
+          id: loan.id,
+          member_name: memberName,
+          branch_name: branchName,
+          principal_amount: loan.principal_amount || 0,
+          current_balance: loan.current_balance || 0,
+          total_paid: loan.total_paid || 0,
+          due_date: loan.due_date || new Date().toISOString().split('T')[0],
+          status: loan.status || 'pending',
+          member_id: memberId,
+          branch_id: loan.branch_id,
+          loan_officer_id: loan.loan_officer_id
+        };
+      });
+      
+      console.log('Transformed loans with real names:', transformedLoans);
+      console.log('Setting loans state with', transformedLoans.length, 'loans');
+      setLoans(transformedLoans);
     } catch (error: any) {
+      console.error('Error fetching loans:', error);
       toast.error('Failed to fetch loans', { description: error.message });
+      setLoans([]); // Set empty array on error
     } finally {
       setLoading(false);
     }
@@ -60,7 +130,7 @@ const LoansPage: React.FC = () => {
     const channel = supabase
       .channel('public:loans')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'loans' }, (payload) => {
-        toast.info("Loan data has been updated in real-time.", { description: "Refreshing list..." });
+        console.log('Loan data changed, refreshing...');
         fetchLoans(); // Refetch data when any change occurs
       })
       .subscribe();

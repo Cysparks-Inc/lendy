@@ -34,14 +34,26 @@ export const ProfileDropdown = () => {
         .from('profiles')
         .select('full_name, profile_picture_url')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (error) throw error;
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching profile:', error);
+        return;
+      }
 
-      setFullName(data.full_name || '');
-      setProfilePicture(data.profile_picture_url || '');
+      if (data) {
+        setFullName(data.full_name || '');
+        setProfilePicture(data.profile_picture_url || '');
+      } else {
+        // Profile doesn't exist, use user email as fallback
+        setFullName(user.email?.split('@')[0] || 'User');
+        setProfilePicture('');
+      }
     } catch (error) {
       console.error('Error fetching profile:', error);
+      // Fallback to user email
+      setFullName(user.email?.split('@')[0] || 'User');
+      setProfilePicture('');
     }
   };
 

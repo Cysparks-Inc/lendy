@@ -7,6 +7,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   userRole: string | null;
+  profile: any | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error?: any }>;
   signOut: () => Promise<void>;
@@ -29,30 +30,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [profile, setProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
   const isSuperAdmin = userRole === 'super_admin';
   const isBranchAdmin = userRole === 'branch_admin';
   const isStaff = ['super_admin', 'branch_admin', 'loan_officer', 'teller'].includes(userRole || '');
 
-  const fetchUserRole = async (userId: string): Promise<string | null> => {
+  const fetchUserRoleAndProfile = async (userId: string): Promise<{ role: string | null; profile: any | null }> => {
     try {
-      // Use any to bypass type issues temporarily
-      const response = await (supabase as any)
-        .from('user_branch_roles')
-        .select('role')
-        .eq('user_id', userId)
+      // Fetch profile which contains both role and other profile data
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
         .maybeSingle();
       
-      if (response.error && response.error.code !== 'PGRST116') {
-        console.error('Error fetching user role:', response.error);
-        return null;
+      if (profileError && profileError.code !== 'PGRST116') {
+        console.error('Error fetching user profile:', profileError);
       }
       
-      return response.data?.role || null;
+      return {
+        role: profileData?.role || null,
+        profile: profileData || null
+      };
     } catch (error) {
-      console.error('Error fetching user role:', error);
-      return null;
+      console.error('Error fetching user role and profile:', error);
+      return { role: null, profile: null };
     }
   };
 
@@ -64,13 +68,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Fetch user role after setting user
+          // Fetch user role and profile after setting user
           setTimeout(async () => {
-            const role = await fetchUserRole(session.user.id);
+            const { role, profile: userProfile } = await fetchUserRoleAndProfile(session.user.id);
             setUserRole(role);
+            setProfile(userProfile);
           }, 0);
         } else {
           setUserRole(null);
+          setProfile(null);
         }
         
         setLoading(false);
@@ -83,8 +89,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        fetchUserRole(session.user.id).then(role => {
+        fetchUserRoleAndProfile(session.user.id).then(({ role, profile: userProfile }) => {
           setUserRole(role);
+          setProfile(userProfile);
           setLoading(false);
         });
       } else {
@@ -134,6 +141,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     user,
     session,
     userRole,
+    profile,
     loading,
     signIn,
     signOut,

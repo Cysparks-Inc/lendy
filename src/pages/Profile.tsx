@@ -53,19 +53,20 @@ const Profile = () => {
 
       if (profileError) throw profileError;
 
-      const { data: roleData, error: roleError } = await supabase
-        .from('user_branch_roles')
-        .select(`
-          role,
-          branches!branch_id (
-            name
-          )
-        `)
-        .eq('user_id', user.id)
-        .single();
-
-      if (roleError && roleError.code !== 'PGRST116') {
-        console.warn('Role data not found:', roleError);
+      // Get branch info if profile has branch_id
+      let branchData = null;
+      const profileWithExtras = profile as any; // Type assertion to handle dynamic fields
+      
+      if (profileWithExtras.branch_id) {
+        const { data: branch, error: branchError } = await supabase
+          .from('branches')
+          .select('name')
+          .eq('id', profileWithExtras.branch_id)
+          .maybeSingle();
+        
+        if (!branchError) {
+          branchData = branch;
+        }
       }
 
       setProfileData({
@@ -73,8 +74,8 @@ const Profile = () => {
         email: user.email || '',
         phone_number: profile.phone_number || '',
         profile_picture_url: profile.profile_picture_url || null,
-        role: roleData?.role || 'Not Set',
-        branch: roleData?.branches?.name || 'Not Assigned',
+        role: profileWithExtras?.role || 'Not Set',
+        branch: branchData?.name || 'Not Assigned',
         member_since: profile.created_at ? new Date(profile.created_at).toLocaleDateString('en-US', {
           year: 'numeric',
           month: 'long',
@@ -85,8 +86,8 @@ const Profile = () => {
       console.log('Profile data loaded:', {
         full_name: profile.full_name,
         profile_picture_url: profile.profile_picture_url,
-        role: roleData?.role,
-        branch: roleData?.branches?.name
+        role: profileWithExtras?.role,
+        branch: branchData?.name
       });
 
     } catch (error) {

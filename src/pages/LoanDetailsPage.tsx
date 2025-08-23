@@ -36,14 +36,43 @@ const LoanDetailsPage: React.FC = () => {
   const fetchLoanDetails = async () => {
     if (!id) return;
     try {
-      const { data, error } = await supabase
-        .from('loans_with_details')
+      // Step 1: Fetch the loan data
+      const { data: loanData, error: loanError } = await supabase
+        .from('loans')
         .select('*')
         .eq('id', id)
         .single();
 
-      if (error) throw error;
-      setLoan(data as LoanDetails);
+      if (loanError) throw loanError;
+      
+      console.log('Raw loan data:', loanData);
+      
+      // Step 2: Fetch related data (member, branch, officer names)
+      const memberId = loanData.member_id || loanData.customer_id;
+      const [memberRes, branchRes, officerRes] = await Promise.all([
+        memberId ? supabase.from('members').select('full_name').eq('id', memberId).single() : { data: null, error: null },
+        loanData.branch_id ? supabase.from('branches').select('name').eq('id', loanData.branch_id).single() : { data: null, error: null },
+        loanData.loan_officer_id ? supabase.from('profiles').select('full_name').eq('id', loanData.loan_officer_id).single() : { data: null, error: null }
+      ]);
+      
+      // Step 3: Transform the data
+      const transformedLoan: LoanDetails = {
+        id: loanData.id,
+        member_name: memberRes?.data?.full_name || `Unknown Member (${memberId?.slice(0, 8) || 'N/A'})`,
+        principal_amount: loanData.principal_amount || 0,
+        account_number: loanData.application_no || loanData.id.slice(0, 8),
+        current_balance: loanData.current_balance || 0,
+        total_paid: loanData.total_paid || 0,
+        due_date: loanData.due_date || new Date().toISOString().split('T')[0],
+        issue_date: loanData.applied_at || new Date().toISOString().split('T')[0],
+        branch_name: branchRes?.data?.name || 'Unknown Branch',
+        loan_officer_name: officerRes?.data?.full_name || 'Unassigned Officer',
+        interest_rate: loanData.interest_rate || 0,
+        status: loanData.status || 'pending'
+      };
+      
+      console.log('Transformed loan data:', transformedLoan);
+      setLoan(transformedLoan);
     } catch (error: any) {
       toast.error('Failed to fetch loan details', { description: error.message });
       console.error(error);

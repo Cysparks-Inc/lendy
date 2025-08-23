@@ -21,19 +21,28 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
 // --- Type Definitions ---
 interface NextOfKin { full_name: string; relationship: string; contact_number: string | null; }
-interface MemberLoan { id: string; account_number: string; principal_amount: number; current_balance: number; status: 'active' | 'repaid' | 'defaulted' | 'pending'; due_date: string; }
+interface MemberLoan { id: string; principal_amount: number; current_balance: number; status: 'active' | 'repaid' | 'defaulted' | 'pending'; due_date: string; }
 interface CommunicationLog { id: number; created_at: string; communication_type: string; notes: string; officer_name: string | null; }
 interface MemberProfileData {
   id: string;
-  full_name: string;
+  first_name: string;
+  last_name: string;
+  member_no: string;
   id_number: string;
   phone_number: string;
-  branch_name: string;
-  profession: string | null;
-  house_type: string | null;
-  profile_picture_url: string | null;
-  assigned_officer_name: string | null;
-  next_of_kin: NextOfKin[];
+  email: string | null;
+  address: string | null;
+  occupation: string | null;
+  photo_url: string | null;
+  next_of_kin_name: string | null;
+  next_of_kin_phone: string | null;
+  next_of_kin_relationship: string | null;
+  branch_id: number | null;
+  group_id: number | null;
+  assigned_officer_id: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
 }
 
 const MemberProfilePage: React.FC = () => {
@@ -44,27 +53,188 @@ const MemberProfilePage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [isStatementDialogOpen, setIsStatementDialogOpen] = useState(false);
   const [isLogDialogOpen, setIsLogDialogOpen] = useState(false);
+  const [loanOfficerName, setLoanOfficerName] = useState<string>('N/A');
+  const [groupName, setGroupName] = useState<string>('N/A');
+  const [branchName, setBranchName] = useState<string>('N/A');
 
   const fetchData = async () => {
     if (!id) return;
     setLoading(true);
     try {
-        const [memberRes, loansRes, logsRes] = await Promise.all([
-            supabase.from('members_with_details').select('*, next_of_kin(*)').eq('id', id).single(),
-            supabase.from('loans_with_details').select('id, account_number, principal_amount, current_balance, status, due_date').eq('customer_id', id),
-            supabase.from('communication_logs').select('*, officer:profiles(full_name)').eq('member_id', id).order('created_at', { ascending: false })
-        ]);
-        if (memberRes.error) throw memberRes.error;
-        if (loansRes.error) throw loansRes.error;
-        if (logsRes.error) throw logsRes.error;
+        // Try to fetch member data - first try members table, then customers table
+        let memberRes;
+        let memberTable = 'members';
         
-        setMember(memberRes.data);
+        try {
+          memberRes = await supabase
+            .from('members')
+            .select(`*`)
+            .eq('id', id)
+            .maybeSingle();
+        } catch (error: any) {
+          if (error.message?.includes('members')) {
+            // Fallback to customers table if it exists
+            memberTable = 'customers';
+            try {
+              memberRes = await (supabase as any)
+                .from('customers')
+                .select(`*`)
+                .eq('id', id)
+                .maybeSingle();
+            } catch (fallbackError: any) {
+              console.warn('Both members and customers tables failed:', fallbackError);
+              throw error; // Re-throw original error
+            }
+          } else {
+            throw error;
+          }
+        }
+        
+        if (memberRes.error && memberRes.error.code !== 'PGRST116') throw memberRes.error;
+        if (!memberRes.data) {
+          toast.error('Member not found');
+          return;
+        }
+
+        // Fetch loans - try both member_id and customer_id to handle different schema versions
+        let loansRes;
+        const loanColumns = 'id, principal_amount, current_balance, status, due_date, member_id, customer_id';
+        
+        try {
+          // First try member_id with the current member's ID
+          loansRes = await supabase
+            .from('loans')
+            .select(loanColumns)
+            .or(`member_id.eq.${id},customer_id.eq.${id}`);
+          
+          console.log('Loans query result:', loansRes);
+          
+          if (loansRes.error) {
+            console.warn('Loans fetch error:', loansRes.error);
+            // Try alternative approach - search by member name
+            const memberName = memberRes.data.full_name || memberRes.data.first_name + ' ' + memberRes.data.last_name;
+            if (memberName) {
+              console.log('Trying to fetch loans by member name:', memberName);
+              // This is a fallback - in a real system you'd want to use proper foreign keys
+              loansRes = { data: [], error: null };
+            }
+          }
+        } catch (error: any) {
+          console.warn('Could not fetch loans:', error);
+          loansRes = { data: [], error: null };
+        }
+
+        // Try to fetch communication logs
+        let logsRes = { data: [], error: null };
+        try {
+          logsRes = await (supabase as any)
+            .from('communication_logs')
+            .select('*, officer:profiles(full_name)')
+            .eq('member_id', id)
+            .order('created_at', { ascending: false });
+        } catch (error: any) {
+          console.warn('Communication logs not available:', error);
+        }
+        
+        if (loansRes.error) {
+          console.warn('Loans fetch error:', loansRes.error);
+          loansRes.data = [];
+        }
+        
+        // Adapt member data based on table structure
+        let adaptedMember = memberRes.data;
+        if (memberTable === 'customers') {
+          // Convert customers structure to match members interface
+          adaptedMember = {
+            ...memberRes.data,
+            first_name: memberRes.data.full_name?.split(' ')[0] || 'Unknown',
+            last_name: memberRes.data.full_name?.split(' ').slice(1).join(' ') || 'Member',
+            member_no: memberRes.data.id?.slice(0, 8) || 'N/A',
+            email: memberRes.data.email || 'N/A',
+            occupation: memberRes.data.occupation || 'N/A',
+            photo_url: memberRes.data.profile_picture_url || memberRes.data.photo_url || null,
+            branch_id: memberRes.data.branch_id || null,
+            group_id: memberRes.data.group_id || null
+          };
+        } else {
+          // Ensure members table data has fallbacks
+          adaptedMember = {
+            ...memberRes.data,
+            first_name: memberRes.data.first_name || memberRes.data.full_name?.split(' ')[0] || 'Unknown',
+            last_name: memberRes.data.last_name || memberRes.data.full_name?.split(' ').slice(1).join(' ') || 'Member',
+            member_no: memberRes.data.member_no || memberRes.data.id?.slice(0, 8) || 'N/A',
+            email: memberRes.data.email || 'N/A',
+            occupation: memberRes.data.occupation || 'N/A',
+            photo_url: memberRes.data.profile_picture_url || memberRes.data.photo_url || null,
+            branch_id: memberRes.data.branch_id || null,
+            group_id: memberRes.data.group_id || null
+          };
+        }
+        
+        // Debug logging to see what we actually got
+        console.log('Original member data:', memberRes.data);
+        console.log('Adapted member data:', adaptedMember);
+        console.log('Photo URL:', adaptedMember.photo_url);
+        console.log('Profile Picture URL:', memberRes.data.profile_picture_url);
+        console.log('Original Photo URL:', memberRes.data.photo_url);
+        
+        setMember(adaptedMember);
         setLoans(loansRes.data || []);
-        setCommunicationLogs(logsRes.data.map(log => ({ ...log, officer_name: log.officer?.full_name })) || []);
+        setCommunicationLogs(logsRes.data?.map(log => ({ ...log, officer_name: log.officer?.full_name })) || []);
+        
+        // Fetch additional member information
+        await fetchAdditionalMemberInfo(adaptedMember);
     } catch (error: any) {
+        console.error('Error fetching member data:', error);
         toast.error('Failed to load member data', { description: error.message });
     } finally {
         setLoading(false);
+    }
+  };
+  
+  const fetchAdditionalMemberInfo = async (memberData: MemberProfileData) => {
+    try {
+      // Fetch loan officer name
+      if (memberData.assigned_officer_id) {
+        const officerRes = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', memberData.assigned_officer_id)
+          .single();
+        
+        if (officerRes.data) {
+          const officerData = officerRes.data as any;
+          setLoanOfficerName(officerData.full_name || 'Unknown Officer');
+        }
+      }
+      
+      // Fetch group name
+      if (memberData.group_id) {
+        const groupRes = await supabase
+          .from('groups')
+          .select('name')
+          .eq('id', memberData.group_id)
+          .single();
+        
+        if (groupRes.data) {
+          setGroupName(groupRes.data.name || 'Unknown Group');
+        }
+      }
+      
+      // Fetch branch name
+      if (memberData.branch_id) {
+        const branchRes = await supabase
+          .from('branches')
+          .select('name')
+          .eq('id', memberData.branch_id)
+          .single();
+        
+        if (branchRes.data) {
+          setBranchName(branchRes.data.name || 'Unknown Branch');
+        }
+      }
+    } catch (error) {
+      console.warn('Error fetching additional member info:', error);
     }
   };
   
@@ -74,7 +244,13 @@ const MemberProfilePage: React.FC = () => {
   
   const formatCurrency = (amount: number) => new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(amount || 0);
   const getStatusVariant = (status: MemberLoan['status']) => {
-    switch (status) { case 'active': return 'default'; case 'repaid': return 'success'; case 'defaulted': return 'destructive'; case 'pending': return 'warning'; default: return 'secondary'; }
+    switch (status) { 
+      case 'active': return 'default'; 
+      case 'repaid': return 'default'; 
+      case 'defaulted': return 'destructive'; 
+      case 'pending': return 'secondary'; 
+      default: return 'secondary'; 
+    }
   };
   
   const getInitials = (name: string) => {
@@ -104,7 +280,7 @@ const MemberProfilePage: React.FC = () => {
                             </Link>
                         </Button>
                         <div>
-                            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">{member.full_name}</h1>
+                            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">{`${member.first_name} ${member.last_name}`}</h1>
                             <p className="text-muted-foreground text-sm sm:text-base">Member Profile & Financial History</p>
                         </div>
                     </div>
@@ -114,7 +290,7 @@ const MemberProfilePage: React.FC = () => {
                             Log Activity
                         </Button>
                         <Button asChild className="w-full sm:w-auto">
-                            <Link to={`/loans/new?memberId=${member.id}&memberName=${member.full_name}`}>
+                            <Link to={`/loans/new?memberId=${member.id}&memberName=${encodeURIComponent(`${member.first_name} ${member.last_name}`)}`}>
                                 <PlusCircle className="mr-2 h-4 w-4" /> 
                                 New Loan
                             </Link>
@@ -151,13 +327,25 @@ const MemberProfilePage: React.FC = () => {
                       <CardHeader className="items-center text-center pb-6">
                         <div className="relative mb-4">
                           <Avatar className="h-20 w-20 sm:h-24 w-24 border-2 border-brand-green-200">
-                            <AvatarImage src={member.profile_picture_url} alt={member.full_name} />
+                            {member.photo_url ? (
+                              <AvatarImage 
+                                src={member.photo_url} 
+                                alt={`${member.first_name} ${member.last_name}`}
+                                onError={(e) => {
+                                  console.error('Image failed to load:', member.photo_url);
+                                  e.currentTarget.style.display = 'none';
+                                }}
+                                onLoad={() => {
+                                  console.log('Image loaded successfully:', member.photo_url);
+                                }}
+                              />
+                            ) : null}
                             <AvatarFallback className="bg-brand-green-100 text-brand-green-700 text-lg">
-                              {getInitials(member.full_name)}
+                              {getInitials(`${member.first_name} ${member.last_name}`)}
                             </AvatarFallback>
                           </Avatar>
                         </div>
-                        <CardTitle className="text-lg sm:text-xl text-brand-green-800">{member.full_name}</CardTitle>
+                        <CardTitle className="text-lg sm:text-xl text-brand-green-800">{`${member.first_name} ${member.last_name}`}</CardTitle>
                         <CardDescription className="text-sm text-brand-green-600">ID: {member.id_number}</CardDescription>
                       </CardHeader>
                         <CardContent className="space-y-4">
@@ -184,9 +372,16 @@ const MemberProfilePage: React.FC = () => {
                                     </Button>
                                 </div>
                             </div>
-                            <InfoItem icon={Briefcase} label="Profession" value={member.profession} />
-                            <InfoItem icon={Home} label="Housing" value={member.house_type} />
-                            <InfoItem icon={UserCheck} label="Assigned Officer" value={member.assigned_officer_name} />
+                            <InfoItem icon={Mail} label="Email" value={member.email} />
+                            <InfoItem icon={Home} label="Address" value={member.address} />
+                            <InfoItem icon={Briefcase} label="Occupation" value={member.occupation} />
+                            <InfoItem icon={UserCheck} label="Next of Kin" value={member.next_of_kin_name} />
+                            {member.next_of_kin_phone && (
+                              <InfoItem icon={Phone} label="Next of Kin Phone" value={member.next_of_kin_phone} />
+                            )}
+                            <InfoItem icon={Users} label="Assigned Loan Officer" value={loanOfficerName} />
+                            <InfoItem icon={Users} label="Group" value={groupName} />
+                            <InfoItem icon={Home} label="Branch" value={branchName} />
                         </CardContent>
                     </Card>
                 </div>
@@ -197,7 +392,7 @@ const MemberProfilePage: React.FC = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                         <StatCard icon={Banknote} title="Active Loans" value={loans.length} />
                         <StatCard icon={DollarSign} title="Total Outstanding" value={formatCurrency(totalOutstanding)} />
-                        <StatCard icon={Users} title="Branch" value={member.branch_name} />
+                        <StatCard icon={Users} title="Member No." value={member.member_no} />
                     </div>
                     
                     {/* Activity & History Card */}
@@ -214,10 +409,11 @@ const MemberProfilePage: React.FC = () => {
                                 <TabsContent value="loans" className="mt-6">
                                     <DataTable 
                                         columns={[
-                                            { header: 'Account No.', cell: (row) => <span className="font-mono text-xs">{row.account_number}</span> },
+                                            { header: 'Loan ID', cell: (row) => <span className="font-mono text-xs">{row.id.slice(0, 8)}...</span> },
                                             { header: 'Principal', cell: (row) => formatCurrency(row.principal_amount) },
                                             { header: 'Outstanding', cell: (row) => formatCurrency(row.current_balance) },
                                             { header: 'Status', cell: (row) => <Badge variant={getStatusVariant(row.status)} className="capitalize">{row.status}</Badge> },
+                                            { header: 'Due Date', cell: (row) => new Date(row.due_date).toLocaleDateString() },
                                             { header: 'Actions', cell: (row) => (
                                                 <div className="text-right">
                                                     <Button asChild variant="outline" size="icon">

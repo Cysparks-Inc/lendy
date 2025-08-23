@@ -119,7 +119,7 @@ const UsersPage: React.FC = () => {
     );
   }
 
-  if (loading) { return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>; }
+  if (loading) { return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /> </div>; }
 
   return (
     <div className="space-y-6 p-2 sm:p-4 md:p-6">
