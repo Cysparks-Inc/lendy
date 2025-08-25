@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Loader2, Banknote, Calendar, TrendingUp, DollarSign, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Loader2, Banknote, Calendar, TrendingUp, DollarSign, MessageSquare, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { ManualPaymentEntry } from '@/components/loans/ManualPaymentEntry';
@@ -195,10 +195,16 @@ const LoanDetailsPage: React.FC = () => {
             <TabsContent value="communication_logs" className="space-y-4">
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-semibold">Communication History</h3>
-                <Button onClick={() => setIsCommunicationDialogOpen(true)}>
-                  <MessageSquare className="mr-2 h-4 w-4" />
-                  Log Communication
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={refreshCommunicationLogs}>
+                    <Clock className="mr-2 h-4 w-4" />
+                    Refresh
+                  </Button>
+                  <Button onClick={() => setIsCommunicationDialogOpen(true)}>
+                    <MessageSquare className="mr-2 h-4 w-4" />
+                    Log Communication
+                  </Button>
+                </div>
               </div>
               <CommunicationLogs 
                 key={communicationLogsKey}
@@ -206,6 +212,7 @@ const LoanDetailsPage: React.FC = () => {
                 memberId={loan.member_id || null} 
                 memberName={loan.member_name}
                 onRefresh={refreshCommunicationLogs}
+                hideHeader={true}
               />
             </TabsContent>
             

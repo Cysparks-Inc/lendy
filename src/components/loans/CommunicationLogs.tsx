@@ -30,11 +30,11 @@ interface CommunicationLog {
 }
 
 interface CommunicationLogsProps {
-  loanId: string | null;
-  memberId: string | null;
+  loanId?: string | null;
+  memberId?: string | null;
   memberName: string;
   onRefresh?: () => void;
-  key?: number; // Add key for forcing refresh
+  hideHeader?: boolean; // New prop to hide header when used in parent contexts
 }
 
 const getCommunicationTypeIcon = (type: string) => {
@@ -63,7 +63,8 @@ export const CommunicationLogs: React.FC<CommunicationLogsProps> = ({
   loanId, 
   memberId, 
   memberName,
-  onRefresh 
+  onRefresh,
+  hideHeader 
 }) => {
   const { user } = useAuth();
   const [logs, setLogs] = useState<CommunicationLog[]>([]);
@@ -320,25 +321,27 @@ export const CommunicationLogs: React.FC<CommunicationLogsProps> = ({
   return (
     <>
       <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>
-                {loanId ? 'All Communications & Follow-ups' : 'Communication History'}
-              </CardTitle>
-              <CardDescription>
-                {loanId 
-                  ? `Complete communication history including calls, SMS, emails, visits, meetings, and follow-up activities for ${memberName}'s loan.`
-                  : `Complete communication history including calls, SMS, emails, visits, meetings, and follow-up activities for ${memberName}.`
-                }
-              </CardDescription>
+        {!hideHeader && (
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>
+                  {loanId ? 'All Communications & Follow-ups' : 'Communication History'}
+                </CardTitle>
+                <CardDescription>
+                  {loanId 
+                    ? `Complete communication history including calls, SMS, emails, visits, meetings, and follow-up activities for ${memberName}'s loan.`
+                    : `Complete communication history including calls, SMS, emails, visits, meetings, and follow-up activities for ${memberName}.`
+                  }
+                </CardDescription>
+              </div>
+              <Button variant="outline" size="sm" onClick={handleRefresh}>
+                <Clock className="h-4 w-4 mr-2" />
+                Refresh
+              </Button>
             </div>
-            <Button variant="outline" size="sm" onClick={handleRefresh}>
-              <Clock className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
-          </div>
-        </CardHeader>
+          </CardHeader>
+        )}
         <CardContent>
           {logs.length === 0 ? (
             <div className="text-center py-10">

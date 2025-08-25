@@ -209,6 +209,7 @@ export type Database = {
       members: {
         Row: {
           address: string | null
+          assigned_officer_id: string | null
           branch_id: number | null
           created_at: string
           created_by: string
@@ -228,6 +229,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          assigned_officer_id?: string | null
           branch_id?: number | null
           created_at?: string
           created_by: string
@@ -247,6 +249,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          assigned_officer_id?: string | null
           branch_id?: number | null
           created_at?: string
           created_by?: string
@@ -268,6 +271,13 @@ export type Database = {
           {
             foreignKeyName: "customers_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "members_assigned_officer_id_fkey"
+            columns: ["assigned_officer_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]

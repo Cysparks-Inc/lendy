@@ -9,6 +9,10 @@ import { ArrowLeft, Loader2, Mail, Phone, MapPin, Banknote, Users, TrendingUp, D
 import { toast } from 'sonner';
 import { DataTable } from '@/components/ui/data-table'; // Reusable component
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 
 // --- Type Definitions ---
 interface OfficerProfile {
@@ -48,7 +52,14 @@ const LoanOfficerProfilePage: React.FC = () => {
   const [officer, setOfficer] = useState<OfficerProfile | null>(null);
   const [loans, setLoans] = useState<OfficerLoan[]>([]);
   const [members, setMembers] = useState<OfficerMember[]>([]);
+  const [unassignedMembers, setUnassignedMembers] = useState<OfficerMember[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [transferMemberDialogOpen, setTransferMemberDialogOpen] = useState(false);
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+  const [selectedMemberName, setSelectedMemberName] = useState<string | null>(null);
+  const [availableOfficers, setAvailableOfficers] = useState<Array<{id: string, name: string}>>([]);
+  const [selectedNewOfficerId, setSelectedNewOfficerId] = useState<string>('');
+  const [transferLoading, setTransferLoading] = useState(false);
 
   useEffect(() => {
     const fetchOfficerData = async () => {
@@ -111,7 +122,48 @@ const LoanOfficerProfilePage: React.FC = () => {
         
         console.log('Transformed loans with member names:', transformedLoans);
         
-        // Step 6: Calculate officer performance metrics
+        // Step 6: Fetch members directly assigned to this officer
+        const { data: assignedMembersData, error: assignedMembersError } = await supabase
+          .from('members')
+          .select(`
+            id, 
+            full_name, 
+            phone_number, 
+            status,
+            assigned_officer_id
+          `)
+          .eq('assigned_officer_id', id);
+
+        if (assignedMembersError) {
+          console.warn('Assigned members fetch error:', assignedMembersError);
+        }
+        
+        console.log('Assigned members data:', assignedMembersData);
+        
+        // Step 7: Calculate member portfolio stats
+        const transformedMembers = (assignedMembersData || []).map(member => {
+          // Get loans for this member
+          const memberLoans = loansData.filter(loan => 
+            (loan.member_id === member.id || loan.customer_id === member.id)
+          );
+          
+          const totalLoans = memberLoans.length;
+          const outstandingBalance = memberLoans
+            .filter(loan => ['active', 'pending'].includes(loan.status))
+            .reduce((sum, loan) => sum + parseFloat(loan.current_balance || 0), 0);
+          
+          return {
+            id: member.id,
+            full_name: member.full_name || 'Unknown Member',
+            phone_number: member.phone_number || 'N/A',
+            total_loans: totalLoans,
+            outstanding_balance: outstandingBalance
+          };
+        });
+        
+        console.log('Transformed members with portfolio stats:', transformedMembers);
+        
+        // Step 8: Calculate officer performance metrics
         const totalLoans = transformedLoans.length;
         const totalDisbursed = transformedLoans
           .filter(loan => ['active', 'pending'].includes(loan.status))
@@ -120,7 +172,7 @@ const LoanOfficerProfilePage: React.FC = () => {
           .filter(loan => ['active', 'pending'].includes(loan.status))
           .reduce((sum, loan) => sum + loan.current_balance, 0);
         
-        // Step 7: Create officer profile object
+        // Step 9: Create officer profile object
         const officerProfile: OfficerProfile = {
           id: profileData.id,
           name: profileData.full_name || 'Unknown Officer',
@@ -135,10 +187,47 @@ const LoanOfficerProfilePage: React.FC = () => {
         
         console.log('Officer profile calculated:', officerProfile);
         
-        // Step 8: Set state
+        // Step 10: Set state
         setOfficer(officerProfile);
         setLoans(transformedLoans);
-        setMembers([]); // We'll implement member portfolio later if needed
+        setMembers(transformedMembers);
+        
+        // Step 11: Fetch unassigned members
+        const { data: unassignedData, error: unassignedError } = await supabase
+          .from('members')
+          .select(`
+            id, 
+            full_name, 
+            phone_number, 
+            status
+          `)
+          .is('assigned_officer_id', null);
+
+        if (unassignedError) {
+          console.warn('Unassigned members fetch error:', unassignedError);
+        }
+        
+        // Calculate portfolio stats for unassigned members
+        const transformedUnassigned = (unassignedData || []).map(member => {
+          const memberLoans = loansData.filter(loan => 
+            (loan.member_id === member.id || loan.customer_id === member.id)
+          );
+          
+          const totalLoans = memberLoans.length;
+          const outstandingBalance = memberLoans
+            .filter(loan => ['active', 'pending'].includes(loan.status))
+            .reduce((sum, loan) => sum + parseFloat(loan.current_balance || 0), 0);
+          
+          return {
+            id: member.id,
+            full_name: member.full_name || 'Unknown Member',
+            phone_number: member.phone_number || 'N/A',
+            total_loans: totalLoans,
+            outstanding_balance: outstandingBalance
+          };
+        });
+        
+        setUnassignedMembers(transformedUnassigned);
         
       } catch (error: any) {
         console.error('Error fetching officer data:', error);
@@ -170,6 +259,54 @@ const LoanOfficerProfilePage: React.FC = () => {
     { header: 'Phone', cell: (row: OfficerMember) => row.phone_number },
     { header: 'Total Loans', cell: (row: OfficerMember) => row.total_loans },
     { header: 'Outstanding', cell: (row: OfficerMember) => formatCurrency(row.outstanding_balance) },
+    { 
+      header: 'Actions', 
+      cell: (row: OfficerMember) => (
+        <div className="flex gap-2">
+          <Button asChild variant="outline" size="sm">
+            <Link to={`/members/${row.id}`}>
+              <Eye className="h-4 w-4" />
+            </Link>
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => handleTransferMember(row.id, row.full_name)}
+            className="text-blue-600 hover:text-blue-700"
+          >
+            <Users className="h-4 w-4" />
+          </Button>
+        </div>
+      )
+    },
+  ];
+
+  const unassignedMemberColumns = [
+    { header: 'Name', cell: (row: OfficerMember) => <Link to={`/members/${row.id}`} className="font-medium hover:underline">{row.full_name}</Link> },
+    { header: 'Phone', cell: (row: OfficerMember) => row.phone_number },
+    { header: 'Total Loans', cell: (row: OfficerMember) => row.total_loans },
+    { header: 'Outstanding', cell: (row: OfficerMember) => formatCurrency(row.outstanding_balance) },
+    { 
+      header: 'Actions', 
+      cell: (row: OfficerMember) => (
+        <div className="flex gap-2">
+          <Button asChild variant="outline" size="sm">
+            <Link to={`/members/${row.id}`}>
+              <Eye className="h-4 w-4" />
+            </Link>
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => handleAssignSpecificMember(row.id, row.full_name)}
+            className="text-brand-green-600 hover:text-brand-green-700"
+          >
+            <Users className="h-4 w-4" />
+            Assign to Me
+          </Button>
+        </div>
+      )
+    },
   ];
   
   if (loading) { return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>; }
@@ -179,6 +316,124 @@ const LoanOfficerProfilePage: React.FC = () => {
     const names = name.split(' ');
     if (names.length === 1) return names[0].charAt(0);
     return names[0].charAt(0) + names[names.length - 1].charAt(0);
+  };
+
+  const handleTransferMember = async (memberId: string, memberName: string) => {
+    setSelectedMemberId(memberId);
+    setSelectedMemberName(memberName);
+    setSelectedNewOfficerId('');
+    
+    // Fetch available loan officers (excluding current one)
+    try {
+      const { data: officersData, error: officersError } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .eq('role', 'loan_officer')
+        .neq('id', id);
+
+      if (officersError) throw officersError;
+      
+      const officers = (officersData || []).map(officer => ({
+        id: officer.id,
+        name: officer.full_name || 'Unknown Officer'
+      }));
+      
+      setAvailableOfficers(officers);
+    } catch (error: any) {
+      console.error('Error fetching available officers:', error);
+      toast.error('Failed to fetch available officers');
+    }
+    
+    setTransferMemberDialogOpen(true);
+  };
+
+  const handleTransferConfirm = async () => {
+    if (!selectedMemberId || !selectedNewOfficerId) {
+      toast.error('Please select a new officer for the member');
+      return;
+    }
+
+    setTransferLoading(true);
+    try {
+      // Use the transfer function we created in the migration
+      const { error } = await supabase.rpc('transfer_member_to_new_officer', {
+        member_id_param: selectedMemberId,
+        new_officer_id_param: selectedNewOfficerId
+      });
+
+      if (error) throw error;
+
+      toast.success(`Member ${selectedMemberName} transferred successfully!`);
+      setTransferMemberDialogOpen(false);
+      setSelectedMemberId(null);
+      setSelectedMemberName(null);
+      setSelectedNewOfficerId('');
+
+      // Re-fetch data to update the display
+      window.location.reload();
+
+    } catch (error: any) {
+      console.error('Error transferring member:', error);
+      toast.error('Failed to transfer member', { description: error.message });
+    } finally {
+      setTransferLoading(false);
+    }
+  };
+
+  const handleTransferCancel = () => {
+    setTransferMemberDialogOpen(false);
+    setSelectedMemberId(null);
+    setSelectedMemberName(null);
+  };
+
+  const handleAssignUnassignedMembers = async () => {
+    if (!id) return;
+    setTransferLoading(true);
+    try {
+      const { error } = await supabase.rpc('assign_unassigned_members_to_officer', {
+        officer_id_param: id
+      });
+
+      if (error) throw error;
+
+      toast.success('Unassigned members assigned to this officer successfully!');
+      // Re-fetch data to update the display
+      window.location.reload();
+    } catch (error: any) {
+      console.error('Error assigning unassigned members:', error);
+      toast.error('Failed to assign unassigned members', { description: error.message });
+    } finally {
+      setTransferLoading(false);
+    }
+  };
+
+  const handleAssignSpecificMember = async (memberId: string, memberName: string) => {
+    if (!id || !memberId) return;
+    setTransferLoading(true);
+    try {
+      // Assign the member to the current officer
+      const { error } = await supabase
+        .from('members')
+        .update({ assigned_officer_id: id })
+        .eq('id', memberId);
+
+      if (error) throw error;
+
+      toast.success(`Member ${memberName} assigned to ${officer?.name} successfully!`);
+      setTransferMemberDialogOpen(false);
+      setSelectedMemberId(null);
+      setSelectedMemberName(null);
+      setSelectedNewOfficerId('');
+
+      // Re-fetch data to update the display
+      window.location.reload();
+
+    } catch (error: any) {
+      console.error('Error assigning member:', error);
+      toast.error('Failed to assign member', { description: error.message });
+    } finally {
+      setTransferLoading(false);
+    }
   };
 
   return (
@@ -223,6 +478,20 @@ const LoanOfficerProfilePage: React.FC = () => {
             <div className="text-center sm:text-left">
               <CardTitle className="text-2xl sm:text-3xl text-brand-green-800 mb-2">{officer.name}</CardTitle>
               <CardDescription className="text-brand-green-600">{officer.email}</CardDescription>
+              <div className="flex flex-wrap gap-4 mt-4 text-sm">
+                <div className="text-brand-green-700">
+                  <span className="font-semibold">{members.length}</span> Assigned Members
+                </div>
+                <div className="text-brand-green-700">
+                  <span className="font-semibold">{unassignedMembers.length}</span> Unassigned Members
+                </div>
+                <div className="text-brand-green-700">
+                  <span className="font-semibold">{loans.length}</span> Total Loans
+                </div>
+                <div className="text-brand-green-700">
+                  <span className="font-semibold">{formatCurrency(officer.total_disbursed)}</span> Portfolio
+                </div>
+              </div>
             </div>
           </div>
         </CardHeader>
@@ -230,9 +499,10 @@ const LoanOfficerProfilePage: React.FC = () => {
       
       {/* Tabs Section */}
       <Tabs defaultValue="loans" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="loans">Loan Portfolio ({loans.length})</TabsTrigger>
           <TabsTrigger value="members">Member Portfolio ({members.length})</TabsTrigger>
+          <TabsTrigger value="unassigned">Unassigned Members ({unassignedMembers.length})</TabsTrigger>
         </TabsList>
         <TabsContent value="loans" className="mt-6">
           <Card>
@@ -248,15 +518,149 @@ const LoanOfficerProfilePage: React.FC = () => {
         <TabsContent value="members" className="mt-6">
           <Card>
             <CardHeader>
-              <CardTitle>Member Portfolio</CardTitle>
-              <CardDescription>All members assigned to {officer.name}.</CardDescription>
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle>Member Portfolio</CardTitle>
+                  <CardDescription>All members assigned to {officer.name}.</CardDescription>
+                </div>
+                <Button 
+                  variant="outline" 
+                  onClick={handleAssignUnassignedMembers}
+                  className="text-brand-green-600 hover:text-brand-green-700"
+                >
+                  <Users className="mr-2 h-4 w-4" />
+                  Assign Unassigned Members
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <DataTable columns={memberColumns} data={members} emptyStateMessage="This officer is not assigned to any members." />
             </CardContent>
           </Card>
         </TabsContent>
+        <TabsContent value="unassigned" className="mt-6">
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle>Unassigned Members</CardTitle>
+                  <CardDescription>Members not currently assigned to any loan officer.</CardDescription>
+                </div>
+                <Button 
+                  variant="outline" 
+                  onClick={handleAssignUnassignedMembers}
+                  className="text-brand-green-600 hover:text-brand-green-700"
+                >
+                  <Users className="mr-2 h-4 w-4" />
+                  Assign All to Me
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <DataTable 
+                columns={unassignedMemberColumns} 
+                data={unassignedMembers} 
+                emptyStateMessage="All members are already assigned to loan officers." 
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
+
+      <Dialog open={transferMemberDialogOpen} onOpenChange={setTransferMemberDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {selectedMemberId && members.find(m => m.id === selectedMemberId) 
+                ? 'Transfer Member' 
+                : 'Assign Member'
+              }
+            </DialogTitle>
+            <DialogDescription>
+              {selectedMemberId && members.find(m => m.id === selectedMemberId)
+                ? `Transfer member ${selectedMemberName} to a different loan officer.`
+                : `Assign member ${selectedMemberName} to ${officer?.name}.`
+              }
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="member-id" className="text-right">
+                Member ID
+              </Label>
+              <Input id="member-id" value={selectedMemberId || ''} readOnly />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="member-name" className="text-right">
+                Member Name
+              </Label>
+              <Input id="member-name" value={selectedMemberName || ''} readOnly />
+            </div>
+            {selectedMemberId && members.find(m => m.id === selectedMemberId) ? (
+              // Show officer selection for transfer
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="new-officer" className="text-right">
+                  New Officer
+                </Label>
+                <Select value={selectedNewOfficerId} onValueChange={setSelectedNewOfficerId}>
+                  <SelectTrigger id="new-officer">
+                    <SelectValue placeholder="Select a new officer" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableOfficers.map(officer => (
+                      <SelectItem key={officer.id} value={officer.id}>
+                        {officer.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              // Show current officer info for assignment
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="current-officer" className="text-right">
+                  Assign To
+                </Label>
+                <Input id="current-officer" value={officer?.name || ''} readOnly />
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleTransferCancel}>Cancel</Button>
+            {selectedMemberId && members.find(m => m.id === selectedMemberId) ? (
+              // Transfer button
+              <Button 
+                onClick={handleTransferConfirm} 
+                disabled={!selectedNewOfficerId || transferLoading}
+              >
+                {transferLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Transferring...
+                  </>
+                ) : (
+                  'Transfer Member'
+                )}
+              </Button>
+            ) : (
+              // Assign button
+              <Button 
+                onClick={handleAssignSpecificMember} 
+                disabled={transferLoading}
+              >
+                {transferLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Assigning...
+                  </>
+                ) : (
+                  'Assign Member'
+                )}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
