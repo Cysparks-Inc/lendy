@@ -29,7 +29,7 @@ import { ExportDropdown } from '@/components/ui/ExportDropdown';
 import { format } from 'date-fns';
 import { Label } from '@/components/ui/label';
 import { DateRangeFilter } from '@/components/ui/DateRangeFilter';
-import { DataTable } from '@/components/ui/data-table';
+import { DataTable } from '@/components/ui/DataTable';
 import { Link } from 'react-router-dom';
 
 // Types
