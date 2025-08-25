@@ -375,6 +375,77 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Custom Typography System */
+  .text-heading-1 {
+    @apply text-lg sm:text-xl md:text-2xl font-bold;
+  }
+  
+  .text-heading-2 {
+    @apply text-base sm:text-lg md:text-xl font-semibold;
+  }
+  
+  .text-heading-3 {
+    @apply text-sm sm:text-base md:text-lg font-medium;
+  }
+  
+  .text-body-large {
+    @apply text-base sm:text-lg font-normal;
+  }
+  
+  .text-body {
+    @apply text-sm sm:text-base font-normal;
+  }
+  
+  .text-body-small {
+    @apply text-xs sm:text-sm font-normal;
+  }
+  
+  .text-caption {
+    @apply text-xs font-normal;
+  }
+  
+  /* Mobile-first responsive typography */
+  .text-mobile-heading {
+    @apply text-lg font-bold;
+  }
+  
+  .text-mobile-subheading {
+    @apply text-base font-semibold;
+  }
+  
+  .text-mobile-body {
+    @apply text-sm font-normal;
+  }
+  
+  .text-mobile-caption {
+    @apply text-xs font-normal;
+  }
+  
+  /* Tablet and desktop typography */
+  .text-tablet-heading {
+    @apply text-xl font-bold;
+  }
+  
+  .text-tablet-subheading {
+    @apply text-lg font-semibold;
+  }
+  
+  .text-tablet-body {
+    @apply text-base font-normal;
+  }
+  
+  .text-desktop-heading {
+    @apply text-2xl font-bold;
+  }
+  
+  .text-desktop-subheading {
+    @apply text-xl font-semibold;
+  }
+  
+  .text-desktop-body {
+    @apply text-lg font-normal;
+  }
 }
 
 /* Custom animations for loaders */

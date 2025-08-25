@@ -1,14 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { User, Mail, Phone, MapPin, Building, Save, Key, Camera, Upload } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Building, Save, Key, Camera, Upload, X, Edit } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { ButtonLoader } from '@/components/ui/loader';
 
 interface ProfileData {
   full_name: string;
@@ -285,35 +286,149 @@ const Profile = () => {
 
   return (
     <div className="space-y-6 p-2 sm:p-4 md:p-6">
-      <div className="flex justify-between items-center">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">My Profile</h1>
-          <p className="text-muted-foreground">Manage your account information and settings</p>
+          <h1 className="text-heading-1 text-gray-900">Profile</h1>
+          <p className="text-body text-gray-600 mt-1">Manage your account settings and preferences</p>
         </div>
-        <div className="flex gap-2">
-          {editMode ? (
-            <>
-              <Button variant="outline" onClick={() => setEditMode(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleSave} disabled={saving}>
-                <Save className="h-4 w-4 mr-2" />
-                {saving ? 'Saving...' : 'Save Changes'}
-              </Button>
-            </>
-          ) : (
-            <Button onClick={() => setEditMode(true)}>
-              Edit Profile
+        
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Button variant="outline" onClick={() => setEditMode(!editMode)} className="w-full sm:w-auto">
+            {editMode ? (
+              <>
+                <X className="mr-2 h-4 w-4" />
+                <span className="hidden sm:inline">Cancel Edit</span>
+                <span className="sm:hidden">Cancel</span>
+              </>
+            ) : (
+              <>
+                <Edit className="mr-2 h-4 w-4" />
+                <span className="hidden sm:inline">Edit Profile</span>
+                <span className="sm:hidden">Edit</span>
+              </>
+            )}
+          </Button>
+          
+          {editMode && (
+            <Button onClick={handleSave} disabled={saving} className="w-full sm:w-auto">
+              {saving ? (
+                <ButtonLoader size="sm" />
+              ) : (
+                <Save className="mr-2 h-4 w-4" />
+              )}
+              <span className="hidden sm:inline">Save Changes</span>
+              <span className="sm:hidden">Save</span>
             </Button>
           )}
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      {/* Profile Form */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Profile Information */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Basic Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-heading-3">Basic Information</CardTitle>
+              <CardDescription className="text-body text-muted-foreground">
+                Your personal details and contact information
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="full_name" className="text-body font-medium">Full Name</Label>
+                <Input
+                  id="full_name"
+                  value={profileData.full_name || ''}
+                  onChange={(e) => handleInputChange('full_name', e.target.value)}
+                  disabled={!editMode}
+                  className="text-body"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-body font-medium">Email Address</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={profileData.email || ''}
+                  onChange={(e) => handleInputChange('email', e.target.value)}
+                  disabled={!editMode}
+                  className="text-body"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="phone_number" className="text-body font-medium">Phone Number</Label>
+                <Input
+                  id="phone_number"
+                  value={profileData.phone_number || ''}
+                  onChange={(e) => handleInputChange('phone_number', e.target.value)}
+                  disabled={!editMode}
+                  className="text-body"
+                />
+              </div>
+              
+
+            </CardContent>
+          </Card>
+
+          {/* Work Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-heading-3">Work Information</CardTitle>
+              <CardDescription className="text-body text-muted-foreground">
+                Your role and branch details
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="role" className="text-body font-medium">Role</Label>
+                <div className="relative">
+                  <Key className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="role"
+                    value={profileData.role.replace('_', ' ').split(' ').map(word => 
+                      word.charAt(0).toUpperCase() + word.slice(1)
+                    ).join(' ')}
+                    disabled
+                    className="text-body pl-9 bg-muted"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="branch" className="text-body font-medium">Branch</Label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="branch"
+                    value={profileData.branch}
+                    disabled
+                    className="text-body pl-9 bg-muted"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="member_since" className="text-body font-medium">Member Since</Label>
+                <Input
+                  id="member_since"
+                  value={profileData.member_since}
+                  disabled
+                  className="text-body bg-muted"
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Profile Picture */}
         <Card className="md:col-span-2 bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-brand-green-800">
+            <CardTitle className="flex items-center gap-2 text-heading-3 text-brand-green-800">
               <Camera className="h-5 w-5 text-brand-green-600" />
               Profile Picture
             </CardTitle>
@@ -345,7 +460,7 @@ const Profile = () => {
             </div>
             <div className="space-y-4 flex-1 w-full text-center sm:text-left">
               <div>
-                <p className="text-sm text-muted-foreground mb-3">
+                <p className="text-body text-muted-foreground mb-3">
                   Upload a new profile picture. Recommended size is 256x256 pixels. Maximum file size: 5MB.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-2 justify-center sm:justify-start">
@@ -363,7 +478,7 @@ const Profile = () => {
                     className="flex items-center justify-center gap-2 w-full sm:w-auto"
                   >
                     <Upload className="h-4 w-4" />
-                    {uploading ? 'Uploading...' : 'Upload Photo'}
+                    <span className="text-body">{uploading ? 'Uploading...' : 'Upload Photo'}</span>
                   </Button>
                   {profileData.profile_picture_url && (
                     <Button 
@@ -373,7 +488,7 @@ const Profile = () => {
                       className="flex items-center justify-center gap-2 w-full sm:w-auto"
                     >
                       <Camera className="h-4 w-4" />
-                      Change Photo
+                      <span className="text-body">Change Photo</span>
                     </Button>
                   )}
                 </div>
@@ -394,141 +509,39 @@ const Profile = () => {
             </div>
           </CardContent>
         </Card>
-
-        {/* Personal Information */}
-        <Card className="bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-brand-green-800">
-              <User className="h-5 w-5 text-brand-green-600" />
-              Personal Information
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="full_name">Full Name</Label>
-              <Input
-                id="full_name"
-                value={profileData.full_name}
-                onChange={(e) => handleInputChange('full_name', e.target.value)}
-                disabled={!editMode}
-                className={editMode ? '' : 'bg-muted'}
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="email">Email Address</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="email"
-                  value={profileData.email}
-                  disabled
-                  className="pl-9 bg-muted"
-                />
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Email cannot be changed. Contact administrator if needed.
-              </p>
-            </div>
-
-            <div>
-              <Label htmlFor="phone_number">Phone Number</Label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="phone_number"
-                  value={profileData.phone_number}
-                  onChange={(e) => handleInputChange('phone_number', e.target.value)}
-                  disabled={!editMode}
-                  className={editMode ? 'pl-9' : 'pl-9 bg-muted'}
-                  placeholder="+254 XXX XXX XXX"
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Work Information */}
-        <Card className="bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-brand-green-800">
-              <Building className="h-5 w-5 text-brand-green-600" />
-              Work Information
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="role">Role</Label>
-              <div className="relative">
-                <Key className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="role"
-                  value={profileData.role.replace('_', ' ').split(' ').map(word => 
-                    word.charAt(0).toUpperCase() + word.slice(1)
-                  ).join(' ')}
-                  disabled
-                  className="pl-9 bg-muted"
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="branch">Branch</Label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="branch"
-                  value={profileData.branch}
-                  disabled
-                  className="pl-9 bg-muted"
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="created_at">Member Since</Label>
-              <Input
-                id="created_at"
-                value={profileData.member_since}
-                disabled
-                className="bg-muted"
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Account Stats */}
-        <Card className="md:col-span-2 bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
-          <CardHeader>
-            <CardTitle>Account Statistics</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center p-4 border rounded-lg">
-                <div className="text-2xl font-bold text-primary">Active</div>
-                <div className="text-sm text-muted-foreground">Account Status</div>
-              </div>
-              <div className="text-center p-4 border rounded-lg">
-                <div className="text-2xl font-bold text-primary">
-                  {profileData.member_since !== 'N/A' ? 
-                    Math.floor((Date.now() - new Date(profileData.member_since).getTime()) / (1000 * 60 * 60 * 24)) : 
-                    'N/A'
-                  }
-                </div>
-                <div className="text-sm text-muted-foreground">Days Active</div>
-              </div>
-              <div className="text-center p-4 border rounded-lg">
-                <div className="text-2xl font-bold text-success">Verified</div>
-                <div className="text-sm text-muted-foreground">Email Status</div>
-              </div>
-              <div className="text-center p-4 border rounded-lg">
-                <div className="text-2xl font-bold text-primary">Standard</div>
-                <div className="text-sm text-muted-foreground">Access Level</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
+
+      {/* Account Stats */}
+      <Card className="md:col-span-2 bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
+        <CardHeader>
+          <CardTitle className="text-heading-3">Account Statistics</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="text-center p-4 border rounded-lg">
+                             <div className="text-heading-1 font-bold text-primary">Active</div>
+               <div className="text-caption text-muted-foreground">Account Status</div>
+            </div>
+            <div className="text-center p-4 border rounded-lg">
+                             <div className="text-heading-1 font-bold text-primary">
+                 {profileData.member_since !== 'N/A' ? 
+                   Math.floor((Date.now() - new Date(profileData.member_since).getTime()) / (1000 * 60 * 60 * 24)) : 
+                   'N/A'
+                 }
+               </div>
+               <div className="text-caption text-muted-foreground">Days Active</div>
+            </div>
+            <div className="text-center p-4 border rounded-lg">
+                             <div className="text-heading-1 font-bold text-success">Verified</div>
+               <div className="text-caption text-muted-foreground">Email Status</div>
+             </div>
+             <div className="text-center p-4 border rounded-lg">
+               <div className="text-heading-1 font-bold text-primary">Standard</div>
+               <div className="text-caption text-muted-foreground">Access Level</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Security Notice */}
       <Card className="bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">

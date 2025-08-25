@@ -27,6 +27,10 @@ import { toast } from 'sonner';
 import { PageLoader, InlineLoader, QuickLoader } from '@/components/ui/loader';
 import { ExportDropdown } from '@/components/ui/ExportDropdown';
 import { format } from 'date-fns';
+import { Label } from '@/components/ui/label';
+import { DateRangeFilter } from '@/components/ui/DateRangeFilter';
+import { DataTable } from '@/components/ui/DataTable';
+import { Link } from 'react-router-dom';
 
 // Types
 interface Transaction {
@@ -372,15 +376,14 @@ const Transactions: React.FC = () => {
   return (
     <div className="space-y-4 md:space-y-6 p-3 sm:p-4 md:p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Transactions</h1>
-          <p className="text-gray-600 mt-1 text-sm md:text-base">
-            View and manage all financial transactions across the system
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-heading-1 text-foreground">Transactions</h1>
+          <p className="text-body text-muted-foreground mt-1">
+            View and manage all financial transactions and payments.
           </p>
         </div>
-        
-        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+        <div className="flex gap-2">
           <Button variant="outline" onClick={refreshData} disabled={refreshing} className="w-full sm:w-auto">
             {refreshing ? (
               <QuickLoader />
@@ -389,7 +392,6 @@ const Transactions: React.FC = () => {
             )}
             Refresh
           </Button>
-          
           <ExportDropdown 
             data={transactions}
             filename="transactions"
@@ -480,23 +482,24 @@ const Transactions: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
             {/* Search */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Search</label>
+              <Label htmlFor="search" className="text-body font-medium">Search</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
+                  id="search"
                   placeholder="Reference, member, loan..."
                   value={filters.search}
                   onChange={(e) => handleFilterChange('search', e.target.value)}
-                  className="pl-10 w-full"
+                  className="pl-10 w-full text-body"
                 />
               </div>
             </div>
 
             {/* Transaction Type */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Transaction Type</label>
+              <Label htmlFor="type" className="text-body font-medium">Transaction Type</Label>
               <Select value={filters.transaction_type} onValueChange={(value) => handleFilterChange('transaction_type', value)}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full text-body">
                   <SelectValue placeholder="All types" />
                 </SelectTrigger>
                 <SelectContent>
@@ -513,9 +516,9 @@ const Transactions: React.FC = () => {
 
             {/* Status */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Status</label>
+              <Label htmlFor="status" className="text-body font-medium">Status</Label>
               <Select value={filters.status} onValueChange={(value) => handleFilterChange('status', value)}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full text-body">
                   <SelectValue placeholder="All statuses" />
                 </SelectTrigger>
                 <SelectContent>
@@ -530,9 +533,9 @@ const Transactions: React.FC = () => {
 
             {/* Payment Method */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Payment Method</label>
+              <Label htmlFor="method" className="text-body font-medium">Payment Method</Label>
               <Select value={filters.payment_method} onValueChange={(value) => handleFilterChange('payment_method', value)}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full text-body">
                   <SelectValue placeholder="All methods" />
                 </SelectTrigger>
                 <SelectContent>
@@ -548,30 +551,30 @@ const Transactions: React.FC = () => {
 
             {/* Date Range */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Date From</label>
+              <Label className="text-body font-medium">Date From</Label>
               <Input
                 type="date"
                 value={filters.date_from}
                 onChange={(e) => handleFilterChange('date_from', e.target.value)}
-                className="w-full"
+                className="w-full text-body"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Date To</label>
+              <Label className="text-body font-medium">Date To</Label>
               <Input
                 type="date"
                 value={filters.date_to}
                 onChange={(e) => handleFilterChange('date_to', e.target.value)}
-                className="w-full"
+                className="w-full text-body"
               />
             </div>
 
             {/* Branch */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Branch</label>
+              <Label className="text-body font-medium">Branch</Label>
               <Select value={filters.branch_id} onValueChange={(value) => handleFilterChange('branch_id', value)}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full text-body">
                   <SelectValue placeholder="All branches" />
                 </SelectTrigger>
                 <SelectContent>
@@ -587,9 +590,9 @@ const Transactions: React.FC = () => {
 
             {/* Loan Officer */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Loan Officer</label>
+              <Label className="text-body font-medium">Loan Officer</Label>
               <Select value={filters.loan_officer_id} onValueChange={(value) => handleFilterChange('loan_officer_id', value)}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full text-body">
                   <SelectValue placeholder="All officers" />
                 </SelectTrigger>
                 <SelectContent>
@@ -606,10 +609,10 @@ const Transactions: React.FC = () => {
 
           {/* Filter Actions */}
           <div className="flex flex-col sm:flex-row gap-2 mt-4 pt-4 border-t">
-            <Button onClick={applyFilters} className="w-full sm:w-auto">
+            <Button onClick={applyFilters} className="w-full sm:w-auto text-body">
               Apply Filters
             </Button>
-            <Button variant="outline" onClick={clearFilters} className="w-full sm:w-auto">
+            <Button variant="outline" onClick={clearFilters} className="w-full sm:w-auto text-body">
               Clear Filters
             </Button>
           </div>
@@ -619,8 +622,8 @@ const Transactions: React.FC = () => {
       {/* Transactions Table */}
       <Card>
         <CardHeader>
-          <CardTitle>All Transactions</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-heading-2">Transactions ({transactions.length})</CardTitle>
+          <CardDescription className="text-body text-muted-foreground">
             Showing {transactions.length} of {totalTransactions} transactions
           </CardDescription>
         </CardHeader>
@@ -630,71 +633,73 @@ const Transactions: React.FC = () => {
               No transactions found matching your criteria
             </div>
           ) : (
-            <div className="space-y-4">
-              {transactions.map(transaction => {
-                const typeInfo = getTransactionTypeInfo(transaction.transaction_type);
-                const TypeIcon = typeInfo.icon;
-
-                return (
-                  <div
-                    key={transaction.id}
-                    className="border rounded-lg p-3 sm:p-4 hover:shadow-md transition-shadow cursor-pointer"
-                    onClick={() => viewTransaction(transaction.id)}
-                  >
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        {/* Transaction Type Icon */}
-                        <div className={`p-2 rounded-full ${typeInfo.color} flex-shrink-0`}>
-                          <TypeIcon className="h-5 w-5" />
-                        </div>
-                        
-                        {/* Transaction Details */}
-                        <div className="space-y-1 min-w-0 flex-1">
-                          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                            <span className="font-semibold text-gray-900 text-sm md:text-base truncate">
-                              {transaction.reference_number}
-                            </span>
-                            {getStatusBadge(transaction.status)}
-                          </div>
-                          
-                          <p className="text-sm text-gray-600 truncate">
-                            {transaction.description}
-                          </p>
-                          
-                          <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 text-xs text-gray-500">
-                            <span className="flex items-center gap-1 truncate">
-                              <User className="h-3 w-3 flex-shrink-0" />
-                              <span className="truncate">{transaction.member_name || 'Unknown Member'}</span>
-                            </span>
-                            <span className="flex items-center gap-1 truncate">
-                              <CreditCard className="h-3 w-3 flex-shrink-0" />
-                              <span className="truncate">{transaction.loan_account_number || 'N/A'}</span>
-                            </span>
-                            <span className="flex items-center gap-1 truncate">
-                              <Building className="h-3 w-3 flex-shrink-0" />
-                              <span className="truncate">{transaction.branch_name || 'Unknown Branch'}</span>
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Amount and Date */}
-                      <div className="text-right space-y-1 flex-shrink-0">
-                        <div className="text-lg font-bold text-gray-900">
-                          KES {transaction.amount.toLocaleString()}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {format(new Date(transaction.transaction_date), 'MMM dd, yyyy')}
-                        </div>
-                        <div className="text-xs text-gray-400">
-                          {transaction.payment_method.replace('_', ' ').toUpperCase()}
-                        </div>
+            <DataTable
+              columns={[
+                {
+                  header: 'Transaction',
+                  cell: (row) => (
+                    <div>
+                      <Link to={`/transactions/${row.id}`} className="text-body font-medium text-primary hover:underline">
+                        {row.reference_number}
+                      </Link>
+                      <div className="text-caption text-muted-foreground">{row.description}</div>
+                    </div>
+                  )
+                },
+                {
+                  header: 'Member',
+                  cell: (row) => (
+                    <div>
+                      <div className="text-body">{row.member_name || 'N/A'}</div>
+                      <div className="text-caption text-muted-foreground">{row.loan_account_number || 'N/A'}</div>
+                    </div>
+                  )
+                },
+                {
+                  header: 'Amount',
+                  cell: (row) => (
+                    <div>
+                      <div className="text-body font-medium">KES {row.amount.toLocaleString()}</div>
+                      <div className="text-caption text-muted-foreground">{row.currency}</div>
+                    </div>
+                  )
+                },
+                {
+                  header: 'Type & Status',
+                  cell: (row) => (
+                    <div>
+                      <Badge variant={getTransactionTypeVariant(row.transaction_type)} className="text-caption mb-1">
+                        {row.transaction_type}
+                      </Badge>
+                      <div>
+                        <Badge variant={getStatusVariant(row.status)} className="text-caption">
+                          {row.status}
+                        </Badge>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  )
+                },
+                {
+                  header: 'Date',
+                  cell: (row) => (
+                    <div className="text-body">{format(new Date(row.transaction_date), 'MMM dd, yyyy')}</div>
+                  )
+                },
+                {
+                  header: 'Actions',
+                  cell: (row) => (
+                    <Button asChild variant="outline" size="sm">
+                      <Link to={`/transactions/${row.id}`}>
+                        <Eye className="h-4 w-4" />
+                      </Link>
+                    </Button>
+                  )
+                }
+              ]}
+              data={transactions}
+              searchTerm={filters.search}
+              emptyStateMessage="No transactions found matching your criteria."
+            />
           )}
 
           {/* Pagination */}

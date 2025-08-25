@@ -36,6 +36,7 @@ import { toast } from 'sonner';
 import { DataTable } from '@/components/ui/data-table';
 import { ExportDropdown } from '@/components/ui/ExportDropdown';
 import { PageLoader, InlineLoader, ButtonLoader } from '@/components/ui/loader';
+import { Link } from 'react-router-dom';
 
 // --- Type Definitions ---
 interface Group {
@@ -652,41 +653,54 @@ const Groups: React.FC = () => {
     return <Badge variant="destructive">Poor</Badge>;
   };
 
+  const handleDeleteGroup = async (groupId: number) => {
+    const group = groups.find(g => g.id === groupId);
+    if (group) {
+      setDeleteCandidate(group);
+      setDialogOpen(true); // Reusing dialog for confirmation
+    }
+  };
+
   const columns = [
     { 
       header: 'Group', 
       cell: (row: Group) => (
         <div>
-          <p className="font-medium">{row.name || 'Unnamed Group'}</p>
-          <p className="text-xs text-muted-foreground">{row.description || 'No description'}</p>
+          <div className="text-body font-medium">{row.name}</div>
+          <div className="text-caption text-muted-foreground">{row.description}</div>
         </div>
       ) 
     },
     { 
       header: 'Branch', 
-      cell: (row: Group) => row.branch_name || 'Unknown Branch' 
+      cell: (row: Group) => (
+        <div className="text-body">{row.branch_name}</div>
+      ) 
     },
     { 
       header: 'Members', 
       cell: (row: Group) => (
         <div className="text-center">
-          <Badge variant="secondary">{row.member_count || 0}</Badge>
+          <div className="text-body font-medium">{row.member_count}</div>
+          <div className="text-caption text-muted-foreground">Active: {row.active_members}</div>
         </div>
       ) 
     },
     { 
-      header: 'Active Loans', 
+      header: 'Loans', 
       cell: (row: Group) => (
         <div className="text-center">
-          <Badge variant="outline">{row.active_loans || 0}</Badge>
+          <div className="text-body font-medium">{row.loan_count}</div>
+          <div className="text-caption text-muted-foreground">Active: {row.active_loans}</div>
         </div>
       ) 
     },
     { 
       header: 'Portfolio', 
       cell: (row: Group) => (
-        <div className="font-mono text-right">
-          {formatCurrency(row.total_portfolio || 0)}
+        <div className="text-right">
+          <div className="text-body font-medium">{formatCurrency(row.total_portfolio)}</div>
+          <div className="text-caption text-muted-foreground">Outstanding: {formatCurrency(row.total_outstanding)}</div>
         </div>
       ) 
     },
@@ -701,14 +715,18 @@ const Groups: React.FC = () => {
     { 
       header: 'Actions', 
       cell: (row: Group) => (
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" size="icon" onClick={() => fetchGroupDetails(row)}>
-            <Eye className="h-4 w-4" />
+        <div className="flex gap-2">
+          <Button asChild variant="outline" size="sm">
+            <Link to={`/groups/${row.id}`}>
+              <Eye className="h-4 w-4" />
+            </Link>
           </Button>
-          <Button variant="outline" size="icon" onClick={() => openDialog(row)}>
-            <Edit className="h-4 w-4" />
-          </Button>
-          <Button variant="destructive" size="icon" onClick={() => setDeleteCandidate(row)}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleDeleteGroup(row.id)}
+            className="text-destructive hover:text-destructive"
+          >
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
@@ -737,8 +755,8 @@ const Groups: React.FC = () => {
         <Card className="max-w-md mx-auto">
           <CardHeader className="text-center">
             <ShieldAlert className="mx-auto h-12 w-12 text-yellow-500" />
-            <CardTitle className="mt-4">Access Denied</CardTitle>
-            <CardDescription>Only Super Admins and Branch Managers can manage groups.</CardDescription>
+            <CardTitle className="text-heading-3 mt-4">Access Denied</CardTitle>
+            <CardDescription className="text-body">Only Super Admins and Branch Managers can manage groups.</CardDescription>
           </CardHeader>
         </Card>
       </div>
@@ -749,514 +767,350 @@ const Groups: React.FC = () => {
     <>
       <div className="space-y-4 md:space-y-6 p-3 sm:p-4 md:p-6">
         {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div className="min-w-0 flex-1">
-            <h1 className="text-2xl md:text-3xl font-bold text-foreground">Group Management</h1>
-            <p className="text-muted-foreground mt-1 text-sm md:text-base">
-              Manage member groups and monitor their performance metrics.
-            </p>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-heading-1 text-gray-900">Groups</h1>
+            <p className="text-body text-gray-600 mt-1">Manage member groups and their portfolios</p>
           </div>
-          <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
-            <Button variant="outline" onClick={fetchGroups} disabled={loading} className="w-full sm:w-auto">
-              {loading ? (
-                <InlineLoader size="sm" variant="primary" />
-              ) : (
-                <RefreshCw className="mr-2 h-4 w-4" />
-              )}
-              Refresh
-            </Button>
-            <Button onClick={() => openDialog()} className="w-full sm:w-auto">
-              <Plus className="h-4 w-4 mr-2" />
-              New Group
-            </Button>
+          
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                      <Button onClick={() => openDialog()} className="w-full sm:w-auto">
+            <Plus className="mr-2 h-4 w-4" />
+            <span className="hidden sm:inline">Create Group</span>
+            <span className="sm:hidden">Create</span>
+          </Button>
           </div>
         </div>
 
-        {/* Summary Stats */}
-        <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
-          <Card className="p-3 sm:p-4">
-            <CardHeader className="pb-2 px-0 pt-0">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Users className="h-4 w-4 text-muted-foreground" />
-                <span className="hidden sm:inline">Total Groups</span>
-                <span className="sm:hidden">Groups</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-0 pb-0">
-              <div className="text-xl md:text-2xl font-bold">{groups.length}</div>
-              <p className="text-xs text-muted-foreground hidden sm:block">Active groups</p>
-            </CardContent>
-          </Card>
-          
-          <Card className="p-3 sm:p-4">
-            <CardHeader className="pb-2 px-0 pt-0">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <UserCheck className="h-4 w-4 text-muted-foreground" />
-                <span className="hidden sm:inline">Total Members</span>
-                <span className="sm:hidden">Members</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-0 pb-0">
-              <div className="text-xl md:text-2xl font-bold">
-                {groups.reduce((sum, g) => sum + (g.member_count || 0), 0)}
-              </div>
-              <p className="text-xs text-muted-foreground hidden sm:block">Across all groups</p>
-            </CardContent>
-          </Card>
-          
-          <Card className="p-3 sm:p-4">
-            <CardHeader className="pb-2 px-0 pt-0">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <CreditCard className="h-4 w-4 text-muted-foreground" />
-                <span className="hidden sm:inline">Total Portfolio</span>
-                <span className="sm:hidden">Portfolio</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-0 pb-0">
-              <div className="text-xl md:text-2xl font-bold">
-                {formatCurrency(groups.reduce((sum, g) => sum + (g.total_portfolio || 0), 0))}
-              </div>
-              <p className="text-xs text-muted-foreground hidden sm:block">Group portfolios</p>
-            </CardContent>
-          </Card>
-          
-          <Card className="p-3 sm:p-4">
-            <CardHeader className="pb-2 px-0 pt-0">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-                <span className="hidden sm:inline">Active Loans</span>
-                <span className="sm:hidden">Loans</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-0 pb-0">
-              <div className="text-xl md:text-2xl font-bold">
-                {groups.reduce((sum, g) => sum + (g.active_loans || 0), 0)}
-              </div>
-              <p className="text-xs text-muted-foreground hidden sm:block">Across all groups</p>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Groups Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-heading-2">Groups ({groups.length})</CardTitle>
+            <CardDescription className="text-body text-muted-foreground">
+              All member groups in the system
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DataTable
+              columns={[
+                {
+                  header: 'Group',
+                  cell: (row) => (
+                    <div>
+                      <div className="text-body font-medium">{row.name}</div>
+                      <div className="text-caption text-muted-foreground">{row.description}</div>
+                    </div>
+                  )
+                },
+                {
+                  header: 'Branch',
+                  cell: (row) => (
+                    <div className="text-body">{row.branch_name}</div>
+                  )
+                },
+                {
+                  header: 'Members',
+                  cell: (row) => (
+                    <div className="text-center">
+                      <div className="text-body font-medium">{row.member_count}</div>
+                      <div className="text-caption text-muted-foreground">Active: {row.active_members}</div>
+                    </div>
+                  )
+                },
+                {
+                  header: 'Loans',
+                  cell: (row) => (
+                    <div className="text-center">
+                      <div className="text-body font-medium">{row.loan_count}</div>
+                      <div className="text-caption text-muted-foreground">Active: {row.active_loans}</div>
+                    </div>
+                  )
+                },
+                {
+                  header: 'Portfolio',
+                  cell: (row) => (
+                    <div className="text-right">
+                      <div className="text-body font-medium">{formatCurrency(row.total_portfolio)}</div>
+                      <div className="text-caption text-muted-foreground">Outstanding: {formatCurrency(row.total_outstanding)}</div>
+                    </div>
+                  )
+                },
+                {
+                  header: 'Health Score',
+                  cell: (row) => (
+                    <div className="text-center">
+                      {getHealthScoreBadge(row.group_health_score || 0)}
+                    </div>
+                  )
+                },
+                {
+                  header: 'Actions',
+                  cell: (row) => (
+                    <div className="flex gap-2">
+                      <Button asChild variant="outline" size="sm">
+                        <Link to={`/groups/${row.id}`}>
+                          <Eye className="h-4 w-4" />
+                        </Link>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDeleteGroup(row.id)}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )
+                }
+              ]}
+              data={groups}
+              emptyStateMessage="No groups found."
+            />
+          </CardContent>
+        </Card>
 
-        {/* Main Content - Groups List and Details */}
-        <div className="grid gap-4 md:gap-6 grid-cols-1 lg:grid-cols-3">
-          {/* Groups List */}
-          <div className="lg:col-span-1 space-y-4">
-            <Card>
-              <CardHeader>
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                  <CardTitle className="text-lg">Groups</CardTitle>
-                  <div className="relative w-full sm:w-48">
+        {/* Create/Edit Group Dialog */}
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogContent className="max-w-md mx-4">
+            <DialogHeader>
+              <DialogTitle className="text-heading-3">
+                {editingGroup ? 'Edit Group' : 'Create New Group'}
+              </DialogTitle>
+              <DialogDescription className="text-body">
+                {editingGroup 
+                  ? 'Update the details for this group.' 
+                  : 'Add a new group to organize members.'
+                }
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleFormSubmit} className="space-y-4 pt-4">
+              <div className="space-y-2">
+                <Label htmlFor="name" className="text-body font-medium">Group Name</Label>
+                <Input 
+                  id="name" 
+                  value={formData.name} 
+                  onChange={(e) => setFormData({...formData, name: e.target.value})} 
+                  placeholder="e.g., Youth Group, Women's Group" 
+                  required 
+                  className="w-full"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="description" className="text-body font-medium">Description</Label>
+                <Input 
+                  id="description" 
+                  value={formData.description} 
+                  onChange={(e) => setFormData({...formData, description: e.target.value})} 
+                  placeholder="Brief description of the group" 
+                  className="w-full"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="branch_id" className="text-body font-medium">Branch</Label>
+                <Select value={formData.branch_id} onValueChange={(value) => setFormData({...formData, branch_id: value})}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a branch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {branches.map(branch => (
+                      <SelectItem key={branch.id} value={branch.id.toString()}>
+                        {branch.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-4">
+                <Button type="button" variant="outline" onClick={closeDialog} className="w-full sm:w-auto">
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
+                  {isSubmitting ? (
+                    <ButtonLoader size="sm" />
+                  ) : (
+                    <Plus className="mr-2 h-4 w-4" />
+                  )}
+                  {editingGroup ? 'Update Group' : 'Create Group'}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+        
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={!!deleteCandidate} onOpenChange={() => setDeleteCandidate(null)}>
+          <DialogContent className="max-w-md mx-4">
+            <DialogHeader>
+              <DialogTitle className="text-heading-3">Confirm Deletion</DialogTitle>
+              <DialogDescription className="text-body">
+                Are you sure you want to delete the group: <strong>{deleteCandidate?.name}</strong>? 
+                This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-4">
+              <Button variant="outline" onClick={() => setDeleteCandidate(null)} disabled={isDeleting} className="w-full sm:w-auto">
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={handleConfirmDelete} disabled={isDeleting} className="w-full sm:w-auto">
+                {isDeleting ? (
+                  <ButtonLoader size="sm" />
+                ) : (
+                  <X className="mr-2 h-4 w-4" />
+                )}
+                Delete Group
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Manage Group Members Dialog */}
+        <Dialog open={manageMembersDialogOpen} onOpenChange={setManageMembersDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden mx-4">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-heading-3">
+                <UserPlus className="h-5 w-5" />
+                <span className="truncate">Manage Members - {selectedGroup?.name}</span>
+              </DialogTitle>
+              <DialogDescription className="text-body">
+                Add existing members to this group or remove current members
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 h-full">
+              {/* Available Members to Add */}
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <h3 className="text-heading-4 font-semibold">Available Members</h3>
+                  <div className="relative w-full sm:w-64">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input 
-                      placeholder="Search groups..." 
-                      value={searchTerm} 
-                      onChange={(e) => setSearchTerm(e.target.value)} 
+                      placeholder="Search members..." 
+                      value={memberSearchTerm} 
+                      onChange={(e) => setMemberSearchTerm(e.target.value)} 
                       className="pl-9 w-full" 
                     />
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2 max-h-80 md:max-h-96 overflow-y-auto">
-                  {filteredGroups.map(group => (
-                    <div 
-                      key={group.id} 
-                      className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                        selectedGroup?.id === group.id 
-                          ? 'bg-blue-50 border-blue-200' 
-                          : 'hover:bg-muted/50'
-                      }`}
-                      onClick={() => fetchGroupDetails(group)}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div className="min-w-0 flex-1">
-                          <div className="font-medium truncate text-sm md:text-base">{group.name}</div>
-                          <div className="text-xs md:text-sm text-muted-foreground truncate">{group.branch_name}</div>
+                
+                <div className="border rounded-lg p-3 sm:p-4 h-80 sm:h-96 overflow-y-auto">
+                  {filteredAvailableMembers.length > 0 ? (
+                    <div className="space-y-2">
+                      {filteredAvailableMembers.map(member => (
+                        <div 
+                          key={member.id} 
+                          className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-colors ${
+                            selectedMembers.includes(member.id) 
+                              ? 'bg-blue-50 border-blue-200' 
+                              : 'hover:bg-muted/50'
+                          }`}
+                          onClick={() => handleMemberSelection(member.id)}
+                        >
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <input
+                              type="checkbox"
+                              checked={selectedMembers.includes(member.id)}
+                              onChange={() => {}}
+                              className="rounded flex-shrink-0"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="font-medium truncate text-body">{member.full_name}</div>
+                              <div className="text-caption text-muted-foreground truncate">
+                                {member.id_number} • {member.phone_number}
+                              </div>
+                              <div className="text-caption text-muted-foreground truncate">
+                                {member.branch_name}
+                                {member.current_group_name && ` • Current: ${member.current_group_name}`}
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-right ml-2 flex-shrink-0">
-                          <Badge variant="secondary" className="text-xs">{group.member_count || 0}</Badge>
-                        </div>
-                      </div>
-                      <div className="mt-2 flex justify-between text-xs text-muted-foreground">
-                        <span className="truncate">{group.active_loans || 0} loans</span>
-                        <span className="truncate ml-2">{formatCurrency(group.total_portfolio || 0)}</span>
-                      </div>
+                      ))}
                     </div>
-                  ))}
-                  {filteredGroups.length === 0 && (
+                  ) : (
                     <div className="text-center py-8 text-muted-foreground">
-                      <Users className="mx-auto h-8 w-8 mb-2" />
-                      <p>No groups found</p>
+                      <Users className="mx-auto h-12 w-12 mb-4" />
+                      <p className="text-body">No available members to add</p>
+                      <p className="text-caption">All members are already assigned to groups</p>
                     </div>
                   )}
                 </div>
-              </CardContent>
-            </Card>
-          </div>
+                
+                <Button 
+                  onClick={handleAddMembersToGroup}
+                  disabled={selectedMembers.length === 0 || isManagingMembers}
+                  className="w-full"
+                >
+                  {isManagingMembers ? (
+                    <ButtonLoader size="sm" />
+                  ) : (
+                    <UserPlus className="mr-2 h-4 w-4" />
+                  )}
+                  <span className="hidden sm:inline">Add {selectedMembers.length} Member(s) to Group</span>
+                  <span className="sm:hidden">Add {selectedMembers.length} Member(s)</span>
+                </Button>
+              </div>
 
-          {/* Group Details */}
-          <div className="lg:col-span-2 space-y-4">
-            {selectedGroup ? (
-              <>
-                {/* Group Header */}
-                <Card>
-                  <CardHeader>
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                      <div className="min-w-0 flex-1">
-                        <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
-                          <Users className="h-5 w-5" />
-                          <span className="truncate">{selectedGroup.name}</span>
-                        </CardTitle>
-                        <CardDescription className="truncate">
-                          {selectedGroup.branch_name} • Created {formatDate(selectedGroup.created_at)}
-                        </CardDescription>
-                      </div>
-                      <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                        <Button 
-                          onClick={() => openManageMembersDialog(selectedGroup)}
-                          variant="outline"
-                          size="sm"
-                          className="w-full sm:w-auto"
-                        >
-                          <UserPlus className="h-4 w-4 mr-2" />
-                          <span className="hidden sm:inline">Manage Members</span>
-                          <span className="sm:hidden">Members</span>
-                        </Button>
-                        <Button 
-                          onClick={() => openDialog(selectedGroup)}
-                          variant="outline"
-                          size="sm"
-                          className="w-full sm:w-auto"
-                        >
-                          <Edit className="h-4 w-4 mr-2" />
-                          <span className="hidden sm:inline">Edit Group</span>
-                          <span className="sm:hidden">Edit</span>
-                        </Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-                      <div className="text-center">
-                        <div className="text-xl md:text-2xl font-bold text-blue-600">{selectedGroup.member_count}</div>
-                        <div className="text-xs md:text-sm text-muted-foreground">Members</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-xl md:text-2xl font-bold text-green-600">{selectedGroup.active_loans}</div>
-                        <div className="text-xs md:text-sm text-muted-foreground">Active Loans</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-xl md:text-2xl font-bold text-purple-600">{formatCurrency(selectedGroup.total_portfolio)}</div>
-                        <div className="text-xs md:text-sm text-muted-foreground">Portfolio</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-xl md:text-2xl font-bold text-orange-600">{formatCurrency(selectedGroup.avg_loan_size)}</div>
-                        <div className="text-xs md:text-sm text-muted-foreground">Avg Loan Size</div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Group Members */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <UserCheck className="h-5 w-5" />
-                      Group Members ({groupMembers.length})
-                    </CardTitle>
-                    <CardDescription className="text-sm">Click on a member to view their profile</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
+              {/* Current Group Members */}
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <h3 className="text-heading-4 font-semibold">Current Group Members</h3>
+                  <Badge variant="secondary" className="text-caption">{groupMembers.length} members</Badge>
+                </div>
+                
+                <div className="border rounded-lg p-3 sm:p-4 h-80 sm:h-96 overflow-y-auto">
+                  {groupMembers.length > 0 ? (
+                    <div className="space-y-2">
                       {groupMembers.map(member => (
                         <div 
                           key={member.id} 
-                          className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors gap-3"
-                          onClick={() => window.open(`/members/${member.id}`, '_blank')}
+                          className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50"
                         >
                           <div className="flex items-center gap-3 min-w-0 flex-1">
-                            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                              <Users className="h-5 w-5 text-blue-600" />
+                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                              <Users className="h-4 w-4 text-blue-600" />
                             </div>
                             <div className="min-w-0 flex-1">
-                              <div className="font-medium truncate text-sm md:text-base">{member.full_name}</div>
-                              <div className="text-xs md:text-sm text-muted-foreground truncate">
+                              <div className="font-medium truncate text-body">{member.full_name}</div>
+                              <div className="text-caption text-muted-foreground truncate">
                                 {member.id_number} • {member.phone_number}
                               </div>
-                              <div className="text-xs text-muted-foreground truncate">
+                              <div className="text-caption text-muted-foreground truncate">
                                 {member.profession} • {formatCurrency(member.monthly_income || 0)}/month
                               </div>
                             </div>
                           </div>
-                          <div className="text-right text-xs text-muted-foreground flex-shrink-0">
-                            <div className="whitespace-nowrap">Member since {formatDate(member.member_since)}</div>
-                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleRemoveMemberFromGroup(member.id)}
+                            disabled={isManagingMembers}
+                            className="flex-shrink-0"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
                         </div>
                       ))}
-                      {groupMembers.length === 0 && (
-                        <div className="text-center py-8 text-muted-foreground">
-                          <Users className="mx-auto h-12 w-12 mb-4" />
-                          <p>No members in this group</p>
-                          <p className="text-sm">Use the "Manage Members" button to add members</p>
-                        </div>
-                      )}
                     </div>
-                  </CardContent>
-                </Card>
-              </>
-            ) : (
-              <Card>
-                <CardContent className="text-center py-8 md:py-12 text-muted-foreground">
-                  <Users className="mx-auto h-12 md:h-16 w-12 md:w-16 mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Select a Group</h3>
-                  <p className="text-sm md:text-base">Choose a group from the left panel to view its details and manage members</p>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Create/Edit Group Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-md mx-4">
-          <DialogHeader>
-            <DialogTitle className="text-lg">
-              {editingGroup ? 'Edit Group' : 'Create New Group'}
-            </DialogTitle>
-            <DialogDescription className="text-sm">
-              {editingGroup 
-                ? 'Update the details for this group.' 
-                : 'Add a new group to organize members.'
-              }
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleFormSubmit} className="space-y-4 pt-4">
-            <div className="space-y-2">
-              <Label htmlFor="name" className="text-sm font-medium">Group Name</Label>
-              <Input 
-                id="name" 
-                value={formData.name} 
-                onChange={(e) => setFormData({...formData, name: e.target.value})} 
-                placeholder="e.g., Youth Group, Women's Group" 
-                required 
-                className="w-full"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="description" className="text-sm font-medium">Description</Label>
-              <Input 
-                id="description" 
-                value={formData.description} 
-                onChange={(e) => setFormData({...formData, description: e.target.value})} 
-                placeholder="Brief description of the group" 
-                className="w-full"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="branch_id" className="text-sm font-medium">Branch</Label>
-              <Select value={formData.branch_id} onValueChange={(value) => setFormData({...formData, branch_id: value})}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select a branch" />
-                </SelectTrigger>
-                <SelectContent>
-                  {branches.map(branch => (
-                    <SelectItem key={branch.id} value={branch.id.toString()}>
-                      {branch.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-4">
-              <Button type="button" variant="outline" onClick={closeDialog} className="w-full sm:w-auto">
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
-                {isSubmitting ? (
-                  <ButtonLoader size="sm" />
-                ) : (
-                  <Plus className="mr-2 h-4 w-4" />
-                )}
-                {editingGroup ? 'Update Group' : 'Create Group'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-      
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={!!deleteCandidate} onOpenChange={() => setDeleteCandidate(null)}>
-        <DialogContent className="max-w-md mx-4">
-          <DialogHeader>
-            <DialogTitle className="text-lg">Confirm Deletion</DialogTitle>
-            <DialogDescription className="text-sm">
-              Are you sure you want to delete the group: <strong>{deleteCandidate?.name}</strong>? 
-              This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-4">
-            <Button variant="outline" onClick={() => setDeleteCandidate(null)} disabled={isDeleting} className="w-full sm:w-auto">
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={handleConfirmDelete} disabled={isDeleting} className="w-full sm:w-auto">
-              {isDeleting ? (
-                <ButtonLoader size="sm" />
-              ) : (
-                <X className="mr-2 h-4 w-4" />
-              )}
-              Delete Group
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Manage Group Members Dialog */}
-      <Dialog open={manageMembersDialogOpen} onOpenChange={setManageMembersDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden mx-4">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-lg">
-              <UserPlus className="h-5 w-5" />
-              <span className="truncate">Manage Members - {selectedGroup?.name}</span>
-            </DialogTitle>
-            <DialogDescription className="text-sm">
-              Add existing members to this group or remove current members
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 h-full">
-            {/* Available Members to Add */}
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <h3 className="text-base md:text-lg font-semibold">Available Members</h3>
-                <div className="relative w-full sm:w-64">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input 
-                    placeholder="Search members..." 
-                    value={memberSearchTerm} 
-                    onChange={(e) => setMemberSearchTerm(e.target.value)} 
-                    className="pl-9 w-full" 
-                  />
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Users className="mx-auto h-12 w-12 mb-4" />
+                      <p className="text-body">No members in this group</p>
+                      <p className="text-caption">Use the left panel to add members</p>
+                    </div>
+                  )}
                 </div>
               </div>
-              
-              <div className="border rounded-lg p-3 sm:p-4 h-80 sm:h-96 overflow-y-auto">
-                {filteredAvailableMembers.length > 0 ? (
-                  <div className="space-y-2">
-                    {filteredAvailableMembers.map(member => (
-                      <div 
-                        key={member.id} 
-                        className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-colors ${
-                          selectedMembers.includes(member.id) 
-                            ? 'bg-blue-50 border-blue-200' 
-                            : 'hover:bg-muted/50'
-                        }`}
-                        onClick={() => handleMemberSelection(member.id)}
-                      >
-                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <input
-                            type="checkbox"
-                            checked={selectedMembers.includes(member.id)}
-                            onChange={() => {}}
-                            className="rounded flex-shrink-0"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <div className="font-medium truncate text-sm md:text-base">{member.full_name}</div>
-                            <div className="text-xs md:text-sm text-muted-foreground truncate">
-                              {member.id_number} • {member.phone_number}
-                            </div>
-                            <div className="text-xs text-muted-foreground truncate">
-                              {member.branch_name}
-                              {member.current_group_name && ` • Current: ${member.current_group_name}`}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Users className="mx-auto h-12 w-12 mb-4" />
-                    <p className="text-sm md:text-base">No available members to add</p>
-                    <p className="text-xs md:text-sm">All members are already assigned to groups</p>
-                  </div>
-                )}
-              </div>
-              
-              <Button 
-                onClick={handleAddMembersToGroup}
-                disabled={selectedMembers.length === 0 || isManagingMembers}
-                className="w-full"
-              >
-                {isManagingMembers ? (
-                  <ButtonLoader size="sm" />
-                ) : (
-                  <UserPlus className="mr-2 h-4 w-4" />
-                )}
-                <span className="hidden sm:inline">Add {selectedMembers.length} Member(s) to Group</span>
-                <span className="sm:hidden">Add {selectedMembers.length} Member(s)</span>
+            </div>
+            
+            <DialogFooter className="pt-4 flex flex-col sm:flex-row gap-2">
+              <Button variant="outline" onClick={closeManageMembersDialog} className="w-full sm:w-auto">
+                Close
               </Button>
-            </div>
-
-            {/* Current Group Members */}
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <h3 className="text-base md:text-lg font-semibold">Current Group Members</h3>
-                <Badge variant="secondary" className="text-xs">{groupMembers.length} members</Badge>
-              </div>
-              
-              <div className="border rounded-lg p-3 sm:p-4 h-80 sm:h-96 overflow-y-auto">
-                {groupMembers.length > 0 ? (
-                  <div className="space-y-2">
-                    {groupMembers.map(member => (
-                      <div 
-                        key={member.id} 
-                        className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50"
-                      >
-                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                            <Users className="h-4 w-4 text-blue-600" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="font-medium truncate text-sm md:text-base">{member.full_name}</div>
-                            <div className="text-xs md:text-sm text-muted-foreground truncate">
-                              {member.id_number} • {member.phone_number}
-                            </div>
-                            <div className="text-xs text-muted-foreground truncate">
-                              {member.profession} • {formatCurrency(member.monthly_income || 0)}/month
-                            </div>
-                          </div>
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleRemoveMemberFromGroup(member.id)}
-                          disabled={isManagingMembers}
-                          className="flex-shrink-0"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Users className="mx-auto h-12 w-12 mb-4" />
-                    <p className="text-sm md:text-base">No members in this group</p>
-                    <p className="text-xs md:text-sm">Use the left panel to add members</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-          
-          <DialogFooter className="pt-4 flex flex-col sm:flex-row gap-2">
-            <Button variant="outline" onClick={closeManageMembersDialog} className="w-full sm:w-auto">
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
     </>
   );
 };

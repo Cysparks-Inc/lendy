@@ -139,9 +139,11 @@ export const ManualPaymentEntry: React.FC<ManualPaymentEntryProps> = ({ loan, on
                 <SelectValue placeholder="Select method" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Cash">Cash</SelectItem>
-                <SelectItem value="Mobile Money">Mobile Money</SelectItem>
-                <SelectItem value="Bank Deposit">Bank Deposit</SelectItem>
+                <SelectItem value="cash">Cash</SelectItem>
+                <SelectItem value="mobile_money">Mobile Money</SelectItem>
+                <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                <SelectItem value="check">Check</SelectItem>
+                <SelectItem value="other">Other</SelectItem>
               </SelectContent>
             </Select>
           </div>

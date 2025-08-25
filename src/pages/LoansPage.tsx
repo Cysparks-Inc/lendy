@@ -7,12 +7,13 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Search, Plus, Eye, CreditCard, Landmark, Banknote, Loader2, DollarSign, AlertTriangle } from 'lucide-react';
+import { Search, Plus, Eye, CreditCard, Landmark, Banknote, Loader2, DollarSign, AlertTriangle, RefreshCw, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/ui/data-table'; // Reusable component
 import { ExportDropdown } from '@/components/ui/ExportDropdown';
 import { DateRangeFilter, DateRange, filterDataByDateRange } from '@/components/ui/DateRangeFilter';
+import { Label } from '@/components/ui/label';
 
 // --- Type Definitions ---
 type LoanStatus = 'active' | 'repaid' | 'defaulted' | 'pending';
@@ -34,6 +35,9 @@ const LoansPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateRange, setDateRange] = useState<DateRange>({ from: undefined, to: undefined });
+  const [branchFilter, setBranchFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<string>('date');
+  const [isAddLoanDialogOpen, setIsAddLoanDialogOpen] = useState<boolean>(false);
 
   // --- THE PROPER FIX: Fetch Names Without Relationship Conflicts ---
   const fetchLoans = async () => {
@@ -154,131 +158,188 @@ const LoansPage: React.FC = () => {
     switch (status) { case 'active': return 'default'; case 'repaid': return 'success'; case 'defaulted': return 'destructive'; case 'pending': return 'warning'; default: return 'secondary'; }
   };
 
-  const columns = [
-    { header: 'Member', cell: (row: LoanSummary) => <div><div className="font-medium">{row.member_name}</div><div className="text-sm text-muted-foreground">{row.branch_name}</div></div> },
-    { header: 'Principal', cell: (row: LoanSummary) => <div className="font-mono">{formatCurrency(row.principal_amount)}</div> },
-    { header: 'Outstanding', cell: (row: LoanSummary) => <div className="font-mono">{formatCurrency(row.current_balance)}</div> },
-    { header: 'Progress', cell: (row: LoanSummary) => {
-        const totalDue = row.principal_amount + (row.current_balance - row.principal_amount + row.total_paid);
-        const progress = totalDue > 0 ? (row.total_paid / totalDue) * 100 : (row.status === 'repaid' ? 100 : 0);
-        return <div className="flex items-center gap-2"><Progress value={progress} className="w-24 h-2" /><span className="text-sm font-medium">{progress.toFixed(0)}%</span></div>
-    }},
-    { header: 'Due Date', cell: (row: LoanSummary) => new Date(row.due_date).toLocaleDateString() },
-    { header: 'Status', cell: (row: LoanSummary) => <Badge variant={getStatusVariant(row.status)} className="capitalize">{row.status}</Badge> },
-    { header: 'Actions', cell: (row: LoanSummary) => <div className="text-right"><Button asChild variant="outline" size="icon"><Link to={`/loans/${row.id}`}><Eye className="h-4 w-4" /></Link></Button></div> },
-  ];
+  const handleDeleteLoan = async (loanId: string) => {
+    if (!window.confirm('Are you sure you want to delete this loan?')) {
+      return;
+    }
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from('loans')
+        .delete()
+        .eq('id', loanId);
 
-  // Export columns configuration
-  const exportColumns = [
-    { header: 'Member Name', accessorKey: 'member_name' },
-    { header: 'Branch', accessorKey: 'branch_name' },
-    { header: 'Principal Amount', accessorKey: (row: LoanSummary) => formatCurrency(row.principal_amount) },
-    { header: 'Current Balance', accessorKey: (row: LoanSummary) => formatCurrency(row.current_balance) },
-    { header: 'Total Paid', accessorKey: (row: LoanSummary) => formatCurrency(row.total_paid) },
-    { header: 'Due Date', accessorKey: (row: LoanSummary) => new Date(row.due_date).toLocaleDateString() },
-    { header: 'Status', accessorKey: 'status' },
-    { header: 'Progress %', accessorKey: (row: LoanSummary) => {
-      const totalDue = row.principal_amount + (row.current_balance - row.principal_amount + row.total_paid);
-      const progress = totalDue > 0 ? (row.total_paid / totalDue) * 100 : (row.status === 'repaid' ? 100 : 0);
-      return `${progress.toFixed(0)}%`;
-    }},
-  ];
+      if (error) {
+        throw error;
+      }
+      toast.success('Loan deleted successfully!');
+      fetchLoans(); // Refresh the table
+    } catch (error: any) {
+      toast.error('Failed to delete loan', { description: error.message });
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const totalOutstanding = loans.reduce((sum, loan) => sum + (loan.current_balance > 0 ? loan.current_balance : 0), 0);
-  
   if (loading) { return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>; }
 
   return (
     <div className="space-y-4 md:space-y-6 p-3 sm:p-4 md:p-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Loan Accounts</h1>
-          <p className="text-muted-foreground text-sm md:text-base">Manage and monitor all loan accounts in your scope.</p>
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-heading-1 text-foreground">Loans</h1>
+          <p className="text-body text-muted-foreground mt-1">
+            Manage and monitor all loan applications and disbursements.
+          </p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-          <ExportDropdown 
-            data={dateFilteredLoans} 
-            columns={exportColumns} 
-            fileName="loans-report" 
-            reportTitle="Loans Report"
-            dateRange={dateRange}
-            className="w-full sm:w-auto"
-          />
-          <Button asChild className="w-full sm:w-auto">
-            <Link to="/loans/new">
-              <Plus className="h-4 w-4 mr-2" />
-              New Loan
-            </Link>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={fetchLoans} disabled={loading}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Button onClick={() => setIsAddLoanDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            New Loan
           </Button>
         </div>
-      </div>
-
-      {/* Summary Cards */}
-      <div className="grid gap-3 md:gap-4 grid-cols-2 lg:grid-cols-4">
-        <StatCard title="Total Loans" value={loans.length} icon={CreditCard} />
-        <StatCard title="Outstanding Balance" value={formatCurrency(totalOutstanding)} icon={Landmark} />
-        <StatCard title="Active Loans" value={loans.filter(l => l.status === 'active').length} icon={Banknote} />
-        <StatCard title="Defaulted" value={loans.filter(l => l.status === 'defaulted').length} icon={AlertTriangle} />
       </div>
 
       {/* Search and Filters */}
       <Card>
         <CardHeader>
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div className="min-w-0 flex-1">
-                <CardTitle className="text-lg">Loan Accounts</CardTitle>
-                <CardDescription className="text-sm">
-                  Showing {dateFilteredLoans.length} of {filteredLoans.length} loans
-                  {dateRange.from && dateRange.to && (
-                    <span className="text-brand-green-600 font-medium">
-                      {' '}• Filtered by date range
-                    </span>
-                  )}
-                </CardDescription>
-              </div>
-            </div>
-            
-            {/* Filters Row - Better positioned and spaced */}
-            <div className="flex flex-col lg:flex-row gap-3 md:gap-4 w-full">
-              {/* Date Filter - Takes priority */}
-              <div className="flex-shrink-0">
-                <DateRangeFilter
-                  onDateRangeChange={setDateRange}
-                  placeholder="Filter by date"
-                  className="w-full lg:w-auto"
-                />
-              </div>
-              
-              {/* Search and Status Filters */}
-              <div className="flex flex-col sm:flex-row gap-3 flex-1">
-                <div className="relative flex-1 min-w-0">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input 
-                    placeholder="Search by member name..." 
-                    value={searchTerm} 
-                    onChange={e => setSearchTerm(e.target.value)} 
-                    className="pl-9 w-full" 
-                  />
-                </div>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-full sm:w-32">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="repaid">Repaid</SelectItem>
-                    <SelectItem value="defaulted">Defaulted</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
+          <CardTitle className="text-heading-3">Search & Filters</CardTitle>
+          <CardDescription className="text-body text-muted-foreground">
+            Find specific loans using search and filters
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <DataTable columns={columns} data={dateFilteredLoans} emptyStateMessage="No loans found matching your criteria." />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <Label htmlFor="search" className="text-body font-medium">Search</Label>
+              <Input
+                id="search"
+                placeholder="Search by member, loan number..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="text-body"
+              />
+            </div>
+            <div>
+              <Label htmlFor="status" className="text-body font-medium">Status</Label>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="repaid">Repaid</SelectItem>
+                  <SelectItem value="defaulted">Defaulted</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="branch" className="text-body font-medium">Branch</Label>
+              <Select value={branchFilter} onValueChange={setBranchFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Branches" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Branches</SelectItem>
+                  <SelectItem value="nakuru">Nakuru</SelectItem>
+                  <SelectItem value="nairobi">Nairobi</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="sort" className="text-body font-medium">Sort By</Label>
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sort by..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="date">Date</SelectItem>
+                  <SelectItem value="amount">Amount</SelectItem>
+                  <SelectItem value="member">Member</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Loans Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-heading-2">Loans ({filteredLoans.length})</CardTitle>
+          <CardDescription className="text-body text-muted-foreground">
+            Showing {filteredLoans.length} of {loans.length} loans
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <DataTable
+            columns={[
+              {
+                header: 'Loan',
+                cell: (row) => (
+                  <div>
+                    <Link to={`/loans/${row.id}`} className="text-body font-medium text-primary hover:underline">
+                      {row.id}
+                    </Link>
+                    <div className="text-caption text-muted-foreground">{row.member_name}</div>
+                  </div>
+                )
+              },
+              {
+                header: 'Amount',
+                cell: (row) => (
+                  <div>
+                    <div className="text-body font-medium">{formatCurrency(row.principal_amount)}</div>
+                    <div className="text-caption text-muted-foreground">N/A</div>
+                  </div>
+                )
+              },
+              {
+                header: 'Status',
+                cell: (row) => (
+                  <Badge variant={getStatusVariant(row.status)} className="text-caption">
+                    {row.status}
+                  </Badge>
+                )
+              },
+              {
+                header: 'Officer',
+                cell: (row) => (
+                  <div className="text-body">{row.member_name || 'Unassigned'}</div>
+                )
+              },
+              {
+                header: 'Actions',
+                cell: (row) => (
+                  <div className="flex gap-2">
+                    <Button asChild variant="outline" size="sm">
+                      <Link to={`/loans/${row.id}`}>
+                        <Eye className="h-4 w-4" />
+                      </Link>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDeleteLoan(row.id)}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )
+              }
+            ]}
+            data={filteredLoans}
+            searchTerm={searchTerm}
+            emptyStateMessage="No loans found matching your criteria."
+          />
         </CardContent>
       </Card>
     </div>

@@ -29,7 +29,7 @@ import {
   Info
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { InlineLoader, QuickLoader } from '@/components/ui/loader';
+import { InlineLoader, QuickLoader, PageLoader } from '@/components/ui/loader';
 import { format } from 'date-fns';
 import jsPDF from 'jspdf';
 
@@ -383,6 +383,45 @@ const TransactionDetails: React.FC = () => {
     }
   };
 
+  // Get status variant for Badge component
+  const getStatusVariant = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return 'default';
+      case 'pending':
+        return 'secondary';
+      case 'failed':
+        return 'destructive';
+      case 'cancelled':
+        return 'outline';
+      default:
+        return 'outline';
+    }
+  };
+
+  // Get payment method label
+  const getPaymentMethodLabel = (method: string) => {
+    switch (method) {
+      case 'cash':
+        return 'Cash';
+      case 'bank_transfer':
+        return 'Bank Transfer';
+      case 'mobile_money':
+        return 'Mobile Money';
+      case 'check':
+        return 'Check';
+      case 'other':
+        return 'Other';
+      default:
+        return method.charAt(0).toUpperCase() + method.slice(1);
+    }
+  };
+
+  // Format currency
+  const formatCurrency = (amount: number) => {
+    return `KES ${amount.toLocaleString()}`;
+  };
+
   // Print receipt
   const printReceipt = () => {
     setPrinting(true);
@@ -597,8 +636,8 @@ const TransactionDetails: React.FC = () => {
           </Button>
           
           <div className="min-w-0 flex-1">
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Transaction Details</h1>
-            <p className="text-gray-600 mt-1 text-sm md:text-base truncate">
+            <h1 className="text-heading-1 text-gray-900">Transaction Details</h1>
+            <p className="text-body text-gray-600 mt-1 truncate">
               {transaction.reference_number} • {transaction.description}
             </p>
           </div>
@@ -636,16 +675,16 @@ const TransactionDetails: React.FC = () => {
                     <TypeIcon className="h-6 w-6 md:h-8 md:w-8" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <CardTitle className="text-lg md:text-xl">{typeInfo.label}</CardTitle>
-                    <CardDescription className="text-sm truncate">{typeInfo.description}</CardDescription>
+                    <CardTitle className="text-heading-3">{typeInfo.label}</CardTitle>
+                    <CardDescription className="text-body truncate">{typeInfo.description}</CardDescription>
                   </div>
                 </div>
                 
                 <div className="text-center sm:text-right">
-                  <div className="text-2xl md:text-3xl font-bold text-gray-900">
+                  <div className="text-heading-1 text-gray-900">
                     KES {transaction.amount.toLocaleString()}
                   </div>
-                  <div className="text-sm text-gray-500">{transaction.currency}</div>
+                  <div className="text-body text-gray-500">{transaction.currency}</div>
                 </div>
               </div>
             </CardHeader>
@@ -653,37 +692,71 @@ const TransactionDetails: React.FC = () => {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Reference Number</label>
-                  <p className="text-sm text-gray-900 font-mono truncate">{transaction.reference_number}</p>
+                  <label className="text-body font-medium text-gray-500">Reference Number</label>
+                  <p className="text-body text-gray-900 font-mono truncate">{transaction.reference_number}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Status</label>
-                  <div className="flex items-center gap-2 mt-1">
-                    <div className={`p-1 rounded-full ${statusInfo.color}`}>
-                      <StatusIcon className="h-4 w-4" />
-                    </div>
-                    <Badge className={statusInfo.color}>
-                      {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+                  <label className="text-body font-medium text-gray-500">Status</label>
+                  <div className="flex items-center gap-2">
+                    <StatusIcon className="h-4 w-4" />
+                    <Badge variant={getStatusVariant(transaction.status)} className="text-caption">
+                      {transaction.status}
                     </Badge>
                   </div>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Payment Method</label>
-                  <p className="text-sm text-gray-900">
-                    {transaction.payment_method.replace('_', ' ').toUpperCase()}
-                  </p>
+                  <label className="text-body font-medium text-gray-500">Payment Method</label>
+                  <p className="text-body text-gray-900">{getPaymentMethodLabel(transaction.payment_method)}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Transaction Date</label>
-                  <p className="text-sm text-gray-900">
-                    {format(new Date(transaction.transaction_date), 'MMM dd, yyyy HH:mm')}
-                  </p>
+                  <label className="text-body font-medium text-gray-500">Transaction Date</label>
+                  <p className="text-body text-gray-900">{format(new Date(transaction.transaction_date), 'PPP')}</p>
                 </div>
               </div>
               
-              <div>
-                <label className="text-sm font-medium text-gray-500">Description</label>
-                <p className="text-sm text-gray-900 mt-1">{transaction.description}</p>
+              {transaction.description && (
+                <div>
+                  <label className="text-body font-medium text-gray-500">Description</label>
+                  <p className="text-body text-gray-900">{transaction.description}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Member and Loan Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-heading-3">Member & Loan Information</CardTitle>
+              <CardDescription className="text-body text-muted-foreground">
+                Details about the member and associated loan
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-body font-medium text-gray-500">Member Name</label>
+                  <p className="text-body text-gray-900">{transaction.member_name || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="text-body font-medium text-gray-500">Member ID</label>
+                  <p className="text-body text-gray-900 font-mono">{transaction.member_id || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="text-body font-medium text-gray-500">Phone Number</label>
+                  <p className="text-body text-gray-900">{transaction.member_phone || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="text-body font-medium text-gray-500">ID Number</label>
+                  <p className="text-body text-gray-900">{transaction.member_id_number || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="text-body font-medium text-gray-500">Loan Account</label>
+                  <p className="text-body text-gray-900 font-mono">{transaction.loan_account_number || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="text-body font-medium text-gray-500">Branch</label>
+                  <p className="text-body text-gray-900">{transaction.branch_name || 'N/A'}</p>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -691,75 +764,36 @@ const TransactionDetails: React.FC = () => {
           {/* Financial Details */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <DollarSign className="h-5 w-5" />
-                Financial Details
-              </CardTitle>
+              <CardTitle className="text-heading-3">Financial Details</CardTitle>
+              <CardDescription className="text-body text-muted-foreground">
+                Breakdown of the transaction amount and balances
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                <div className="space-y-4">
-                  <h4 className="font-semibold text-gray-900">Payment Breakdown</h4>
-                  <div className="space-y-3">
-                    {transaction.principal_paid && (
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Principal Paid</span>
-                        <span className="text-sm font-medium">KES {transaction.principal_paid.toLocaleString()}</span>
-                      </div>
-                    )}
-                    {transaction.interest_paid && (
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Interest Paid</span>
-                        <span className="text-sm font-medium">KES {transaction.interest_paid.toLocaleString()}</span>
-                      </div>
-                    )}
-                    {transaction.fees && (
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Fees</span>
-                        <span className="text-sm font-medium">KES {transaction.fees.toLocaleString()}</span>
-                      </div>
-                    )}
-                    {transaction.penalties && (
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Penalties</span>
-                        <span className="text-sm font-medium">KES {transaction.penalties.toLocaleString()}</span>
-                      </div>
-                    )}
-                    <Separator />
-                    <div className="flex justify-between font-semibold">
-                      <span>Total Amount</span>
-                      <span>KES {transaction.amount.toLocaleString()}</span>
-                    </div>
-                  </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-body font-medium text-gray-500">Principal Paid</label>
+                  <p className="text-body text-gray-900">{formatCurrency(transaction.principal_paid || 0)}</p>
                 </div>
-                
-                <div className="space-y-4">
-                  <h4 className="font-semibold text-gray-900">Balance Impact</h4>
-                  <div className="space-y-3">
-                    {transaction.balance_before && (
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Balance Before</span>
-                        <span className="text-sm font-medium">KES {transaction.balance_before.toLocaleString()}</span>
-                      </div>
-                    )}
-                    {transaction.balance_after && (
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Balance After</span>
-                        <span className="text-sm font-medium">KES {transaction.balance_after.toLocaleString()}</span>
-                      </div>
-                    )}
-                    {transaction.balance_before && transaction.balance_after && (
-                      <>
-                        <Separator />
-                        <div className="flex justify-between font-semibold">
-                          <span>Change</span>
-                          <span className={transaction.balance_after < transaction.balance_before ? 'text-green-600' : 'text-red-600'}>
-                            KES {(transaction.balance_after - transaction.balance_before).toLocaleString()}
-                          </span>
-                        </div>
-                      </>
-                    )}
-                  </div>
+                <div>
+                  <label className="text-body font-medium text-gray-500">Interest Paid</label>
+                  <p className="text-body text-gray-900">{formatCurrency(transaction.interest_paid || 0)}</p>
+                </div>
+                <div>
+                  <label className="text-body font-medium text-gray-500">Fees</label>
+                  <p className="text-body text-gray-900">{formatCurrency(transaction.fees || 0)}</p>
+                </div>
+                <div>
+                  <label className="text-body font-medium text-gray-500">Penalties</label>
+                  <p className="text-body text-gray-900">{formatCurrency(transaction.penalties || 0)}</p>
+                </div>
+                <div>
+                  <label className="text-body font-medium text-gray-500">Balance Before</label>
+                  <p className="text-body text-gray-900">{formatCurrency(transaction.balance_before || 0)}</p>
+                </div>
+                <div>
+                  <label className="text-body font-medium text-gray-500">Balance After</label>
+                  <p className="text-body text-gray-900">{formatCurrency(transaction.balance_after || 0)}</p>
                 </div>
               </div>
             </CardContent>
@@ -838,37 +872,47 @@ const TransactionDetails: React.FC = () => {
           )}
         </div>
 
-        {/* Sidebar */}
+        {/* Right Sidebar - Transaction Summary */}
         <div className="space-y-4 md:space-y-6">
-          {/* Member Information */}
+          {/* Transaction Summary */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <User className="h-5 w-5" />
-                Member Information
-              </CardTitle>
+              <CardTitle className="text-heading-3">Transaction Summary</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <label className="text-sm font-medium text-gray-500">Name</label>
-                <p className="text-sm text-gray-900 truncate">{transaction.member_name}</p>
+            <CardContent className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-body text-gray-600">Transaction ID</span>
+                <span className="text-body font-mono text-gray-900">{transaction.id}</span>
               </div>
-              <div>
-                <label className="text-sm font-medium text-gray-500">ID Number</label>
-                <p className="text-sm text-gray-900 truncate">{transaction.member_id_number}</p>
+              <div className="flex justify-between items-center">
+                <span className="text-body text-gray-600">Created</span>
+                <span className="text-body text-gray-900">{format(new Date(transaction.created_at), 'PPp')}</span>
               </div>
-              <div>
-                <label className="text-sm font-medium text-gray-500">Phone</label>
-                <p className="text-sm text-gray-900 truncate">{transaction.member_phone}</p>
+              <div className="flex justify-between items-center">
+                <span className="text-body text-gray-600">Updated</span>
+                <span className="text-body text-gray-900">{format(new Date(transaction.updated_at), 'PPp')}</span>
               </div>
-              
-              <div className="pt-2">
-                <Link 
-                  to={`/members/${transaction.member_id}`}
-                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                >
-                  View Member Profile →
-                </Link>
+              <div className="flex justify-between items-center">
+                <span className="text-body text-gray-600">Created By</span>
+                <span className="text-body text-gray-900">{transaction.created_by_name || 'System'}</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Loan Officer Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-heading-3">Loan Officer</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                  <User className="h-5 w-5 text-gray-600" />
+                </div>
+                <div>
+                  <p className="text-body font-medium text-gray-900">{transaction.loan_officer_name || 'Unassigned'}</p>
+                  <p className="text-caption text-gray-500">{transaction.loan_officer_phone || 'No phone'}</p>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -876,70 +920,32 @@ const TransactionDetails: React.FC = () => {
           {/* Branch Information */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Building className="h-5 w-5" />
-                Branch Information
-              </CardTitle>
+              <CardTitle className="text-heading-3">Branch</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <label className="text-sm font-medium text-gray-500">Branch Name</label>
-                <p className="text-sm text-gray-900 truncate">{transaction.branch_name}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-500">Address</label>
-                <p className="text-sm text-gray-900 truncate">{transaction.branch_address}</p>
+            <CardContent>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                  <Building className="h-5 w-5 text-gray-600" />
+                </div>
+                <div>
+                  <p className="text-body font-medium text-gray-900">{transaction.branch_name || 'Unknown Branch'}</p>
+                  <p className="text-caption text-gray-500">{transaction.branch_address || 'No address'}</p>
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Loan Officer */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <User className="h-5 w-5" />
-                Loan Officer
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <label className="text-sm font-medium text-gray-500">Name</label>
-                <p className="text-sm text-gray-900 truncate">{transaction.loan_officer_name}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-500">Phone</label>
-                <p className="text-sm text-gray-900 truncate">{transaction.loan_officer_phone}</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Transaction Metadata */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Info className="h-5 w-5" />
-                Transaction Info
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <label className="text-sm font-medium text-gray-500">Created By</label>
-                <p className="text-sm text-gray-900 truncate">{transaction.created_by_name || 'System'}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-500">Created At</label>
-                <p className="text-sm text-gray-900">
-                  {format(new Date(transaction.created_at), 'MMM dd, yyyy HH:mm')}
-                </p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-500">Last Updated</label>
-                <p className="text-sm text-gray-900">
-                  {format(new Date(transaction.updated_at), 'MMM dd, yyyy HH:mm')}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Notes */}
+          {transaction.notes && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-heading-3">Notes</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-body text-gray-700">{transaction.notes}</p>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>
