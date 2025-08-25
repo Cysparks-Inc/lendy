@@ -32,6 +32,8 @@ import Users from "@/pages/UsersPage"; // Kept your original name
 import UserFormPage from './pages/UserFormPage';
 import Security from "@/pages/Security";
 import Branches from "@/pages/Branches";
+import Transactions from "@/pages/Transactions";
+import TransactionDetails from "@/pages/TransactionDetails";
 
 const queryClient = new QueryClient();
 
@@ -80,6 +82,8 @@ const App = () => (
                 
                 <Route path="security" element={<Security />} />
                 <Route path="branches" element={<Branches />} />
+                <Route path="transactions" element={<Transactions />} />
+                <Route path="transactions/:id" element={<TransactionDetails />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>

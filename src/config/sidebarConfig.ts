@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Users, CreditCard, Search, FileText, Settings, User, Shield, UserCheck,
-  UsersRound, Clock, AlertTriangle, Folder, Trash2, Building, Banknote
+  UsersRound, Clock, AlertTriangle, Folder, Trash2, Building, Banknote, Receipt
 } from 'lucide-react';
 import { NavGroup, UserRole } from '@/types'; // Import our new, robust types
 
@@ -12,6 +12,7 @@ export const sidebarConfig: NavGroup[] = [
       { title: 'Dashboard', url: '/', icon: LayoutDashboard }, // All roles
       { title: 'Members', url: '/members', icon: Users }, // All roles
       { title: 'Loans', url: '/loans', icon: Banknote }, // All roles
+      { title: 'Transactions', url: '/transactions', icon: Receipt }, // All roles
       { title: 'Search Member', url: '/search-member', icon: Search }, // All roles
       { 
         title: 'Groups', 

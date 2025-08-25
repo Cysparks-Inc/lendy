@@ -49,6 +49,12 @@ export const ExportDropdown = <T,>({
       return;
     }
 
+    // Check if data exists
+    if (!data || data.length === 0) {
+      toast.error("No data available to export");
+      return;
+    }
+
     // Debug: Log profile information
     console.log('Profile object:', profile);
     console.log('Profile full_name:', profile?.full_name);
@@ -68,7 +74,8 @@ export const ExportDropdown = <T,>({
     // Report title
     doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
-    doc.text(getFormattedReportTitle(), 14, 35);
+    const reportTitle = getFormattedReportTitle() || 'Report';
+    doc.text(reportTitle, 14, 35);
     
     // Add date range info if available
     if (dateRange?.from && dateRange?.to) {
@@ -96,9 +103,11 @@ export const ExportDropdown = <T,>({
     const head = [columns.map(c => c.header)];
     const body = data.map(row => columns.map(col => {
       if (typeof col.accessorKey === 'function') {
-        return col.accessorKey(row);
+        const value = col.accessorKey(row);
+        return value !== null && value !== undefined ? String(value) : '';
       }
-      return row[col.accessorKey as keyof T] as string;
+      const value = row[col.accessorKey as keyof T];
+      return value !== null && value !== undefined ? String(value) : '';
     }));
 
     autoTable(doc, {
@@ -118,6 +127,12 @@ export const ExportDropdown = <T,>({
       return;
     }
 
+    // Check if data exists
+    if (!data || data.length === 0) {
+      toast.error("No data available to export");
+      return;
+    }
+
     // Get user identifier - prefer full_name, fallback to email, then unknown
     const userIdentifier = profile?.full_name || profile?.email || 'Unknown User';
 
@@ -131,8 +146,8 @@ export const ExportDropdown = <T,>({
     csvRows.push(""); // Empty row for spacing
     
     // Report title
-    csvRows.push(getFormattedReportTitle());
-    csvRows.push(""); // Empty row for spacing
+    csvRows.push(getFormattedReportTitle() || 'Report');
+    csvRows.push(''); // Empty row for spacing
     
     if (dateRange?.from && dateRange?.to) {
       const dateInfo = `Date Range,${format(dateRange.from, 'MMM dd, yyyy')} - ${format(dateRange.to, 'MMM dd, yyyy')}`;
@@ -151,9 +166,11 @@ export const ExportDropdown = <T,>({
     const headers = columns.map(c => c.header).join(',');
     const dataRows = data.map(row => columns.map(col => {
       if (typeof col.accessorKey === 'function') {
-        return escapeCsvCell(col.accessorKey(row));
+        const value = col.accessorKey(row);
+        return escapeCsvCell(value !== null && value !== undefined ? value : '');
       }
-      return escapeCsvCell(row[col.accessorKey as keyof T]);
+      const value = row[col.accessorKey as keyof T];
+      return escapeCsvCell(value !== null && value !== undefined ? value : '');
     }).join(','));
 
     csvRows.push(headers);
