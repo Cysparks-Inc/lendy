@@ -29,7 +29,11 @@ import {
   Info
 } from 'lucide-react';
 import { toast } from 'sonner';
+<<<<<<< HEAD
 import { InlineLoader, QuickLoader, PageLoader } from '@/components/ui/loader';
+=======
+import { PageLoader, InlineLoader } from '@/components/ui/loader';
+>>>>>>> parent of c5cf51a (design update)
 import { format } from 'date-fns';
 import jsPDF from 'jspdf';
 
@@ -625,55 +629,59 @@ const TransactionDetails: React.FC = () => {
   const StatusIcon = statusInfo.icon;
 
   return (
-    <div className="space-y-4 md:space-y-6 p-3 sm:p-4 md:p-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex items-center gap-4 min-w-0 flex-1">
-          <Button variant="outline" onClick={() => navigate('/transactions')} className="flex-shrink-0">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" onClick={() => navigate('/transactions')}>
             <ArrowLeft className="mr-2 h-4 w-4" />
-            <span className="hidden sm:inline">Back to Transactions</span>
-            <span className="sm:hidden">Back</span>
+            Back to Transactions
           </Button>
           
+<<<<<<< HEAD
           <div className="min-w-0 flex-1">
             <h1 className="text-heading-1 text-gray-900">Transaction Details</h1>
             <p className="text-body text-gray-600 mt-1 truncate">
+=======
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Transaction Details</h1>
+            <p className="text-gray-600 mt-1">
+>>>>>>> parent of c5cf51a (design update)
               {transaction.reference_number} • {transaction.description}
             </p>
           </div>
         </div>
         
-        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-          <Button variant="outline" onClick={downloadReceipt} className="w-full sm:w-auto">
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={downloadReceipt}>
             <Download className="mr-2 h-4 w-4" />
-            <span className="hidden sm:inline">Download Receipt</span>
-            <span className="sm:hidden">Download</span>
+            Download Receipt
           </Button>
           
-          <Button variant="outline" onClick={printReceipt} disabled={printing} className="w-full sm:w-auto">
+          <Button variant="outline" onClick={printReceipt} disabled={printing}>
             {printing ? (
-              <QuickLoader />
+              <InlineLoader size="sm" variant="primary" />
             ) : (
               <Printer className="mr-2 h-4 w-4" />
             )}
-            <span className="hidden sm:inline">Print Receipt</span>
-            <span className="sm:hidden">Print</span>
+            Print Receipt
           </Button>
         </div>
       </div>
 
       {/* Transaction Overview */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Transaction Info */}
-        <div className="lg:col-span-2 space-y-4 md:space-y-6">
+        <div className="lg:col-span-2 space-y-6">
           {/* Transaction Header Card */}
           <Card>
             <CardHeader>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1">
-                  <div className={`p-2 md:p-3 rounded-full ${typeInfo.color} flex-shrink-0`}>
-                    <TypeIcon className="h-6 w-6 md:h-8 md:w-8" />
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className={`p-3 rounded-full ${typeInfo.color}`}>
+                    <TypeIcon className="h-8 w-8" />
                   </div>
+<<<<<<< HEAD
                   <div className="min-w-0 flex-1">
                     <CardTitle className="text-heading-3">{typeInfo.label}</CardTitle>
                     <CardDescription className="text-body truncate">{typeInfo.description}</CardDescription>
@@ -682,6 +690,16 @@ const TransactionDetails: React.FC = () => {
                 
                 <div className="text-center sm:text-right">
                   <div className="text-heading-1 text-gray-900">
+=======
+                  <div>
+                    <CardTitle className="text-xl">{typeInfo.label}</CardTitle>
+                    <CardDescription>{typeInfo.description}</CardDescription>
+                  </div>
+                </div>
+                
+                <div className="text-right">
+                  <div className="text-3xl font-bold text-gray-900">
+>>>>>>> parent of c5cf51a (design update)
                     KES {transaction.amount.toLocaleString()}
                   </div>
                   <div className="text-body text-gray-500">{transaction.currency}</div>
@@ -690,10 +708,15 @@ const TransactionDetails: React.FC = () => {
             </CardHeader>
             
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
+<<<<<<< HEAD
                   <label className="text-body font-medium text-gray-500">Reference Number</label>
                   <p className="text-body text-gray-900 font-mono truncate">{transaction.reference_number}</p>
+=======
+                  <label className="text-sm font-medium text-gray-500">Reference Number</label>
+                  <p className="text-sm text-gray-900 font-mono">{transaction.reference_number}</p>
+>>>>>>> parent of c5cf51a (design update)
                 </div>
                 <div>
                   <label className="text-body font-medium text-gray-500">Status</label>
@@ -764,6 +787,7 @@ const TransactionDetails: React.FC = () => {
           {/* Financial Details */}
           <Card>
             <CardHeader>
+<<<<<<< HEAD
               <CardTitle className="text-heading-3">Financial Details</CardTitle>
               <CardDescription className="text-body text-muted-foreground">
                 Breakdown of the transaction amount and balances
@@ -774,6 +798,48 @@ const TransactionDetails: React.FC = () => {
                 <div>
                   <label className="text-body font-medium text-gray-500">Principal Paid</label>
                   <p className="text-body text-gray-900">{formatCurrency(transaction.principal_paid || 0)}</p>
+=======
+              <CardTitle className="flex items-center gap-2">
+                <DollarSign className="h-5 w-5" />
+                Financial Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <h4 className="font-semibold text-gray-900">Payment Breakdown</h4>
+                  <div className="space-y-3">
+                    {transaction.principal_paid && (
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">Principal Paid</span>
+                        <span className="text-sm font-medium">KES {transaction.principal_paid.toLocaleString()}</span>
+                      </div>
+                    )}
+                    {transaction.interest_paid && (
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">Interest Paid</span>
+                        <span className="text-sm font-medium">KES {transaction.interest_paid.toLocaleString()}</span>
+                      </div>
+                    )}
+                    {transaction.fees && (
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">Fees</span>
+                        <span className="text-sm font-medium">KES {transaction.fees.toLocaleString()}</span>
+                      </div>
+                    )}
+                    {transaction.penalties && (
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">Penalties</span>
+                        <span className="text-sm font-medium">KES {transaction.penalties.toLocaleString()}</span>
+                      </div>
+                    )}
+                    <Separator />
+                    <div className="flex justify-between font-semibold">
+                      <span>Total Amount</span>
+                      <span>KES {transaction.amount.toLocaleString()}</span>
+                    </div>
+                  </div>
+>>>>>>> parent of c5cf51a (design update)
                 </div>
                 <div>
                   <label className="text-body font-medium text-gray-500">Interest Paid</label>
@@ -803,16 +869,16 @@ const TransactionDetails: React.FC = () => {
           {transaction.loan_id && (
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
+                <CardTitle className="flex items-center gap-2">
                   <CreditCard className="h-5 w-5" />
                   Related Loan
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-medium text-gray-500">Loan Account</label>
-                    <p className="text-sm text-gray-900 font-mono truncate">{transaction.loan_account_number}</p>
+                    <p className="text-sm text-gray-900 font-mono">{transaction.loan_account_number}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Loan Status</label>
@@ -860,7 +926,7 @@ const TransactionDetails: React.FC = () => {
           {transaction.notes && (
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
+                <CardTitle className="flex items-center gap-2">
                   <FileText className="h-5 w-5" />
                   Notes
                 </CardTitle>
@@ -872,6 +938,7 @@ const TransactionDetails: React.FC = () => {
           )}
         </div>
 
+<<<<<<< HEAD
         {/* Right Sidebar - Transaction Summary */}
         <div className="space-y-4 md:space-y-6">
           {/* Transaction Summary */}
@@ -891,6 +958,30 @@ const TransactionDetails: React.FC = () => {
               <div className="flex justify-between items-center">
                 <span className="text-body text-gray-600">Updated</span>
                 <span className="text-body text-gray-900">{format(new Date(transaction.updated_at), 'PPp')}</span>
+=======
+        {/* Sidebar */}
+        <div className="space-y-6">
+          {/* Member Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="h-5 w-5" />
+                Member Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                <label className="text-sm font-medium text-gray-500">Name</label>
+                <p className="text-sm text-gray-900">{transaction.member_name}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-500">ID Number</label>
+                <p className="text-sm text-gray-900">{transaction.member_id_number}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-500">Phone</label>
+                <p className="text-sm text-gray-900">{transaction.member_phone}</p>
+>>>>>>> parent of c5cf51a (design update)
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-body text-gray-600">Created By</span>
@@ -920,6 +1011,7 @@ const TransactionDetails: React.FC = () => {
           {/* Branch Information */}
           <Card>
             <CardHeader>
+<<<<<<< HEAD
               <CardTitle className="text-heading-3">Branch</CardTitle>
             </CardHeader>
             <CardContent>
@@ -931,10 +1023,26 @@ const TransactionDetails: React.FC = () => {
                   <p className="text-body font-medium text-gray-900">{transaction.branch_name || 'Unknown Branch'}</p>
                   <p className="text-caption text-gray-500">{transaction.branch_address || 'No address'}</p>
                 </div>
+=======
+              <CardTitle className="flex items-center gap-2">
+                <Building className="h-5 w-5" />
+                Branch Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                <label className="text-sm font-medium text-gray-500">Branch Name</label>
+                <p className="text-sm text-gray-900">{transaction.branch_name}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-500">Address</label>
+                <p className="text-sm text-gray-900">{transaction.branch_address}</p>
+>>>>>>> parent of c5cf51a (design update)
               </div>
             </CardContent>
           </Card>
 
+<<<<<<< HEAD
           {/* Notes */}
           {transaction.notes && (
             <Card>
@@ -946,6 +1054,55 @@ const TransactionDetails: React.FC = () => {
               </CardContent>
             </Card>
           )}
+=======
+          {/* Loan Officer */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="h-5 w-5" />
+                Loan Officer
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                <label className="text-sm font-medium text-gray-500">Name</label>
+                <p className="text-sm text-gray-900">{transaction.loan_officer_name}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-500">Phone</label>
+                <p className="text-sm text-gray-900">{transaction.loan_officer_phone}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Transaction Metadata */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Info className="h-5 w-5" />
+                Transaction Info
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                <label className="text-sm font-medium text-gray-500">Created By</label>
+                <p className="text-sm text-gray-900">{transaction.created_by_name || 'System'}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-500">Created At</label>
+                <p className="text-sm text-gray-900">
+                  {format(new Date(transaction.created_at), 'MMM dd, yyyy HH:mm')}
+                </p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-500">Last Updated</label>
+                <p className="text-sm text-gray-900">
+                  {format(new Date(transaction.updated_at), 'MMM dd, yyyy HH:mm')}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+>>>>>>> parent of c5cf51a (design update)
         </div>
       </div>
     </div>

@@ -223,6 +223,7 @@ const MembersPage: React.FC = () => {
   }
 
   return (
+<<<<<<< HEAD
     <div className="space-y-4 md:space-y-6 p-3 sm:p-4 md:p-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -251,6 +252,87 @@ const MembersPage: React.FC = () => {
           <CardDescription className="text-body text-muted-foreground">
             Find specific members using search and filters
           </CardDescription>
+=======
+    <div className="space-y-6 p-2 sm:p-4 md:p-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
+            {userRole === 'loan_officer' ? 'My Assigned Members' : 'Members'}
+          </h1>
+          <p className="text-muted-foreground">
+            {userRole === 'loan_officer' 
+              ? 'View and manage members assigned to you by the super admin.'
+              : 'Manage and monitor all registered members.'
+            }
+          </p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <ExportDropdown 
+            data={dateFilteredMembers} 
+            columns={exportColumns} 
+            fileName="members-report" 
+            reportTitle="Members Report"
+            dateRange={dateRange}
+          />
+          <Button asChild><Link to="/members/new"><Plus className="h-4 w-4 mr-2" />New Member</Link></Button>
+        </div>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard title="Total Members" value={members.length} icon={Users} />
+        <StatCard title="Active Members" value={members.filter(m => m.status === 'active').length} icon={UserCheck} />
+        <StatCard title="With Loans" value={members.filter(m => m.total_loans > 0).length} icon={Banknote} />
+        <StatCard title="Total Outstanding" value={formatCurrency(members.reduce((sum, m) => sum + m.outstanding_balance, 0))} icon={DollarSign} />
+      </div>
+
+      {/* Search and Filters */}
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <CardTitle>Member Records</CardTitle>
+                <CardDescription>
+                  {userRole === 'loan_officer' 
+                    ? `Showing ${dateFilteredMembers.length} of ${filteredMembers.length} assigned members`
+                    : `Showing ${dateFilteredMembers.length} of ${filteredMembers.length} members`
+                  }
+                  {dateRange.from && dateRange.to && (
+                    <span className="text-brand-green-600 font-medium">
+                      {' '}• Filtered by date range
+                    </span>
+                  )}
+                </CardDescription>
+              </div>
+            </div>
+            
+            {/* Filters Row - Better positioned and spaced */}
+            <div className="flex flex-col lg:flex-row gap-4 w-full">
+              {/* Date Filter - Takes priority */}
+              <div className="flex-shrink-0">
+                <DateRangeFilter
+                  onDateRangeChange={setDateRange}
+                  placeholder="Filter by date"
+                  className="w-full lg:w-auto"
+                />
+              </div>
+              
+              {/* Search Filter */}
+              <div className="flex-1 min-w-0">
+                <div className="relative w-full">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    placeholder="Search by name, ID, or phone..." 
+                    value={searchTerm} 
+                    onChange={e => setSearchTerm(e.target.value)} 
+                    className="pl-9 w-full" 
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+>>>>>>> parent of c5cf51a (design update)
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
