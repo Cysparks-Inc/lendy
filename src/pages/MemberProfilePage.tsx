@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,13 +17,13 @@ import { DataTable } from '@/components/ui/data-table';
 
 // Import the dialog components
 import GenerateStatementDialog from '@/components/members/GenerateStatementDialog';
-import { LogCommunicationDialog } from '@/components/members/LogCommunicationDialog';
+import { LogCommunicationDialog } from '@/components/loans/LogCommunicationDialog';
+import { CommunicationLogs } from '@/components/loans/CommunicationLogs';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
 // --- Type Definitions ---
 interface NextOfKin { full_name: string; relationship: string; contact_number: string | null; }
 interface MemberLoan { id: string; principal_amount: number; current_balance: number; status: 'active' | 'repaid' | 'defaulted' | 'pending'; due_date: string; }
-interface CommunicationLog { id: number; created_at: string; communication_type: string; notes: string; officer_name: string | null; }
 interface MemberProfileData {
   id: string;
   first_name: string;
@@ -47,15 +48,16 @@ interface MemberProfileData {
 
 const MemberProfilePage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
   const [member, setMember] = useState<MemberProfileData | null>(null);
   const [loans, setLoans] = useState<MemberLoan[]>([]);
-  const [communicationLogs, setCommunicationLogs] = useState<CommunicationLog[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [isStatementDialogOpen, setIsStatementDialogOpen] = useState(false);
   const [isLogDialogOpen, setIsLogDialogOpen] = useState(false);
   const [loanOfficerName, setLoanOfficerName] = useState<string>('N/A');
   const [groupName, setGroupName] = useState<string>('N/A');
   const [branchName, setBranchName] = useState<string>('N/A');
+  const [communicationLogsKey, setCommunicationLogsKey] = useState(0); // For forcing refresh
 
   const fetchData = async () => {
     if (!id) return;
@@ -123,18 +125,6 @@ const MemberProfilePage: React.FC = () => {
           console.warn('Could not fetch loans:', error);
           loansRes = { data: [], error: null };
         }
-
-        // Try to fetch communication logs
-        let logsRes = { data: [], error: null };
-        try {
-          logsRes = await (supabase as any)
-            .from('communication_logs')
-            .select('*, officer:profiles(full_name)')
-            .eq('member_id', id)
-            .order('created_at', { ascending: false });
-        } catch (error: any) {
-          console.warn('Communication logs not available:', error);
-        }
         
         if (loansRes.error) {
           console.warn('Loans fetch error:', loansRes.error);
@@ -180,7 +170,6 @@ const MemberProfilePage: React.FC = () => {
         
         setMember(adaptedMember);
         setLoans(loansRes.data || []);
-        setCommunicationLogs(logsRes.data?.map(log => ({ ...log, officer_name: log.officer?.full_name })) || []);
         
         // Fetch additional member information
         await fetchAdditionalMemberInfo(adaptedMember);
@@ -240,7 +229,12 @@ const MemberProfilePage: React.FC = () => {
   
   useEffect(() => { fetchData(); }, [id]);
 
-  const onActionSuccess = () => fetchData();
+  const onActionSuccess = async () => {
+    // Refresh member data and loans
+    await fetchData();
+    // Also refresh communication logs
+    setCommunicationLogsKey(prev => prev + 1);
+  };
   
   const formatCurrency = (amount: number) => new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(amount || 0);
   const getStatusVariant = (status: MemberLoan['status']) => {
@@ -287,7 +281,7 @@ const MemberProfilePage: React.FC = () => {
                     <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                         <Button onClick={() => setIsLogDialogOpen(true)} variant="secondary" className="w-full sm:w-auto">
                             <History className="mr-2 h-4 w-4" /> 
-                            Log Activity
+                            Log Communication
                         </Button>
                         <Button asChild className="w-full sm:w-auto">
                             <Link to={`/loans/new?memberId=${member.id}&memberName=${encodeURIComponent(`${member.first_name} ${member.last_name}`)}`}>
@@ -429,17 +423,13 @@ const MemberProfilePage: React.FC = () => {
                                     />
                                 </TabsContent>
                                 <TabsContent value="communication" className="mt-6">
-                                    <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
-                                        {communicationLogs.length > 0 ? communicationLogs.map(log => (
-                                            <div key={log.id} className="p-3 rounded-md border bg-muted/50">
-                                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
-                                                    <p className="font-semibold text-sm">{log.officer_name || 'System'} via {log.communication_type}</p>
-                                                    <p className="text-xs text-muted-foreground">{new Date(log.created_at).toLocaleString()}</p>
-                                                </div>
-                                                <p className="text-sm">{log.notes}</p>
-                                            </div>
-                                        )) : <p className="text-center text-muted-foreground py-10">No communication has been logged.</p>}
-                                    </div>
+                                    <CommunicationLogs 
+                                        key={communicationLogsKey}
+                                        loanId={null}
+                                        memberId={id}
+                                        memberName={`${member.first_name} ${member.last_name}`}
+                                        onRefresh={onActionSuccess}
+                                    />
                                 </TabsContent>
                             </Tabs>
                         </CardContent>
@@ -448,8 +438,32 @@ const MemberProfilePage: React.FC = () => {
             </div>
         </div>
 
-        <GenerateStatementDialog open={isStatementDialogOpen} onOpenChange={setIsStatementDialogOpen} member={member} loans={loans} />
-        <LogCommunicationDialog open={isLogDialogOpen} onOpenChange={setIsLogDialogOpen} member={member} onLogSuccess={onActionSuccess} />
+        <GenerateStatementDialog 
+          open={isStatementDialogOpen} 
+          onOpenChange={setIsStatementDialogOpen} 
+          member={member ? {
+            full_name: `${member.first_name} ${member.last_name}`,
+            id_number: member.id_number,
+            phone_number: member.phone_number,
+            branch_name: branchName,
+            assigned_officer_name: loanOfficerName
+          } : null}
+          loans={loans.map(loan => ({
+            account_number: loan.id.slice(0, 8) + '...',
+            principal_amount: loan.principal_amount,
+            current_balance: loan.current_balance,
+            status: loan.status,
+            due_date: loan.due_date
+          }))}
+        />
+        <LogCommunicationDialog 
+          open={isLogDialogOpen} 
+          onOpenChange={setIsLogDialogOpen} 
+          loanId={null}
+          memberId={member.id}
+          memberName={`${member.first_name} ${member.last_name}`}
+          onLogSuccess={onActionSuccess} 
+        />
     </>
   );
 };

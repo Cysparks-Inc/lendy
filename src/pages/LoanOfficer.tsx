@@ -223,6 +223,23 @@ const LoanOfficerPage: React.FC = () => {
     },
   ];
 
+  // Export columns configuration
+  const exportColumns = [
+    { header: 'Officer Name', accessorKey: 'name' },
+    { header: 'Email', accessorKey: 'email' },
+    { header: 'Phone', accessorKey: 'phone' },
+    { header: 'Branch', accessorKey: 'branch_name' },
+    { header: 'Total Loans', accessorKey: 'total_loans' },
+    { header: 'Active Loans', accessorKey: 'active_loans' },
+    { header: 'Pending Loans', accessorKey: 'pending_loans' },
+    { header: 'Completed Loans', accessorKey: 'completed_loans' },
+    { header: 'Defaulted Loans', accessorKey: 'defaulted_loans' },
+    { header: 'Total Portfolio', accessorKey: (row: LoanOfficer) => formatCurrency(row.total_portfolio || 0) },
+    { header: 'Outstanding Balance', accessorKey: (row: LoanOfficer) => formatCurrency(row.total_balance || 0) },
+    { header: 'Performance Score', accessorKey: (row: LoanOfficer) => `${Math.round(row.performance || 0)}%` },
+    { header: 'Status', accessorKey: 'status' },
+  ];
+
   const totalOutstanding = officers.reduce((sum, o) => sum + (o.total_balance || 0), 0);
   const totalDisbursed = officers.reduce((sum, o) => sum + (o.total_disbursed || 0), 0);
   const activeOfficers = officers.filter(o => o.status === 'active').length;
@@ -242,9 +259,17 @@ const LoanOfficerPage: React.FC = () => {
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Loan Officers</h1>
           <p className="text-muted-foreground">Manage loan officer profiles and performance.</p>
         </div>
-        {userRole === 'super_admin' && (
-          <Button asChild><Link to="/users/new"><Plus className="h-4 w-4 mr-2" />Add Officer</Link></Button>
-        )}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <ExportDropdown 
+            data={officers} 
+            columns={exportColumns} 
+            fileName="loan-officers-report" 
+            reportTitle="Loan Officers Report"
+          />
+          {userRole === 'super_admin' && (
+            <Button asChild><Link to="/users/new"><Plus className="h-4 w-4 mr-2" />Add Officer</Link></Button>
+          )}
+        </div>
       </div>
 
       {/* Summary Stats */}

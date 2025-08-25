@@ -4,16 +4,19 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Loader2, Banknote, Calendar, TrendingUp, DollarSign } from 'lucide-react';
+import { ArrowLeft, Loader2, Banknote, Calendar, TrendingUp, DollarSign, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { ManualPaymentEntry } from '@/components/loans/ManualPaymentEntry';
 import { PaymentHistory } from '@/components/loans/PaymentHistory';
-import { CollectionLogs } from '@/components/loans/CollectionLogs';
+
+import { CommunicationLogs } from '@/components/loans/CommunicationLogs';
+import { LogCommunicationDialog } from '@/components/loans/LogCommunicationDialog';
 
 // --- Type Definitions ---
 interface LoanDetails {
   id: string;
+  member_id: string;
   member_name: string;
   principal_amount: number;
   account_number: string;
@@ -31,6 +34,13 @@ const LoanDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [loan, setLoan] = useState<LoanDetails | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [isCommunicationDialogOpen, setIsCommunicationDialogOpen] = useState(false);
+  const [communicationLogsKey, setCommunicationLogsKey] = useState(0); // For forcing refresh
+
+  // Function to refresh communication logs
+  const refreshCommunicationLogs = () => {
+    setCommunicationLogsKey(prev => prev + 1);
+  };
 
   // This function is now just for the initial load and background consistency checks
   const fetchLoanDetails = async () => {
@@ -58,6 +68,7 @@ const LoanDetailsPage: React.FC = () => {
       // Step 3: Transform the data
       const transformedLoan: LoanDetails = {
         id: loanData.id,
+        member_id: memberId || '',
         member_name: memberRes?.data?.full_name || `Unknown Member (${memberId?.slice(0, 8) || 'N/A'})`,
         principal_amount: loanData.principal_amount || 0,
         account_number: loanData.application_no || loanData.id.slice(0, 8),
@@ -131,7 +142,17 @@ const LoanDetailsPage: React.FC = () => {
             <Link to="/loans"><ArrowLeft className="mr-2 h-4 w-4" />Back to Loans</Link>
           </Button>
           <h1 className="text-3xl font-bold text-foreground">Loan Account: {loan.account_number}</h1>
-          <p className="text-muted-foreground">Managing loan for member: <strong>{loan.member_name}</strong></p>
+          <div className="flex items-center gap-3">
+            <p className="text-muted-foreground">Managing loan for member: <strong>{loan.member_name}</strong></p>
+            {loan.member_id && (
+              <Button asChild variant="outline" size="sm">
+                <Link to={`/members/${loan.member_id}`}>
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  View Member Profile
+                </Link>
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -148,15 +169,30 @@ const LoanDetailsPage: React.FC = () => {
           <Tabs defaultValue="payment_history">
             <TabsList>
               <TabsTrigger value="payment_history">Payment History</TabsTrigger>
-              <TabsTrigger value="collection_logs">Collection Logs</TabsTrigger>
+              <TabsTrigger value="communication_logs">Communication Logs</TabsTrigger>
               <TabsTrigger value="loan_details">Full Details</TabsTrigger>
             </TabsList>
             <TabsContent value="payment_history">
               {/* This component will refetch itself on the new payment, showing the new record */}
               <PaymentHistory loanId={loan.id} />
             </TabsContent>
-            <TabsContent value="collection_logs">
-              <CollectionLogs loanId={loan.id} />
+            <TabsContent value="communication_logs">
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-semibold">All Communications & Follow-ups</h3>
+                  <Button onClick={() => setIsCommunicationDialogOpen(true)}>
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    Log Communication
+                  </Button>
+                </div>
+                <CommunicationLogs 
+                  key={communicationLogsKey}
+                  loanId={loan.id} 
+                  memberId={loan.member_id || null} 
+                  memberName={loan.member_name}
+                  onRefresh={refreshCommunicationLogs} // Pass the refresh function
+                />
+              </div>
             </TabsContent>
             <TabsContent value="loan_details">
               <Card>
@@ -176,6 +212,19 @@ const LoanDetailsPage: React.FC = () => {
           <ManualPaymentEntry loan={loan} onPaymentSuccess={handlePaymentSuccess} />
         </div>
       </div>
+
+      {/* Communication Log Dialog */}
+      <LogCommunicationDialog
+        open={isCommunicationDialogOpen}
+        onOpenChange={setIsCommunicationDialogOpen}
+        loanId={loan.id}
+        memberId={loan.member_id}
+        memberName={loan.member_name}
+        onLogSuccess={() => {
+          // Refresh the communication logs
+          refreshCommunicationLogs();
+        }}
+      />
     </div>
   );
 };

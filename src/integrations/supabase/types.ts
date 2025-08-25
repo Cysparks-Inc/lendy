@@ -318,6 +318,67 @@ export type Database = {
         }
         Relationships: []
       }
+      communication_logs: {
+        Row: {
+          id: string
+          member_id: string | null
+          loan_id: string | null
+          officer_id: string | null
+          communication_type: string
+          notes: string
+          follow_up_date: string | null
+          follow_up_notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          member_id?: string | null
+          loan_id?: string | null
+          officer_id?: string | null
+          communication_type: string
+          notes: string
+          follow_up_date?: string | null
+          follow_up_notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          member_id?: string | null
+          loan_id?: string | null
+          officer_id?: string | null
+          communication_type?: string
+          notes?: string
+          follow_up_date?: string | null
+          follow_up_notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communication_logs_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communication_logs_loan_id_fkey"
+            columns: ["loan_id"]
+            isOneToOne: false
+            referencedRelation: "loans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communication_logs_officer_id_fkey"
+            columns: ["officer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       realizable_assets: {
         Row: {
           asset_type: string

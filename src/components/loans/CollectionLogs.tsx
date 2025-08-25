@@ -25,10 +25,10 @@ export const CollectionLogs = ({ loanId }) => {
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('collection_logs')
+        .from('communication_logs')
         .select('*, officer:profiles(full_name)')
         .eq('loan_id', loanId)
-        .order('log_date', { ascending: false });
+        .order('created_at', { ascending: false });
       
       if (error) throw error;
       setLogs(data || []);
@@ -56,13 +56,15 @@ export const CollectionLogs = ({ loanId }) => {
     try {
       const newLog = {
         loan_id: loanId,
+        member_id: null, // Will be populated from the loan's member_id if needed
         officer_id: user.id,
-        contact_method: contactMethod,
+        communication_type: contactMethod,
         notes: notes,
-        next_follow_up_date: nextFollowUp || null,
+        follow_up_date: nextFollowUp || null,
+        follow_up_notes: null,
       };
 
-      const { error } = await supabase.from('collection_logs').insert(newLog);
+      const { error } = await supabase.from('communication_logs').insert(newLog);
       if (error) throw error;
 
       toast.success('Collection log added successfully.');
@@ -135,13 +137,13 @@ export const CollectionLogs = ({ loanId }) => {
               {logs.map(log => (
                 <div key={log.id} className="p-3 rounded-md border bg-muted/50">
                   <div className="flex justify-between items-center mb-1">
-                    <p className="font-semibold text-sm">{log.officer?.full_name || 'N/A'} via {log.contact_method}</p>
-                    <p className="text-xs text-muted-foreground">{formatDate(log.log_date)}</p>
-                  </div>
-                  <p className="text-sm">{log.notes}</p>
-                  {log.next_follow_up_date && (
-                    <p className="text-xs mt-2 font-medium text-blue-600">Next Follow-up: {new Date(log.next_follow_up_date).toLocaleDateString('en-KE')}</p>
-                  )}
+                                      <p className="font-semibold text-sm">{log.officer?.full_name || 'N/A'} via {log.communication_type}</p>
+                  <p className="text-xs text-muted-foreground">{formatDate(log.created_at)}</p>
+                </div>
+                <p className="text-sm">{log.notes}</p>
+                {log.follow_up_date && (
+                  <p className="text-xs mt-2 font-medium text-blue-600">Next Follow-up: {new Date(log.follow_up_date).toLocaleDateString('en-KE')}</p>
+                )}
                 </div>
               ))}
             </div>

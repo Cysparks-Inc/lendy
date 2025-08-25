@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader } from '@/components/ui/loader';
+import { PageLoader, ButtonLoader } from '@/components/ui/loader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,21 +28,7 @@ const Auth = () => {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-green-50 via-white to-brand-green-100">
-        <div className="text-center">
-          <div className="flex justify-center mb-6">
-            <img 
-              src="/lovable-uploads/d7fc2e96-c700-49a2-be74-507880e07deb.png" 
-              alt="Napol Logo" 
-              className="h-24 w-24 object-contain animate-pulse"
-            />
-          </div>
-          <Loader size="lg" />
-          <p className="text-muted-foreground mt-4">Loading your dashboard...</p>
-        </div>
-      </div>
-    );
+    return <PageLoader text="Loading your dashboard..." />;
   }
 
   return (
@@ -148,7 +134,7 @@ const Auth = () => {
               >
                 {isSubmitting ? (
                   <div className="flex items-center gap-2">
-                    <Loader size="sm" />
+                    <ButtonLoader size="sm" />
                     <span>Signing In...</span>
                   </div>
                 ) : (
@@ -169,7 +155,7 @@ const Auth = () => {
         {/* Footer */}
         <div className="text-center mt-8">
           <p className="text-xs text-muted-foreground">
-            © 2024 Napol Microfinance. All rights reserved.
+            © 2025 Napol Microfinance. All rights reserved.
           </p>
         </div>
       </div>

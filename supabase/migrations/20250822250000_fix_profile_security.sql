@@ -1,7 +1,13 @@
--- Fix Profile Security - Prevent users from editing critical fields
--- This migration ensures users can only edit personal details, not their role or branch
+-- Migration: Fix Profile Security and Allow Super Admin Role/Branch Changes
+-- This migration:
+-- 1. Creates a secure profile update trigger that allows super admins to change any field
+-- 2. Prevents non-super admins from changing critical fields (role, branch_id, created_by)
+-- 3. Sets up proper RLS policies for the profiles table
+-- 4. Creates an admin function for role/branch changes (backup method)
+-- 5. Sets up audit logging for role changes
+-- 6. Handles existing objects gracefully to prevent conflicts
 
--- Step 1: Create a secure profile update function
+-- Step 1: Create a secure function for updating personal profile details
 CREATE OR REPLACE FUNCTION update_profile_personal_details(
     user_id uuid,
     full_name text DEFAULT NULL,
@@ -51,6 +57,13 @@ GRANT EXECUTE ON FUNCTION update_profile_personal_details TO authenticated;
 GRANT SELECT ON user_profile_view TO authenticated;
 
 -- Step 4: Create RLS policy for profiles table
+-- Drop existing policies first to avoid conflicts
+DROP POLICY IF EXISTS "Users can view own profile" ON profiles;
+DROP POLICY IF EXISTS "Users can update own profile through function" ON profiles;
+DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
+DROP POLICY IF EXISTS "Super admins can manage all profiles" ON profiles;
+DROP POLICY IF EXISTS "Branch admins can view profiles in their branch" ON profiles;
+
 -- Users can only read their own profile
 CREATE POLICY "Users can view own profile" ON profiles
     FOR SELECT USING (auth.uid() = id);
@@ -64,8 +77,18 @@ CREATE OR REPLACE FUNCTION prevent_critical_field_updates()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 AS $$
+DECLARE
+    current_user_role text;
 BEGIN
-    -- Prevent updates to critical fields
+    -- Get the current user's role
+    SELECT role INTO current_user_role FROM profiles WHERE id = auth.uid();
+    
+    -- Super admins can change any field
+    IF current_user_role = 'super_admin' THEN
+        RETURN NEW;
+    END IF;
+    
+    -- Prevent updates to critical fields for non-super admins
     IF OLD.role != NEW.role THEN
         RAISE EXCEPTION 'Role cannot be changed through direct updates. Use admin functions instead.';
     END IF;
@@ -103,6 +126,8 @@ SECURITY DEFINER
 AS $$
 DECLARE
     admin_role text;
+    old_role text;
+    old_branch_id integer;
 BEGIN
     -- Only super admins can change roles
     SELECT role INTO admin_role FROM profiles WHERE id = admin_user_id;
@@ -110,6 +135,9 @@ BEGIN
     IF admin_role != 'super_admin' THEN
         RAISE EXCEPTION 'Only super admins can change user roles';
     END IF;
+    
+    -- Get the old values before updating
+    SELECT role, branch_id INTO old_role, old_branch_id FROM profiles WHERE id = target_user_id;
     
     -- Update the user's role and branch
     UPDATE profiles 
@@ -125,7 +153,7 @@ BEGIN
         'UPDATE_ROLE',
         'profiles',
         target_user_id,
-        jsonb_build_object('role', (SELECT role FROM profiles WHERE id = target_user_id)),
+        jsonb_build_object('role', old_role, 'branch_id', old_branch_id),
         jsonb_build_object('role', new_role, 'branch_id', new_branch_id),
         admin_user_id
     );
@@ -133,7 +161,18 @@ END;
 $$;
 
 -- Step 8: Grant admin function permissions
-GRANT EXECUTE ON FUNCTION admin_update_user_role TO authenticated;
+DO $$
+BEGIN
+    -- Grant EXECUTE permission if not already granted
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.routine_privileges 
+        WHERE routine_name = 'admin_update_user_role' 
+        AND privilege_type = 'EXECUTE' 
+        AND grantee = 'authenticated'
+    ) THEN
+        GRANT EXECUTE ON FUNCTION admin_update_user_role TO authenticated;
+    END IF;
+END $$;
 
 -- Step 9: Create audit_logs table if it doesn't exist
 CREATE TABLE IF NOT EXISTS audit_logs (
@@ -147,6 +186,26 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     created_at timestamp with time zone DEFAULT NOW()
 );
 
--- Step 10: Grant permissions on audit_logs
-GRANT SELECT ON audit_logs TO authenticated;
-GRANT INSERT ON audit_logs TO authenticated;
+-- Step 10: Grant permissions on audit_logs (only if not already granted)
+DO $$
+BEGIN
+    -- Grant SELECT permission if not already granted
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.role_table_grants 
+        WHERE table_name = 'audit_logs' 
+        AND privilege_type = 'SELECT' 
+        AND grantee = 'authenticated'
+    ) THEN
+        GRANT SELECT ON audit_logs TO authenticated;
+    END IF;
+    
+    -- Grant INSERT permission if not already granted
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.role_table_grants 
+        WHERE table_name = 'audit_logs' 
+        AND privilege_type = 'INSERT' 
+        AND grantee = 'authenticated'
+    ) THEN
+        GRANT INSERT ON audit_logs TO authenticated;
+    END IF;
+END $$;

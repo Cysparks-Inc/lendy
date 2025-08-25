@@ -99,24 +99,33 @@ const UserFormPage: React.FC = () => {
         try {
             if (isEditMode) {
                 // UPDATE user logic
-                const { error: profileError } = await supabase
-                    .from('profiles')
-                    .update({
-                        full_name: data.full_name,
-                        phone_number: data.phone_number,
-                        role: data.role,
-                        branch_id: data.branch_id ? Number(data.branch_id) : null
-                    })
-                    .eq('id', userId);
-                if (profileError) throw profileError;
-                
-                // Optionally update password if provided
-                if (data.password) {
-                    // This requires an edge function for security
-                    await supabase.functions.invoke('update-user-password', { body: { userId, password: data.password } });
+                try {
+                    // Update all profile fields
+                    const { error: profileError } = await supabase
+                        .from('profiles')
+                        .update({
+                            full_name: data.full_name,
+                            phone_number: data.phone_number,
+                            role: data.role,
+                            branch_id: data.branch_id ? Number(data.branch_id) : null
+                        })
+                        .eq('id', userId);
+                    
+                    if (profileError) throw profileError;
+                    
+                    // Optionally update password if provided
+                    if (data.password) {
+                        // This requires an edge function for security
+                        await supabase.functions.invoke('update-user-password', { body: { userId, password: data.password } });
+                    }
+                    
+                    toast.success("User updated successfully!");
+                    navigate('/users');
+                    
+                } catch (error: any) {
+                    console.error('Update error:', error);
+                    toast.error(`Failed to update user: ${error.message}`);
                 }
-                toast.success("User updated successfully!");
-                navigate('/users');
 
             } else {
                 // CREATE user logic

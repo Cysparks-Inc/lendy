@@ -17,6 +17,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { InlineLoader } from '@/components/ui/loader';
 
 // Helper function for currency formatting
 const formatCurrency = (amount: number) => new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(amount || 0);
@@ -224,7 +225,7 @@ const Dashboard: React.FC = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <InlineLoader />
       </div>
     );
   }
@@ -255,7 +256,7 @@ const Dashboard: React.FC = () => {
             disabled={loading}
             className="flex items-center gap-2"
           >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            {loading ? <InlineLoader /> : <RefreshCw className="h-4 w-4" />}
             Refresh
           </Button>
         </div>
