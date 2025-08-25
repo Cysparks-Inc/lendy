@@ -335,9 +335,7 @@ const Groups: React.FC = () => {
           phone_number,
           status,
           address,
-          created_at,
-          assigned_officer_id,
-          monthly_income
+          created_at
         `)
         .eq('group_id', group.id)
         .eq('status', 'active')
@@ -350,24 +348,6 @@ const Groups: React.FC = () => {
       } else {
         console.log('Members data:', members);
         
-        // Get loan officer names for assigned officers
-        const officerIds = [...new Set(members?.map(m => m.assigned_officer_id).filter(Boolean) || [])];
-        let officerNames: { [key: string]: string } = {};
-        
-        if (officerIds.length > 0) {
-          const { data: officers, error: officerError } = await supabase
-            .from('profiles')
-            .select('id, full_name')
-            .in('id', officerIds);
-          
-          if (!officerError && officers) {
-            officerNames = officers.reduce((acc, officer) => {
-              acc[officer.id] = officer.full_name;
-              return acc;
-            }, {} as { [key: string]: string });
-          }
-        }
-        
         // Transform to match GroupMember interface
         const transformedMembers = (members || []).map(member => ({
           id: member.id,
@@ -375,16 +355,14 @@ const Groups: React.FC = () => {
           id_number: member.id_number,
           phone_number: member.phone_number,
           status: member.status || 'active',
-          assigned_officer_id: member.assigned_officer_id || '',
-          loan_officer_name: member.assigned_officer_id ? 
-            (officerNames[member.assigned_officer_id] || 'Unknown Officer') : 
-            'Not Assigned',
+          assigned_officer_id: '', // Not available in current schema
+          loan_officer_name: 'Not Assigned', // Not available in current schema
           total_loans: 0,
           active_loans: 0,
           total_outstanding: 0,
           last_loan_date: '',
           member_since: member.created_at,
-          monthly_income: member.monthly_income || 0,
+          monthly_income: 0, // Not available in current schema
           profession: 'Not Specified', // Not available in current schema
           address: member.address || ''
         }));
@@ -769,17 +747,17 @@ const Groups: React.FC = () => {
 
   return (
     <>
-      <div className="space-y-6 p-2 sm:p-4 md:p-6">
+      <div className="space-y-4 md:space-y-6 p-3 sm:p-4 md:p-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Group Management</h1>
-            <p className="text-muted-foreground mt-1">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">Group Management</h1>
+            <p className="text-muted-foreground mt-1 text-sm md:text-base">
               Manage member groups and monitor their performance metrics.
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={fetchGroups} disabled={loading}>
+          <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+            <Button variant="outline" onClick={fetchGroups} disabled={loading} className="w-full sm:w-auto">
               {loading ? (
                 <InlineLoader size="sm" variant="primary" />
               ) : (
@@ -787,7 +765,7 @@ const Groups: React.FC = () => {
               )}
               Refresh
             </Button>
-            <Button onClick={() => openDialog()}>
+            <Button onClick={() => openDialog()} className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               New Group
             </Button>
@@ -795,89 +773,91 @@ const Groups: React.FC = () => {
         </div>
 
         {/* Summary Stats */}
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="pb-2">
+        <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
+          <Card className="p-3 sm:p-4">
+            <CardHeader className="pb-2 px-0 pt-0">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <Users className="h-4 w-4 text-muted-foreground" />
-                Total Groups
+                <span className="hidden sm:inline">Total Groups</span>
+                <span className="sm:hidden">Groups</span>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{groups.length}</div>
-              <p className="text-xs text-muted-foreground">Active groups</p>
+            <CardContent className="px-0 pb-0">
+              <div className="text-xl md:text-2xl font-bold">{groups.length}</div>
+              <p className="text-xs text-muted-foreground hidden sm:block">Active groups</p>
             </CardContent>
           </Card>
           
-          <Card>
-            <CardHeader className="pb-2">
+          <Card className="p-3 sm:p-4">
+            <CardHeader className="pb-2 px-0 pt-0">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <UserCheck className="h-4 w-4 text-muted-foreground" />
-                Total Members
+                <span className="hidden sm:inline">Total Members</span>
+                <span className="sm:hidden">Members</span>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+            <CardContent className="px-0 pb-0">
+              <div className="text-xl md:text-2xl font-bold">
                 {groups.reduce((sum, g) => sum + (g.member_count || 0), 0)}
               </div>
-              <p className="text-xs text-muted-foreground">
-                Across all groups
-              </p>
+              <p className="text-xs text-muted-foreground hidden sm:block">Across all groups</p>
             </CardContent>
           </Card>
           
-          <Card>
-            <CardHeader className="pb-2">
+          <Card className="p-3 sm:p-4">
+            <CardHeader className="pb-2 px-0 pt-0">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <CreditCard className="h-4 w-4 text-muted-foreground" />
-                Total Portfolio
+                <span className="hidden sm:inline">Total Portfolio</span>
+                <span className="sm:hidden">Portfolio</span>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+            <CardContent className="px-0 pb-0">
+              <div className="text-xl md:text-2xl font-bold">
                 {formatCurrency(groups.reduce((sum, g) => sum + (g.total_portfolio || 0), 0))}
               </div>
-              <p className="text-xs text-muted-foreground">Group portfolios</p>
+              <p className="text-xs text-muted-foreground hidden sm:block">Group portfolios</p>
             </CardContent>
           </Card>
           
-          <Card>
-            <CardHeader className="pb-2">
+          <Card className="p-3 sm:p-4">
+            <CardHeader className="pb-2 px-0 pt-0">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
-                Active Loans
+                <span className="hidden sm:inline">Active Loans</span>
+                <span className="sm:hidden">Loans</span>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+            <CardContent className="px-0 pb-0">
+              <div className="text-xl md:text-2xl font-bold">
                 {groups.reduce((sum, g) => sum + (g.active_loans || 0), 0)}
               </div>
-              <p className="text-xs text-muted-foreground">Across all groups</p>
+              <p className="text-xs text-muted-foreground hidden sm:block">Across all groups</p>
             </CardContent>
           </Card>
         </div>
 
         {/* Main Content - Groups List and Details */}
-        <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
+        <div className="grid gap-4 md:gap-6 grid-cols-1 lg:grid-cols-3">
           {/* Groups List */}
           <div className="lg:col-span-1 space-y-4">
             <Card>
               <CardHeader>
-                <div className="flex justify-between items-center">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                   <CardTitle className="text-lg">Groups</CardTitle>
-                  <div className="relative w-48">
+                  <div className="relative w-full sm:w-48">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input 
                       placeholder="Search groups..." 
                       value={searchTerm} 
                       onChange={(e) => setSearchTerm(e.target.value)} 
-                      className="pl-9" 
+                      className="pl-9 w-full" 
                     />
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2 max-h-96 overflow-y-auto">
+                <div className="space-y-2 max-h-80 md:max-h-96 overflow-y-auto">
                   {filteredGroups.map(group => (
                     <div 
                       key={group.id} 
@@ -889,17 +869,17 @@ const Groups: React.FC = () => {
                       onClick={() => fetchGroupDetails(group)}
                     >
                       <div className="flex justify-between items-start">
-                        <div>
-                          <div className="font-medium">{group.name}</div>
-                          <div className="text-sm text-muted-foreground">{group.branch_name}</div>
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium truncate text-sm md:text-base">{group.name}</div>
+                          <div className="text-xs md:text-sm text-muted-foreground truncate">{group.branch_name}</div>
                         </div>
-                        <div className="text-right">
-                          <Badge variant="secondary">{group.member_count || 0}</Badge>
+                        <div className="text-right ml-2 flex-shrink-0">
+                          <Badge variant="secondary" className="text-xs">{group.member_count || 0}</Badge>
                         </div>
                       </div>
                       <div className="mt-2 flex justify-between text-xs text-muted-foreground">
-                        <span>{group.active_loans || 0} loans</span>
-                        <span>{formatCurrency(group.total_portfolio || 0)}</span>
+                        <span className="truncate">{group.active_loans || 0} loans</span>
+                        <span className="truncate ml-2">{formatCurrency(group.total_portfolio || 0)}</span>
                       </div>
                     </div>
                   ))}
@@ -921,53 +901,57 @@ const Groups: React.FC = () => {
                 {/* Group Header */}
                 <Card>
                   <CardHeader>
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <CardTitle className="flex items-center gap-2">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                      <div className="min-w-0 flex-1">
+                        <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
                           <Users className="h-5 w-5" />
-                          {selectedGroup.name}
+                          <span className="truncate">{selectedGroup.name}</span>
                         </CardTitle>
-                        <CardDescription>
+                        <CardDescription className="truncate">
                           {selectedGroup.branch_name} • Created {formatDate(selectedGroup.created_at)}
                         </CardDescription>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                         <Button 
                           onClick={() => openManageMembersDialog(selectedGroup)}
                           variant="outline"
                           size="sm"
+                          className="w-full sm:w-auto"
                         >
                           <UserPlus className="h-4 w-4 mr-2" />
-                          Manage Members
+                          <span className="hidden sm:inline">Manage Members</span>
+                          <span className="sm:hidden">Members</span>
                         </Button>
                         <Button 
                           onClick={() => openDialog(selectedGroup)}
                           variant="outline"
                           size="sm"
+                          className="w-full sm:w-auto"
                         >
                           <Edit className="h-4 w-4 mr-2" />
-                          Edit Group
+                          <span className="hidden sm:inline">Edit Group</span>
+                          <span className="sm:hidden">Edit</span>
                         </Button>
                       </div>
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
                       <div className="text-center">
-                        <div className="text-2xl font-bold text-blue-600">{selectedGroup.member_count}</div>
-                        <div className="text-sm text-muted-foreground">Members</div>
+                        <div className="text-xl md:text-2xl font-bold text-blue-600">{selectedGroup.member_count}</div>
+                        <div className="text-xs md:text-sm text-muted-foreground">Members</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-2xl font-bold text-green-600">{selectedGroup.active_loans}</div>
-                        <div className="text-sm text-muted-foreground">Active Loans</div>
+                        <div className="text-xl md:text-2xl font-bold text-green-600">{selectedGroup.active_loans}</div>
+                        <div className="text-xs md:text-sm text-muted-foreground">Active Loans</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-2xl font-bold text-purple-600">{formatCurrency(selectedGroup.total_portfolio)}</div>
-                        <div className="text-sm text-muted-foreground">Portfolio</div>
+                        <div className="text-xl md:text-2xl font-bold text-purple-600">{formatCurrency(selectedGroup.total_portfolio)}</div>
+                        <div className="text-xs md:text-sm text-muted-foreground">Portfolio</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-2xl font-bold text-orange-600">{formatCurrency(selectedGroup.avg_loan_size)}</div>
-                        <div className="text-sm text-muted-foreground">Avg Loan Size</div>
+                        <div className="text-xl md:text-2xl font-bold text-orange-600">{formatCurrency(selectedGroup.avg_loan_size)}</div>
+                        <div className="text-xs md:text-sm text-muted-foreground">Avg Loan Size</div>
                       </div>
                     </div>
                   </CardContent>
@@ -976,38 +960,36 @@ const Groups: React.FC = () => {
                 {/* Group Members */}
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 text-lg">
                       <UserCheck className="h-5 w-5" />
                       Group Members ({groupMembers.length})
                     </CardTitle>
-                    <CardDescription>Click on a member to view their profile</CardDescription>
+                    <CardDescription className="text-sm">Click on a member to view their profile</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
                       {groupMembers.map(member => (
                         <div 
                           key={member.id} 
-                          className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                          className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors gap-3"
                           onClick={() => window.open(`/members/${member.id}`, '_blank')}
                         >
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
                               <Users className="h-5 w-5 text-blue-600" />
                             </div>
-                            <div>
-                              <div className="font-medium">{member.full_name}</div>
-                              <div className="text-sm text-muted-foreground">
+                            <div className="min-w-0 flex-1">
+                              <div className="font-medium truncate text-sm md:text-base">{member.full_name}</div>
+                              <div className="text-xs md:text-sm text-muted-foreground truncate">
                                 {member.id_number} • {member.phone_number}
                               </div>
-                              <div className="text-xs text-muted-foreground">
+                              <div className="text-xs text-muted-foreground truncate">
                                 {member.profession} • {formatCurrency(member.monthly_income || 0)}/month
                               </div>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <div className="text-xs text-muted-foreground">
-                              Member since {formatDate(member.member_since)}
-                            </div>
+                          <div className="text-right text-xs text-muted-foreground flex-shrink-0">
+                            <div className="whitespace-nowrap">Member since {formatDate(member.member_since)}</div>
                           </div>
                         </div>
                       ))}
@@ -1024,10 +1006,10 @@ const Groups: React.FC = () => {
               </>
             ) : (
               <Card>
-                <CardContent className="text-center py-12 text-muted-foreground">
-                  <Users className="mx-auto h-16 w-16 mb-4" />
+                <CardContent className="text-center py-8 md:py-12 text-muted-foreground">
+                  <Users className="mx-auto h-12 md:h-16 w-12 md:w-16 mb-4" />
                   <h3 className="text-lg font-semibold mb-2">Select a Group</h3>
-                  <p>Choose a group from the left panel to view its details and manage members</p>
+                  <p className="text-sm md:text-base">Choose a group from the left panel to view its details and manage members</p>
                 </CardContent>
               </Card>
             )}
@@ -1037,12 +1019,12 @@ const Groups: React.FC = () => {
 
       {/* Create/Edit Group Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-md mx-4">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="text-lg">
               {editingGroup ? 'Edit Group' : 'Create New Group'}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-sm">
               {editingGroup 
                 ? 'Update the details for this group.' 
                 : 'Add a new group to organize members.'
@@ -1050,29 +1032,31 @@ const Groups: React.FC = () => {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleFormSubmit} className="space-y-4 pt-4">
-            <div>
-              <Label htmlFor="name">Group Name</Label>
+            <div className="space-y-2">
+              <Label htmlFor="name" className="text-sm font-medium">Group Name</Label>
               <Input 
                 id="name" 
                 value={formData.name} 
                 onChange={(e) => setFormData({...formData, name: e.target.value})} 
                 placeholder="e.g., Youth Group, Women's Group" 
                 required 
+                className="w-full"
               />
             </div>
-            <div>
-              <Label htmlFor="description">Description</Label>
+            <div className="space-y-2">
+              <Label htmlFor="description" className="text-sm font-medium">Description</Label>
               <Input 
                 id="description" 
                 value={formData.description} 
                 onChange={(e) => setFormData({...formData, description: e.target.value})} 
                 placeholder="Brief description of the group" 
+                className="w-full"
               />
             </div>
-            <div>
-              <Label htmlFor="branch_id">Branch</Label>
+            <div className="space-y-2">
+              <Label htmlFor="branch_id" className="text-sm font-medium">Branch</Label>
               <Select value={formData.branch_id} onValueChange={(value) => setFormData({...formData, branch_id: value})}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select a branch" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1084,11 +1068,11 @@ const Groups: React.FC = () => {
                 </SelectContent>
               </Select>
             </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={closeDialog}>
+            <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-4">
+              <Button type="button" variant="outline" onClick={closeDialog} className="w-full sm:w-auto">
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
                 {isSubmitting ? (
                   <ButtonLoader size="sm" />
                 ) : (
@@ -1103,19 +1087,19 @@ const Groups: React.FC = () => {
       
       {/* Delete Confirmation Dialog */}
       <Dialog open={!!deleteCandidate} onOpenChange={() => setDeleteCandidate(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md mx-4">
           <DialogHeader>
-            <DialogTitle>Confirm Deletion</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-lg">Confirm Deletion</DialogTitle>
+            <DialogDescription className="text-sm">
               Are you sure you want to delete the group: <strong>{deleteCandidate?.name}</strong>? 
               This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="pt-4">
-            <Button variant="outline" onClick={() => setDeleteCandidate(null)} disabled={isDeleting}>
+          <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-4">
+            <Button variant="outline" onClick={() => setDeleteCandidate(null)} disabled={isDeleting} className="w-full sm:w-auto">
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleConfirmDelete} disabled={isDeleting}>
+            <Button variant="destructive" onClick={handleConfirmDelete} disabled={isDeleting} className="w-full sm:w-auto">
               {isDeleting ? (
                 <ButtonLoader size="sm" />
               ) : (
@@ -1129,34 +1113,34 @@ const Groups: React.FC = () => {
 
       {/* Manage Group Members Dialog */}
       <Dialog open={manageMembersDialogOpen} onOpenChange={setManageMembersDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden mx-4">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 text-lg">
               <UserPlus className="h-5 w-5" />
-              Manage Members - {selectedGroup?.name}
+              <span className="truncate">Manage Members - {selectedGroup?.name}</span>
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-sm">
               Add existing members to this group or remove current members
             </DialogDescription>
           </DialogHeader>
           
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 h-full">
             {/* Available Members to Add */}
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Available Members</h3>
-                <div className="relative w-64">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <h3 className="text-base md:text-lg font-semibold">Available Members</h3>
+                <div className="relative w-full sm:w-64">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input 
                     placeholder="Search members..." 
                     value={memberSearchTerm} 
                     onChange={(e) => setMemberSearchTerm(e.target.value)} 
-                    className="pl-9" 
+                    className="pl-9 w-full" 
                   />
                 </div>
               </div>
               
-              <div className="border rounded-lg p-4 h-96 overflow-y-auto">
+              <div className="border rounded-lg p-3 sm:p-4 h-80 sm:h-96 overflow-y-auto">
                 {filteredAvailableMembers.length > 0 ? (
                   <div className="space-y-2">
                     {filteredAvailableMembers.map(member => (
@@ -1169,19 +1153,19 @@ const Groups: React.FC = () => {
                         }`}
                         onClick={() => handleMemberSelection(member.id)}
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
                           <input
                             type="checkbox"
                             checked={selectedMembers.includes(member.id)}
                             onChange={() => {}}
-                            className="rounded"
+                            className="rounded flex-shrink-0"
                           />
-                          <div>
-                            <div className="font-medium">{member.full_name}</div>
-                            <div className="text-sm text-muted-foreground">
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium truncate text-sm md:text-base">{member.full_name}</div>
+                            <div className="text-xs md:text-sm text-muted-foreground truncate">
                               {member.id_number} • {member.phone_number}
                             </div>
-                            <div className="text-xs text-muted-foreground">
+                            <div className="text-xs text-muted-foreground truncate">
                               {member.branch_name}
                               {member.current_group_name && ` • Current: ${member.current_group_name}`}
                             </div>
@@ -1193,8 +1177,8 @@ const Groups: React.FC = () => {
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
                     <Users className="mx-auto h-12 w-12 mb-4" />
-                    <p>No available members to add</p>
-                    <p className="text-sm">All members are already assigned to groups</p>
+                    <p className="text-sm md:text-base">No available members to add</p>
+                    <p className="text-xs md:text-sm">All members are already assigned to groups</p>
                   </div>
                 )}
               </div>
@@ -1209,18 +1193,19 @@ const Groups: React.FC = () => {
                 ) : (
                   <UserPlus className="mr-2 h-4 w-4" />
                 )}
-                Add {selectedMembers.length} Member(s) to Group
+                <span className="hidden sm:inline">Add {selectedMembers.length} Member(s) to Group</span>
+                <span className="sm:hidden">Add {selectedMembers.length} Member(s)</span>
               </Button>
             </div>
 
             {/* Current Group Members */}
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Current Group Members</h3>
-                <Badge variant="secondary">{groupMembers.length} members</Badge>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <h3 className="text-base md:text-lg font-semibold">Current Group Members</h3>
+                <Badge variant="secondary" className="text-xs">{groupMembers.length} members</Badge>
               </div>
               
-              <div className="border rounded-lg p-4 h-96 overflow-y-auto">
+              <div className="border rounded-lg p-3 sm:p-4 h-80 sm:h-96 overflow-y-auto">
                 {groupMembers.length > 0 ? (
                   <div className="space-y-2">
                     {groupMembers.map(member => (
@@ -1228,16 +1213,16 @@ const Groups: React.FC = () => {
                         key={member.id} 
                         className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50"
                       >
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
                             <Users className="h-4 w-4 text-blue-600" />
                           </div>
-                          <div>
-                            <div className="font-medium">{member.full_name}</div>
-                            <div className="text-sm text-muted-foreground">
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium truncate text-sm md:text-base">{member.full_name}</div>
+                            <div className="text-xs md:text-sm text-muted-foreground truncate">
                               {member.id_number} • {member.phone_number}
                             </div>
-                            <div className="text-xs text-muted-foreground">
+                            <div className="text-xs text-muted-foreground truncate">
                               {member.profession} • {formatCurrency(member.monthly_income || 0)}/month
                             </div>
                           </div>
@@ -1246,7 +1231,8 @@ const Groups: React.FC = () => {
                           variant="outline"
                           size="sm"
                           onClick={() => handleRemoveMemberFromGroup(member.id)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          disabled={isManagingMembers}
+                          className="flex-shrink-0"
                         >
                           <X className="h-4 w-4" />
                         </Button>
@@ -1256,16 +1242,16 @@ const Groups: React.FC = () => {
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
                     <Users className="mx-auto h-12 w-12 mb-4" />
-                    <p>No members in this group</p>
-                    <p className="text-sm">Add members from the left panel</p>
+                    <p className="text-sm md:text-base">No members in this group</p>
+                    <p className="text-xs md:text-sm">Use the left panel to add members</p>
                   </div>
                 )}
               </div>
             </div>
           </div>
           
-          <DialogFooter className="pt-4">
-            <Button variant="outline" onClick={closeManageMembersDialog}>
+          <DialogFooter className="pt-4 flex flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={closeManageMembersDialog} className="w-full sm:w-auto">
               Close
             </Button>
           </DialogFooter>
