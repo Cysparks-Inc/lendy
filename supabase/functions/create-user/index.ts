@@ -310,7 +310,7 @@ serve(async (req) => {
       userFriendlyMessage = 'You do not have permission to create users. Please contact your administrator.'
       statusCode = 403
     } else if (error.message.toLowerCase().includes('profile creation failed')) {
-      userFriendlyMessage = 'User account was created but profile setup failed. Please contact your administrator.'
+      userFriendlyMessage = 'User account was created but profile setup failed. Please contact your administrator'
       statusCode = 500
     } else if (error.message.toLowerCase().includes('role creation failed')) {
       userFriendlyMessage = 'User account and profile were created but role assignment failed. Please contact your administrator.'
