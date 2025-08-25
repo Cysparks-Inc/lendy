@@ -29,7 +29,7 @@ import {
   Info
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { PageLoader, InlineLoader } from '@/components/ui/loader';
+import { InlineLoader, QuickLoader } from '@/components/ui/loader';
 import { format } from 'date-fns';
 import jsPDF from 'jspdf';
 
@@ -586,60 +586,63 @@ const TransactionDetails: React.FC = () => {
   const StatusIcon = statusInfo.icon;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6 p-3 sm:p-4 md:p-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex items-center gap-4">
-          <Button variant="outline" onClick={() => navigate('/transactions')}>
+        <div className="flex items-center gap-4 min-w-0 flex-1">
+          <Button variant="outline" onClick={() => navigate('/transactions')} className="flex-shrink-0">
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Transactions
+            <span className="hidden sm:inline">Back to Transactions</span>
+            <span className="sm:hidden">Back</span>
           </Button>
           
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Transaction Details</h1>
-            <p className="text-gray-600 mt-1">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Transaction Details</h1>
+            <p className="text-gray-600 mt-1 text-sm md:text-base truncate">
               {transaction.reference_number} • {transaction.description}
             </p>
           </div>
         </div>
         
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={downloadReceipt}>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Button variant="outline" onClick={downloadReceipt} className="w-full sm:w-auto">
             <Download className="mr-2 h-4 w-4" />
-            Download Receipt
+            <span className="hidden sm:inline">Download Receipt</span>
+            <span className="sm:hidden">Download</span>
           </Button>
           
-          <Button variant="outline" onClick={printReceipt} disabled={printing}>
+          <Button variant="outline" onClick={printReceipt} disabled={printing} className="w-full sm:w-auto">
             {printing ? (
-              <InlineLoader size="sm" variant="primary" />
+              <QuickLoader />
             ) : (
               <Printer className="mr-2 h-4 w-4" />
             )}
-            Print Receipt
+            <span className="hidden sm:inline">Print Receipt</span>
+            <span className="sm:hidden">Print</span>
           </Button>
         </div>
       </div>
 
       {/* Transaction Overview */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         {/* Main Transaction Info */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-4 md:space-y-6">
           {/* Transaction Header Card */}
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className={`p-3 rounded-full ${typeInfo.color}`}>
-                    <TypeIcon className="h-8 w-8" />
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1">
+                  <div className={`p-2 md:p-3 rounded-full ${typeInfo.color} flex-shrink-0`}>
+                    <TypeIcon className="h-6 w-6 md:h-8 md:w-8" />
                   </div>
-                  <div>
-                    <CardTitle className="text-xl">{typeInfo.label}</CardTitle>
-                    <CardDescription>{typeInfo.description}</CardDescription>
+                  <div className="min-w-0 flex-1">
+                    <CardTitle className="text-lg md:text-xl">{typeInfo.label}</CardTitle>
+                    <CardDescription className="text-sm truncate">{typeInfo.description}</CardDescription>
                   </div>
                 </div>
                 
-                <div className="text-right">
-                  <div className="text-3xl font-bold text-gray-900">
+                <div className="text-center sm:text-right">
+                  <div className="text-2xl md:text-3xl font-bold text-gray-900">
                     KES {transaction.amount.toLocaleString()}
                   </div>
                   <div className="text-sm text-gray-500">{transaction.currency}</div>
@@ -648,10 +651,10 @@ const TransactionDetails: React.FC = () => {
             </CardHeader>
             
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                 <div>
                   <label className="text-sm font-medium text-gray-500">Reference Number</label>
-                  <p className="text-sm text-gray-900 font-mono">{transaction.reference_number}</p>
+                  <p className="text-sm text-gray-900 font-mono truncate">{transaction.reference_number}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-500">Status</label>
@@ -688,13 +691,13 @@ const TransactionDetails: React.FC = () => {
           {/* Financial Details */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-lg">
                 <DollarSign className="h-5 w-5" />
                 Financial Details
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                 <div className="space-y-4">
                   <h4 className="font-semibold text-gray-900">Payment Breakdown</h4>
                   <div className="space-y-3">
@@ -766,16 +769,16 @@ const TransactionDetails: React.FC = () => {
           {transaction.loan_id && (
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-lg">
                   <CreditCard className="h-5 w-5" />
                   Related Loan
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                   <div>
                     <label className="text-sm font-medium text-gray-500">Loan Account</label>
-                    <p className="text-sm text-gray-900 font-mono">{transaction.loan_account_number}</p>
+                    <p className="text-sm text-gray-900 font-mono truncate">{transaction.loan_account_number}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Loan Status</label>
@@ -823,7 +826,7 @@ const TransactionDetails: React.FC = () => {
           {transaction.notes && (
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-lg">
                   <FileText className="h-5 w-5" />
                   Notes
                 </CardTitle>
@@ -836,11 +839,11 @@ const TransactionDetails: React.FC = () => {
         </div>
 
         {/* Sidebar */}
-        <div className="space-y-6">
+        <div className="space-y-4 md:space-y-6">
           {/* Member Information */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-lg">
                 <User className="h-5 w-5" />
                 Member Information
               </CardTitle>
@@ -848,15 +851,15 @@ const TransactionDetails: React.FC = () => {
             <CardContent className="space-y-3">
               <div>
                 <label className="text-sm font-medium text-gray-500">Name</label>
-                <p className="text-sm text-gray-900">{transaction.member_name}</p>
+                <p className="text-sm text-gray-900 truncate">{transaction.member_name}</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-500">ID Number</label>
-                <p className="text-sm text-gray-900">{transaction.member_id_number}</p>
+                <p className="text-sm text-gray-900 truncate">{transaction.member_id_number}</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-500">Phone</label>
-                <p className="text-sm text-gray-900">{transaction.member_phone}</p>
+                <p className="text-sm text-gray-900 truncate">{transaction.member_phone}</p>
               </div>
               
               <div className="pt-2">
@@ -873,7 +876,7 @@ const TransactionDetails: React.FC = () => {
           {/* Branch Information */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-lg">
                 <Building className="h-5 w-5" />
                 Branch Information
               </CardTitle>
@@ -881,11 +884,11 @@ const TransactionDetails: React.FC = () => {
             <CardContent className="space-y-3">
               <div>
                 <label className="text-sm font-medium text-gray-500">Branch Name</label>
-                <p className="text-sm text-gray-900">{transaction.branch_name}</p>
+                <p className="text-sm text-gray-900 truncate">{transaction.branch_name}</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-500">Address</label>
-                <p className="text-sm text-gray-900">{transaction.branch_address}</p>
+                <p className="text-sm text-gray-900 truncate">{transaction.branch_address}</p>
               </div>
             </CardContent>
           </Card>
@@ -893,7 +896,7 @@ const TransactionDetails: React.FC = () => {
           {/* Loan Officer */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-lg">
                 <User className="h-5 w-5" />
                 Loan Officer
               </CardTitle>
@@ -901,11 +904,11 @@ const TransactionDetails: React.FC = () => {
             <CardContent className="space-y-3">
               <div>
                 <label className="text-sm font-medium text-gray-500">Name</label>
-                <p className="text-sm text-gray-900">{transaction.loan_officer_name}</p>
+                <p className="text-sm text-gray-900 truncate">{transaction.loan_officer_name}</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-500">Phone</label>
-                <p className="text-sm text-gray-900">{transaction.loan_officer_phone}</p>
+                <p className="text-sm text-gray-900 truncate">{transaction.loan_officer_phone}</p>
               </div>
             </CardContent>
           </Card>
@@ -913,7 +916,7 @@ const TransactionDetails: React.FC = () => {
           {/* Transaction Metadata */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-lg">
                 <Info className="h-5 w-5" />
                 Transaction Info
               </CardTitle>
@@ -921,7 +924,7 @@ const TransactionDetails: React.FC = () => {
             <CardContent className="space-y-3">
               <div>
                 <label className="text-sm font-medium text-gray-500">Created By</label>
-                <p className="text-sm text-gray-900">{transaction.created_by_name || 'System'}</p>
+                <p className="text-sm text-gray-900 truncate">{transaction.created_by_name || 'System'}</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-500">Created At</label>

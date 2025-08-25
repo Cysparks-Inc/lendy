@@ -189,26 +189,32 @@ const LoansPage: React.FC = () => {
   if (loading) { return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>; }
 
   return (
-    <div className="space-y-6 p-2 sm:p-4 md:p-6">
+    <div className="space-y-4 md:space-y-6 p-3 sm:p-4 md:p-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
+        <div className="min-w-0 flex-1">
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Loan Accounts</h1>
-          <p className="text-muted-foreground">Manage and monitor all loan accounts in your scope.</p>
+          <p className="text-muted-foreground text-sm md:text-base">Manage and monitor all loan accounts in your scope.</p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
           <ExportDropdown 
             data={dateFilteredLoans} 
             columns={exportColumns} 
             fileName="loans-report" 
             reportTitle="Loans Report"
             dateRange={dateRange}
+            className="w-full sm:w-auto"
           />
-          <Button asChild><Link to="/loans/new"><Plus className="h-4 w-4 mr-2" />New Loan</Link></Button>
+          <Button asChild className="w-full sm:w-auto">
+            <Link to="/loans/new">
+              <Plus className="h-4 w-4 mr-2" />
+              New Loan
+            </Link>
+          </Button>
         </div>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 md:gap-4 grid-cols-2 lg:grid-cols-4">
         <StatCard title="Total Loans" value={loans.length} icon={CreditCard} />
         <StatCard title="Outstanding Balance" value={formatCurrency(totalOutstanding)} icon={Landmark} />
         <StatCard title="Active Loans" value={loans.filter(l => l.status === 'active').length} icon={Banknote} />
@@ -220,9 +226,9 @@ const LoansPage: React.FC = () => {
         <CardHeader>
           <div className="flex flex-col gap-4">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div>
-                <CardTitle>Loan Accounts</CardTitle>
-                <CardDescription>
+              <div className="min-w-0 flex-1">
+                <CardTitle className="text-lg">Loan Accounts</CardTitle>
+                <CardDescription className="text-sm">
                   Showing {dateFilteredLoans.length} of {filteredLoans.length} loans
                   {dateRange.from && dateRange.to && (
                     <span className="text-brand-green-600 font-medium">
@@ -234,7 +240,7 @@ const LoansPage: React.FC = () => {
             </div>
             
             {/* Filters Row - Better positioned and spaced */}
-            <div className="flex flex-col lg:flex-row gap-4 w-full">
+            <div className="flex flex-col lg:flex-row gap-3 md:gap-4 w-full">
               {/* Date Filter - Takes priority */}
               <div className="flex-shrink-0">
                 <DateRangeFilter
@@ -280,13 +286,13 @@ const LoansPage: React.FC = () => {
 };
 
 const StatCard: React.FC<{title: string, value: string | number, icon: React.ElementType}> = ({ title, value, icon: Icon }) => (
-  <Card className="bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
-    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-      <CardTitle className="text-sm font-medium text-brand-green-800">{title}</CardTitle>
+  <Card className="bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md p-3 sm:p-4">
+    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-0 pt-0">
+      <CardTitle className="text-xs md:text-sm font-medium text-brand-green-800">{title}</CardTitle>
       <Icon className="h-4 w-4 text-brand-green-600" />
     </CardHeader>
-    <CardContent>
-      <div className="text-2xl font-bold text-brand-green-700">{value}</div>
+    <CardContent className="px-0 pb-0">
+      <div className="text-xl md:text-2xl font-bold text-brand-green-700">{value}</div>
     </CardContent>
   </Card>
 );

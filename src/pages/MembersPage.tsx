@@ -217,33 +217,39 @@ const MembersPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 p-2 sm:p-4 md:p-6">
+    <div className="space-y-4 md:space-y-6 p-3 sm:p-4 md:p-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
+        <div className="min-w-0 flex-1">
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
             {userRole === 'loan_officer' ? 'My Assigned Members' : 'Members'}
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground text-sm md:text-base">
             {userRole === 'loan_officer' 
               ? 'View and manage members assigned to you by the super admin.'
               : 'Manage and monitor all registered members.'
             }
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
           <ExportDropdown 
             data={dateFilteredMembers} 
             columns={exportColumns} 
             fileName="members-report" 
             reportTitle="Members Report"
             dateRange={dateRange}
+            className="w-full sm:w-auto"
           />
-          <Button asChild><Link to="/members/new"><Plus className="h-4 w-4 mr-2" />New Member</Link></Button>
+          <Button asChild className="w-full sm:w-auto">
+            <Link to="/members/new">
+              <Plus className="h-4 w-4 mr-2" />
+              New Member
+            </Link>
+          </Button>
         </div>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 md:gap-4 grid-cols-2 lg:grid-cols-4">
         <StatCard title="Total Members" value={members.length} icon={Users} />
         <StatCard title="Active Members" value={members.filter(m => m.status === 'active').length} icon={UserCheck} />
         <StatCard title="With Loans" value={members.filter(m => m.total_loans > 0).length} icon={Banknote} />
@@ -255,9 +261,9 @@ const MembersPage: React.FC = () => {
         <CardHeader>
           <div className="flex flex-col gap-4">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div>
-                <CardTitle>Member Records</CardTitle>
-                <CardDescription>
+              <div className="min-w-0 flex-1">
+                <CardTitle className="text-lg">Member Records</CardTitle>
+                <CardDescription className="text-sm">
                   {userRole === 'loan_officer' 
                     ? `Showing ${dateFilteredMembers.length} of ${filteredMembers.length} assigned members`
                     : `Showing ${dateFilteredMembers.length} of ${filteredMembers.length} members`
@@ -272,7 +278,7 @@ const MembersPage: React.FC = () => {
             </div>
             
             {/* Filters Row - Better positioned and spaced */}
-            <div className="flex flex-col lg:flex-row gap-4 w-full">
+            <div className="flex flex-col lg:flex-row gap-3 md:gap-4 w-full">
               {/* Date Filter - Takes priority */}
               <div className="flex-shrink-0">
                 <DateRangeFilter

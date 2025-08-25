@@ -135,79 +135,98 @@ const LoanDetailsPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 p-2 sm:p-4 md:p-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6 p-3 sm:p-4 md:p-6">
+      {/* Clean Header Section */}
+      <div className="space-y-4">
+        {/* Back Button */}
+        <Button asChild variant="outline" size="sm">
+          <Link to="/loans">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Loans
+          </Link>
+        </Button>
+        
+        {/* Main Title */}
         <div>
-          <Button asChild variant="outline" size="sm" className="mb-4">
-            <Link to="/loans"><ArrowLeft className="mr-2 h-4 w-4" />Back to Loans</Link>
-          </Button>
-          <h1 className="text-3xl font-bold text-foreground">Loan Account: {loan.account_number}</h1>
-          <div className="flex items-center gap-3">
-            <p className="text-muted-foreground">Managing loan for member: <strong>{loan.member_name}</strong></p>
-            {loan.member_id && (
-              <Button asChild variant="outline" size="sm">
-                <Link to={`/members/${loan.member_id}`}>
-                  <MessageSquare className="mr-2 h-4 w-4" />
-                  View Member Profile
-                </Link>
-              </Button>
-            )}
-          </div>
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
+            Loan Account: {loan.account_number}
+          </h1>
+          <p className="text-muted-foreground text-sm md:text-base">
+            Managing loan for member: <strong className="text-foreground">{loan.member_name}</strong>
+          </p>
         </div>
+
+        {/* Member Profile Link */}
+        {loan.member_id && (
+          <div className="pt-2">
+            <Button asChild variant="outline" size="sm">
+              <Link to={`/members/${loan.member_id}`}>
+                <MessageSquare className="mr-2 h-4 w-4" />
+                View Member Profile
+              </Link>
+            </Button>
+          </div>
+        )}
       </div>
 
-      {/* Summary Cards will now update instantly */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Summary Cards - Clean Grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <StatCard icon={DollarSign} title="Outstanding Balance" value={formatCurrency(loan.current_balance)} variant={loan.current_balance > 0 ? 'warning' : 'success'} />
         <StatCard icon={Banknote} title="Principal Amount" value={formatCurrency(loan.principal_amount)} />
         <StatCard icon={TrendingUp} title="Total Repaid" value={formatCurrency(loan.total_paid)} />
         <StatCard icon={Calendar} title="Due Date" value={new Date(loan.due_date).toLocaleDateString()} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Main Content Area - Clean Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+        {/* Left Column - Tabs */}
         <div className="lg:col-span-2">
-          <Tabs defaultValue="payment_history">
-            <TabsList>
+          <Tabs defaultValue="payment_history" className="space-y-4">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="payment_history">Payment History</TabsTrigger>
               <TabsTrigger value="communication_logs">Communication Logs</TabsTrigger>
               <TabsTrigger value="loan_details">Full Details</TabsTrigger>
             </TabsList>
-            <TabsContent value="payment_history">
-              {/* This component will refetch itself on the new payment, showing the new record */}
+            
+            <TabsContent value="payment_history" className="space-y-4">
               <PaymentHistory loanId={loan.id} />
             </TabsContent>
-            <TabsContent value="communication_logs">
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-semibold">All Communications & Follow-ups</h3>
-                  <Button onClick={() => setIsCommunicationDialogOpen(true)}>
-                    <MessageSquare className="h-4 w-4 mr-2" />
-                    Log Communication
-                  </Button>
-                </div>
-                <CommunicationLogs 
-                  key={communicationLogsKey}
-                  loanId={loan.id} 
-                  memberId={loan.member_id || null} 
-                  memberName={loan.member_name}
-                  onRefresh={refreshCommunicationLogs} // Pass the refresh function
-                />
+            
+            <TabsContent value="communication_logs" className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold">Communication History</h3>
+                <Button onClick={() => setIsCommunicationDialogOpen(true)}>
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  Log Communication
+                </Button>
               </div>
+              <CommunicationLogs 
+                key={communicationLogsKey}
+                loanId={loan.id} 
+                memberId={loan.member_id || null} 
+                memberName={loan.member_name}
+                onRefresh={refreshCommunicationLogs}
+              />
             </TabsContent>
-            <TabsContent value="loan_details">
+            
+            <TabsContent value="loan_details" className="space-y-4">
               <Card>
-                <CardHeader><CardTitle>Loan Agreement Details</CardTitle></CardHeader>
+                <CardHeader>
+                  <CardTitle>Loan Agreement Details</CardTitle>
+                </CardHeader>
                 <CardContent className="space-y-4">
-                    <InfoItem label="Member Name" value={loan.member_name} />
-                    <InfoItem label="Branch" value={loan.branch_name} />
-                    <InfoItem label="Loan Officer" value={loan.loan_officer_name || 'N/A'} />
-                    <InfoItem label="Issue Date" value={new Date(loan.issue_date).toLocaleDateString()} />
-                    <InfoItem label="Interest Rate" value={`${loan.interest_rate}%`} />
+                  <InfoItem label="Member Name" value={loan.member_name} />
+                  <InfoItem label="Branch" value={loan.branch_name} />
+                  <InfoItem label="Loan Officer" value={loan.loan_officer_name || 'N/A'} />
+                  <InfoItem label="Issue Date" value={new Date(loan.issue_date).toLocaleDateString()} />
+                  <InfoItem label="Interest Rate" value={`${loan.interest_rate}%`} />
                 </CardContent>
               </Card>
             </TabsContent>
           </Tabs>
         </div>
+
+        {/* Right Column - Payment Entry */}
         <div className="lg:col-span-1">
           <ManualPaymentEntry loan={loan} onPaymentSuccess={handlePaymentSuccess} />
         </div>
@@ -221,7 +240,6 @@ const LoanDetailsPage: React.FC = () => {
         memberId={loan.member_id}
         memberName={loan.member_name}
         onLogSuccess={() => {
-          // Refresh the communication logs
           refreshCommunicationLogs();
         }}
       />
@@ -242,25 +260,25 @@ const StatCard: React.FC<StatCardProps> = ({ icon: Icon, title, value, variant =
     const variantClasses = {
         warning: 'text-amber-600',
         success: 'text-green-600',
-        default: 'text-foreground'
+        default: 'text-brand-green-700'
     };
     return (
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{title}</CardTitle>
-                <Icon className="h-4 w-4 text-muted-foreground" />
+        <Card className="bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md p-3 sm:p-4">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-0 pt-0">
+                <CardTitle className="text-xs md:text-sm font-medium text-brand-green-800">{title}</CardTitle>
+                <Icon className="h-4 w-4 text-brand-green-600" />
             </CardHeader>
-            <CardContent>
-                <div className={`text-2xl font-bold ${variantClasses[variant]}`}>{value}</div>
+            <CardContent className="px-0 pb-0">
+                <div className={`text-xl md:text-2xl font-bold ${variantClasses[variant]}`}>{value}</div>
             </CardContent>
         </Card>
     );
 };
 
 const InfoItem: React.FC<{ label: string; value: string | number }> = ({ label, value }) => (
-  <div className="flex justify-between items-center border-b pb-2">
-    <p className="text-sm text-muted-foreground">{label}</p>
-    <p className="font-medium text-sm">{value}</p>
+  <div className="flex justify-between items-center py-3 border-b border-gray-100 last:border-b-0">
+    <p className="text-sm font-medium text-gray-600">{label}</p>
+    <p className="text-sm font-semibold text-gray-900">{value}</p>
   </div>
 );
 

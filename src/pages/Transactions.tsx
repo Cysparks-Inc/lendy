@@ -24,7 +24,7 @@ import {
   Wallet
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { PageLoader, InlineLoader } from '@/components/ui/loader';
+import { PageLoader, InlineLoader, QuickLoader } from '@/components/ui/loader';
 import { ExportDropdown } from '@/components/ui/ExportDropdown';
 import { format } from 'date-fns';
 
@@ -370,20 +370,20 @@ const Transactions: React.FC = () => {
   const summary = calculateSummary();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6 p-3 sm:p-4 md:p-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Transactions</h1>
-          <p className="text-gray-600 mt-1">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Transactions</h1>
+          <p className="text-gray-600 mt-1 text-sm md:text-base">
             View and manage all financial transactions across the system
           </p>
         </div>
         
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={refreshData} disabled={refreshing}>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Button variant="outline" onClick={refreshData} disabled={refreshing} className="w-full sm:w-auto">
             {refreshing ? (
-              <InlineLoader size="sm" variant="primary" />
+              <QuickLoader />
             ) : (
               <RefreshCw className="mr-2 h-4 w-4" />
             )}
@@ -408,60 +408,60 @@ const Transactions: React.FC = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Transactions</CardTitle>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+        <Card className="p-3 sm:p-4">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-0 pt-0">
+            <CardTitle className="text-xs md:text-sm font-medium">Total Transactions</CardTitle>
             <CreditCard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalTransactions}</div>
-            <p className="text-xs text-muted-foreground">
+          <CardContent className="px-0 pb-0">
+            <div className="text-xl md:text-2xl font-bold">{totalTransactions}</div>
+            <p className="text-xs text-muted-foreground hidden sm:block">
               Across all branches
             </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Amount</CardTitle>
+        <Card className="p-3 sm:p-4">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-0 pt-0">
+            <CardTitle className="text-xs md:text-sm font-medium">Total Amount</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
+          <CardContent className="px-0 pb-0">
+            <div className="text-xl md:text-2xl font-bold">
               KES {summary.total.toLocaleString()}
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground hidden sm:block">
               All transaction types
             </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Completed</CardTitle>
+        <Card className="p-3 sm:p-4">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-0 pt-0">
+            <CardTitle className="text-xs md:text-sm font-medium">Completed</CardTitle>
             <TrendingDown className="h-4 w-4 text-green-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+          <CardContent className="px-0 pb-0">
+            <div className="text-xl md:text-2xl font-bold text-green-600">
               KES {summary.completed.toLocaleString()}
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground hidden sm:block">
               Successful transactions
             </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending</CardTitle>
+        <Card className="p-3 sm:p-4">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-0 pt-0">
+            <CardTitle className="text-xs md:text-sm font-medium">Pending</CardTitle>
             <TrendingUp className="h-4 w-4 text-yellow-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">
+          <CardContent className="px-0 pb-0">
+            <div className="text-xl md:text-2xl font-bold text-yellow-600">
               KES {summary.pending.toLocaleString()}
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground hidden sm:block">
               Awaiting completion
             </p>
           </CardContent>
@@ -471,13 +471,13 @@ const Transactions: React.FC = () => {
       {/* Filters */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-lg">
             <Filter className="h-5 w-5" />
             Filters
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
             {/* Search */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Search</label>
@@ -487,7 +487,7 @@ const Transactions: React.FC = () => {
                   placeholder="Reference, member, loan..."
                   value={filters.search}
                   onChange={(e) => handleFilterChange('search', e.target.value)}
-                  className="pl-10"
+                  className="pl-10 w-full"
                 />
               </div>
             </div>
@@ -496,7 +496,7 @@ const Transactions: React.FC = () => {
             <div className="space-y-2">
               <label className="text-sm font-medium">Transaction Type</label>
               <Select value={filters.transaction_type} onValueChange={(value) => handleFilterChange('transaction_type', value)}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="All types" />
                 </SelectTrigger>
                 <SelectContent>
@@ -515,7 +515,7 @@ const Transactions: React.FC = () => {
             <div className="space-y-2">
               <label className="text-sm font-medium">Status</label>
               <Select value={filters.status} onValueChange={(value) => handleFilterChange('status', value)}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="All statuses" />
                 </SelectTrigger>
                 <SelectContent>
@@ -532,7 +532,7 @@ const Transactions: React.FC = () => {
             <div className="space-y-2">
               <label className="text-sm font-medium">Payment Method</label>
               <Select value={filters.payment_method} onValueChange={(value) => handleFilterChange('payment_method', value)}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="All methods" />
                 </SelectTrigger>
                 <SelectContent>
@@ -553,6 +553,7 @@ const Transactions: React.FC = () => {
                 type="date"
                 value={filters.date_from}
                 onChange={(e) => handleFilterChange('date_from', e.target.value)}
+                className="w-full"
               />
             </div>
 
@@ -562,6 +563,7 @@ const Transactions: React.FC = () => {
                 type="date"
                 value={filters.date_to}
                 onChange={(e) => handleFilterChange('date_to', e.target.value)}
+                className="w-full"
               />
             </div>
 
@@ -569,7 +571,7 @@ const Transactions: React.FC = () => {
             <div className="space-y-2">
               <label className="text-sm font-medium">Branch</label>
               <Select value={filters.branch_id} onValueChange={(value) => handleFilterChange('branch_id', value)}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="All branches" />
                 </SelectTrigger>
                 <SelectContent>
@@ -587,7 +589,7 @@ const Transactions: React.FC = () => {
             <div className="space-y-2">
               <label className="text-sm font-medium">Loan Officer</label>
               <Select value={filters.loan_officer_id} onValueChange={(value) => handleFilterChange('loan_officer_id', value)}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="All officers" />
                 </SelectTrigger>
                 <SelectContent>
@@ -602,11 +604,12 @@ const Transactions: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex gap-2 mt-4">
-            <Button onClick={applyFilters}>
+          {/* Filter Actions */}
+          <div className="flex flex-col sm:flex-row gap-2 mt-4 pt-4 border-t">
+            <Button onClick={applyFilters} className="w-full sm:w-auto">
               Apply Filters
             </Button>
-            <Button variant="outline" onClick={clearFilters}>
+            <Button variant="outline" onClick={clearFilters} className="w-full sm:w-auto">
               Clear Filters
             </Button>
           </div>
@@ -628,55 +631,55 @@ const Transactions: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-4">
-              {transactions.map((transaction) => {
+              {transactions.map(transaction => {
                 const typeInfo = getTransactionTypeInfo(transaction.transaction_type);
                 const TypeIcon = typeInfo.icon;
-                
+
                 return (
                   <div
                     key={transaction.id}
-                    className="border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                    className="border rounded-lg p-3 sm:p-4 hover:shadow-md transition-shadow cursor-pointer"
                     onClick={() => viewTransaction(transaction.id)}
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
                         {/* Transaction Type Icon */}
-                        <div className={`p-2 rounded-full ${typeInfo.color}`}>
+                        <div className={`p-2 rounded-full ${typeInfo.color} flex-shrink-0`}>
                           <TypeIcon className="h-5 w-5" />
                         </div>
                         
                         {/* Transaction Details */}
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-gray-900">
+                        <div className="space-y-1 min-w-0 flex-1">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                            <span className="font-semibold text-gray-900 text-sm md:text-base truncate">
                               {transaction.reference_number}
                             </span>
                             {getStatusBadge(transaction.status)}
                           </div>
                           
-                          <p className="text-sm text-gray-600">
+                          <p className="text-sm text-gray-600 truncate">
                             {transaction.description}
                           </p>
                           
-                          <div className="flex items-center gap-4 text-xs text-gray-500">
-                            <span className="flex items-center gap-1">
-                              <User className="h-3 w-3" />
-                              {transaction.member_name || 'Unknown Member'}
+                          <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 text-xs text-gray-500">
+                            <span className="flex items-center gap-1 truncate">
+                              <User className="h-3 w-3 flex-shrink-0" />
+                              <span className="truncate">{transaction.member_name || 'Unknown Member'}</span>
                             </span>
-                            <span className="flex items-center gap-1">
-                              <CreditCard className="h-3 w-3" />
-                              {transaction.loan_account_number || 'N/A'}
+                            <span className="flex items-center gap-1 truncate">
+                              <CreditCard className="h-3 w-3 flex-shrink-0" />
+                              <span className="truncate">{transaction.loan_account_number || 'N/A'}</span>
                             </span>
-                            <span className="flex items-center gap-1">
-                              <Building className="h-3 w-3" />
-                              {transaction.branch_name || 'Unknown Branch'}
+                            <span className="flex items-center gap-1 truncate">
+                              <Building className="h-3 w-3 flex-shrink-0" />
+                              <span className="truncate">{transaction.branch_name || 'Unknown Branch'}</span>
                             </span>
                           </div>
                         </div>
                       </div>
                       
                       {/* Amount and Date */}
-                      <div className="text-right space-y-1">
+                      <div className="text-right space-y-1 flex-shrink-0">
                         <div className="text-lg font-bold text-gray-900">
                           KES {transaction.amount.toLocaleString()}
                         </div>
@@ -696,8 +699,8 @@ const Transactions: React.FC = () => {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-6">
-              <div className="text-sm text-gray-700">
+            <div className="flex flex-col sm:flex-row items-center justify-between mt-6 gap-4">
+              <div className="text-sm text-gray-700 text-center sm:text-left">
                 Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, totalTransactions)} of {totalTransactions} results
               </div>
               
@@ -706,6 +709,7 @@ const Transactions: React.FC = () => {
                   variant="outline"
                   onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                   disabled={currentPage === 1}
+                  size="sm"
                 >
                   Previous
                 </Button>
@@ -718,6 +722,7 @@ const Transactions: React.FC = () => {
                   variant="outline"
                   onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                   disabled={currentPage === totalPages}
+                  size="sm"
                 >
                   Next
                 </Button>

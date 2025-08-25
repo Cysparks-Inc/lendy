@@ -17,7 +17,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { InlineLoader } from '@/components/ui/loader';
+import { InlineLoader, QuickLoader } from '@/components/ui/loader';
 
 // Helper function for currency formatting
 const formatCurrency = (amount: number) => new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(amount || 0);
@@ -234,11 +234,11 @@ const Dashboard: React.FC = () => {
   const defaultRate = stats?.total_loans ? (stats.overdue_loans / stats.total_loans) * 100 : 0;
 
   return (
-    <div className="space-y-6 p-2 sm:p-4 md:p-6">
+    <div className="space-y-4 md:space-y-6 p-3 sm:p-4 md:p-6">
       {/* Header */}
       <div className="space-y-2">
-        <div className="flex justify-between items-start">
-          <div>
+        <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+          <div className="min-w-0 flex-1">
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
               {userRole === 'loan_officer' ? 'My Portfolio Dashboard' : 'Dashboard'}
             </h1>
@@ -254,16 +254,16 @@ const Dashboard: React.FC = () => {
             size="sm" 
             onClick={fetchDashboardData}
             disabled={loading}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 w-full sm:w-auto"
           >
-            {loading ? <InlineLoader /> : <RefreshCw className="h-4 w-4" />}
+            {loading ? <QuickLoader /> : <RefreshCw className="h-4 w-4" />}
             Refresh
           </Button>
         </div>
       </div>
 
       {/* Stats Cards - Now Clickable */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 sm:gap-6">
         <StatCard
           icon={Banknote}
           title={userRole === 'loan_officer' ? 'My Portfolio Disbursed' : 'System Disbursed'}
@@ -295,12 +295,12 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Recent Activity and System Health */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         {/* Recent System Activity */}
         <Card>
           <CardHeader>
-            <CardTitle>Recent System Activity</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-lg">Recent System Activity</CardTitle>
+            <CardDescription className="text-sm">
               {userRole === 'loan_officer' 
                 ? 'Latest loans from your assigned members'
                 : 'Latest loans across all branches'
@@ -342,10 +342,10 @@ const Dashboard: React.FC = () => {
         {/* System Health */}
         <Card>
           <CardHeader>
-            <CardTitle>System Health</CardTitle>
-            <CardDescription>Overall portfolio performance</CardDescription>
+            <CardTitle className="text-lg">System Health</CardTitle>
+            <CardDescription className="text-sm">Overall portfolio performance</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-4 md:space-y-6">
             {/* Collection Rate */}
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
@@ -390,16 +390,16 @@ const StatCard: React.FC<{
   onClick
 }) => (
   <Card 
-    className={`border-brand-green-200 hover:border-brand-green-300 transition-colors ${onClick ? 'cursor-pointer hover:shadow-md' : ''}`}
+    className={`bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md p-3 sm:p-4 ${onClick ? 'cursor-pointer' : ''}`}
     onClick={onClick}
   >
-    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-      <CardTitle className="text-xs sm:text-sm font-medium">{title}</CardTitle>
+    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-0 pt-0">
+      <CardTitle className="text-xs md:text-sm font-medium text-brand-green-800">{title}</CardTitle>
       <Icon className="h-4 w-4 text-brand-green-600" />
     </CardHeader>
-    <CardContent>
-      <div className="text-lg sm:text-2xl font-bold text-brand-green-700">{value}</div>
-      <p className="text-xs text-muted-foreground">{description}</p>
+    <CardContent className="px-0 pb-0">
+      <div className="text-lg md:text-2xl font-bold text-brand-green-700">{value}</div>
+      <p className="text-xs text-muted-foreground hidden sm:block">{description}</p>
     </CardContent>
   </Card>
 );
