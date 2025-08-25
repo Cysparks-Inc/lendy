@@ -6,14 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Plus, Search, Edit, Trash2, Users, Eye, Banknote, DollarSign, Loader2, UserCheck, RefreshCw, UserPlus } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Users, Eye, Banknote, DollarSign, Loader2, UserCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/ui/data-table'; // We will use our new reusable component
 import { ExportDropdown } from '@/components/ui/ExportDropdown';
 import { DateRangeFilter, DateRange, filterDataByDateRange } from '@/components/ui/DateRangeFilter';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 // --- Type Definitions ---
 // This type matches the output of our secure database function
@@ -36,10 +34,6 @@ const MembersPage: React.FC = () => {
   const [deleteCandidate, setDeleteCandidate] = useState<MemberSummary | null>(null);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [dateRange, setDateRange] = useState<DateRange>({ from: undefined, to: undefined });
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [branchFilter, setBranchFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('name');
-  const [isAddMemberDialogOpen, setIsAddMemberDialogOpen] = useState(false);
 
   // Fetch members when the component mounts or the user changes
   useEffect(() => {
@@ -224,163 +218,93 @@ const MembersPage: React.FC = () => {
 
   return (
     <div className="space-y-4 md:space-y-6 p-3 sm:p-4 md:p-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-heading-1 text-foreground">Members</h1>
-          <p className="text-body text-muted-foreground mt-1">
-            Manage and view all members in your portfolio.
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
+            {userRole === 'loan_officer' ? 'My Assigned Members' : 'Members'}
+          </h1>
+          <p className="text-muted-foreground text-sm md:text-base">
+            {userRole === 'loan_officer' 
+              ? 'View and manage members assigned to you by the super admin.'
+              : 'Manage and monitor all registered members.'
+            }
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={fetchMembers} disabled={loading}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-          <Button onClick={() => setIsAddMemberDialogOpen(true)}>
-            <UserPlus className="mr-2 h-4 w-4" />
-            Add Member
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+          <ExportDropdown 
+            data={dateFilteredMembers} 
+            columns={exportColumns} 
+            fileName="members-report" 
+            reportTitle="Members Report"
+            dateRange={dateRange}
+            className="w-full sm:w-auto"
+          />
+          <Button asChild className="w-full sm:w-auto">
+            <Link to="/members/new">
+              <Plus className="h-4 w-4 mr-2" />
+              New Member
+            </Link>
           </Button>
         </div>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid gap-3 md:gap-4 grid-cols-2 lg:grid-cols-4">
+        <StatCard title="Total Members" value={members.length} icon={Users} />
+        <StatCard title="Active Members" value={members.filter(m => m.status === 'active').length} icon={UserCheck} />
+        <StatCard title="With Loans" value={members.filter(m => m.total_loans > 0).length} icon={Banknote} />
+        <StatCard title="Total Outstanding" value={formatCurrency(members.reduce((sum, m) => sum + m.outstanding_balance, 0))} icon={DollarSign} />
       </div>
 
       {/* Search and Filters */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-heading-3">Search & Filters</CardTitle>
-          <CardDescription className="text-body text-muted-foreground">
-            Find specific members using search and filters
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
-              <Label htmlFor="search" className="text-body font-medium">Search</Label>
-              <Input
-                id="search"
-                placeholder="Search by name, ID, or phone..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="text-body"
-              />
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div className="min-w-0 flex-1">
+                <CardTitle className="text-lg">Member Records</CardTitle>
+                <CardDescription className="text-sm">
+                  {userRole === 'loan_officer' 
+                    ? `Showing ${dateFilteredMembers.length} of ${filteredMembers.length} assigned members`
+                    : `Showing ${dateFilteredMembers.length} of ${filteredMembers.length} members`
+                  }
+                  {dateRange.from && dateRange.to && (
+                    <span className="text-brand-green-600 font-medium">
+                      {' '}• Filtered by date range
+                    </span>
+                  )}
+                </CardDescription>
+              </div>
             </div>
-            <div>
-              <Label htmlFor="status" className="text-body font-medium">Status</Label>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Statuses" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="branch" className="text-body font-medium">Branch</Label>
-              <Select value={branchFilter} onValueChange={setBranchFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Branches" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Branches</SelectItem>
-                  <SelectItem value="nakuru">Nakuru</SelectItem>
-                  <SelectItem value="nairobi">Nairobi</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="sort" className="text-body font-medium">Sort By</Label>
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Sort by..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="name">Name</SelectItem>
-                  <SelectItem value="date">Date Added</SelectItem>
-                  <SelectItem value="loans">Number of Loans</SelectItem>
-                </SelectContent>
-              </Select>
+            
+            {/* Filters Row - Better positioned and spaced */}
+            <div className="flex flex-col lg:flex-row gap-3 md:gap-4 w-full">
+              {/* Date Filter - Takes priority */}
+              <div className="flex-shrink-0">
+                <DateRangeFilter
+                  onDateRangeChange={setDateRange}
+                  placeholder="Filter by date"
+                  className="w-full lg:w-auto"
+                />
+              </div>
+              
+              {/* Search Filter */}
+              <div className="flex-1 min-w-0">
+                <div className="relative w-full">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    placeholder="Search by name, ID, or phone..." 
+                    value={searchTerm} 
+                    onChange={e => setSearchTerm(e.target.value)} 
+                    className="pl-9 w-full" 
+                  />
+                </div>
+              </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Members Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-heading-2">Members ({filteredMembers.length})</CardTitle>
-          <CardDescription className="text-body text-muted-foreground">
-            Showing {filteredMembers.length} of {members.length} members
-          </CardDescription>
         </CardHeader>
         <CardContent>
-          <DataTable
-            columns={[
-              {
-                header: 'Member',
-                cell: (row) => (
-                  <div>
-                    <Link to={`/members/${row.member_id}`} className="text-body font-medium text-primary hover:underline">
-                      {row.full_name}
-                    </Link>
-                    <div className="text-caption text-muted-foreground">{row.id_number}</div>
-                  </div>
-                )
-              },
-              {
-                header: 'Contact',
-                cell: (row) => (
-                  <div>
-                    <div className="text-body">{row.phone_number}</div>
-                    <div className="text-caption text-muted-foreground">{row.phone_number}</div>
-                  </div>
-                )
-              },
-              {
-                header: 'Loans',
-                cell: (row) => (
-                  <div className="text-center">
-                    <div className="text-body font-medium">{row.total_loans}</div>
-                    <div className="text-caption text-muted-foreground">Total</div>
-                  </div>
-                )
-              },
-              {
-                header: 'Outstanding',
-                cell: (row) => (
-                  <div className="text-right">
-                    <div className="text-body font-medium">{formatCurrency(row.outstanding_balance)}</div>
-                    <div className="text-caption text-muted-foreground">Balance</div>
-                  </div>
-                )
-              },
-              {
-                header: 'Actions',
-                cell: (row) => (
-                  <div className="flex gap-2">
-                    <Button asChild variant="outline" size="sm">
-                      <Link to={`/members/${row.member_id}`}>
-                        <Eye className="h-4 w-4" />
-                      </Link>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setDeleteCandidate(row)}
-                      className="text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                )
-              }
-            ]}
-            data={filteredMembers}
-            searchTerm={searchTerm}
-            emptyStateMessage="No members found matching your criteria."
-          />
+          <DataTable columns={columns} data={dateFilteredMembers} emptyStateMessage="No members found matching your criteria." />
         </CardContent>
       </Card>
       

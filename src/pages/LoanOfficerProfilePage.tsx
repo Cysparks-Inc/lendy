@@ -453,12 +453,7 @@ const LoanOfficerProfilePage: React.FC = () => {
               <p className="text-muted-foreground text-sm sm:text-base">Performance and portfolio overview</p>
             </div>
           </div>
-          <Button asChild className="w-full sm:w-auto">
-            <Link to={`/users/${officer.id}/edit`}>
-              <Edit className="mr-2 h-4 w-4" />
-              Edit Profile
-            </Link>
-          </Button>
+          
         </div>
       </div>
       

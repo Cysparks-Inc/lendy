@@ -28,7 +28,6 @@ import { PageLoader, InlineLoader, QuickLoader } from '@/components/ui/loader';
 import { ExportDropdown } from '@/components/ui/ExportDropdown';
 import { format } from 'date-fns';
 import { Label } from '@/components/ui/label';
-import { DateRangeFilter } from '@/components/ui/DateRangeFilter';
 import { DataTable } from '@/components/ui/data-table';
 import { Link } from 'react-router-dom';
 
@@ -82,6 +81,37 @@ interface TransactionFilters {
   branch_id: string;
   loan_officer_id: string;
 }
+
+// Helper functions for badge variants
+const getTransactionTypeVariant = (type: string): "default" | "secondary" | "destructive" | "outline" => {
+  switch (type) {
+    case 'payment':
+      return 'default';
+    case 'disbursement':
+      return 'secondary';
+    case 'refund':
+      return 'outline';
+    case 'fee':
+    case 'penalty':
+      return 'destructive';
+    default:
+      return 'secondary';
+  }
+};
+
+const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
+  switch (status) {
+    case 'completed':
+      return 'default';
+    case 'pending':
+      return 'outline';
+    case 'failed':
+    case 'cancelled':
+      return 'destructive';
+    default:
+      return 'secondary';
+  }
+};
 
 const Transactions: React.FC = () => {
   const { user, userRole, profile } = useAuth();
