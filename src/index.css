@@ -375,7 +375,6 @@
   body {
     @apply bg-background text-foreground;
   }
-<<<<<<< HEAD
 
   /* Custom Typography System */
   .text-heading-1 {
@@ -529,6 +528,4 @@
 
 .animate-blob-reverse {
   animation: blob 7s infinite reverse;
-=======
->>>>>>> parent of c5cf51a (design update)
 }

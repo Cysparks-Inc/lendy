@@ -17,7 +17,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { InlineLoader } from '@/components/ui/loader';
+import { InlineLoader, QuickLoader } from '@/components/ui/loader';
 
 // Helper function for currency formatting
 const formatCurrency = (amount: number) => new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(amount || 0);
@@ -234,9 +234,8 @@ const Dashboard: React.FC = () => {
   const defaultRate = stats?.total_loans ? (stats.overdue_loans / stats.total_loans) * 100 : 0;
 
   return (
-    <div className="space-y-6 p-2 sm:p-4 md:p-6">
+    <div className="space-y-4 md:space-y-6 p-3 sm:p-4 md:p-6">
       {/* Header */}
-<<<<<<< HEAD
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-heading-1 text-foreground">Dashboard</h1>
@@ -247,87 +246,17 @@ const Dashboard: React.FC = () => {
         <div className="flex gap-2">
           <Button variant="outline" onClick={fetchDashboardData} disabled={loading}>
             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-=======
-      <div className="space-y-2">
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
-              {userRole === 'loan_officer' ? 'My Portfolio Dashboard' : 'Dashboard'}
-            </h1>
-            <p className="text-muted-foreground text-sm sm:text-base">
-              {userRole === 'loan_officer' 
-                ? `Welcome back, Loan Officer! Here's an overview of your assigned members and loans.`
-                : `Welcome back, ${userRole === 'super_admin' ? 'Super Admin' : userRole === 'branch_admin' ? 'Branch Admin' : 'User'} ${user?.email}`
-              }
-            </p>
-          </div>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={fetchDashboardData}
-            disabled={loading}
-            className="flex items-center gap-2"
-          >
-            {loading ? <InlineLoader /> : <RefreshCw className="h-4 w-4" />}
->>>>>>> parent of c5cf51a (design update)
             Refresh
           </Button>
         </div>
       </div>
 
-<<<<<<< HEAD
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-body font-medium">Total Members</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
-=======
-      {/* Stats Cards - Now Clickable */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-        <StatCard
-          icon={Banknote}
-          title={userRole === 'loan_officer' ? 'My Portfolio Disbursed' : 'System Disbursed'}
-          value={formatCurrency(stats?.total_disbursed || 0)}
-          description={userRole === 'loan_officer' ? 'Total amount disbursed to your members' : 'Total amount disbursed'}
-          onClick={() => handleStatCardClick('disbursed')}
-        />
-        <StatCard
-          icon={DollarSign}
-          title={userRole === 'loan_officer' ? 'My Portfolio Outstanding' : 'Outstanding Balance'}
-          value={formatCurrency(stats?.outstanding_balance || 0)}
-          description={userRole === 'loan_officer' ? 'Total outstanding from your members' : 'Total outstanding amount'}
-          onClick={() => handleStatCardClick('outstanding')}
-        />
-        <StatCard
-          icon={Users}
-          title={userRole === 'loan_officer' ? 'My Assigned Members' : 'Total Members'}
-          value={stats?.total_members || 0}
-          description={userRole === 'loan_officer' ? 'Members assigned to you' : 'Active members'}
-          onClick={() => handleStatCardClick('members')}
-        />
-        <StatCard
-          icon={TrendingUp}
-          title={userRole === 'loan_officer' ? 'My Portfolio Loans' : 'Total Loans'}
-          value={stats?.total_loans || 0}
-          description={userRole === 'loan_officer' ? `${stats?.active_loans || 0} active in your portfolio` : `${stats?.active_loans || 0} active`}
-          onClick={() => handleStatCardClick('loans')}
-        />
-      </div>
-
-      {/* Recent Activity and System Health */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent System Activity */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent System Activity</CardTitle>
-            <CardDescription>
-              {userRole === 'loan_officer' 
-                ? 'Latest loans from your assigned members'
-                : 'Latest loans across all branches'
-              }
-            </CardDescription>
->>>>>>> parent of c5cf51a (design update)
           </CardHeader>
           <CardContent>
             <div className="text-heading-2">{stats?.total_members || 0}</div>
@@ -338,7 +267,6 @@ const Dashboard: React.FC = () => {
         </Card>
 
         <Card>
-<<<<<<< HEAD
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-body font-medium">Total Loans</CardTitle>
             <Banknote className="h-4 w-4 text-muted-foreground" />
@@ -350,24 +278,6 @@ const Dashboard: React.FC = () => {
             </p>
           </CardContent>
         </Card>
-=======
-          <CardHeader>
-            <CardTitle>System Health</CardTitle>
-            <CardDescription>Overall portfolio performance</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Collection Rate */}
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Collection Rate</span>
-                <span className="font-semibold text-green-600">{collectionRate.toFixed(1)}%</span>
-              </div>
-              <Progress value={collectionRate} className="h-2" />
-              <p className="text-xs text-muted-foreground">
-                {formatCurrency((stats?.total_disbursed || 0) - (stats?.outstanding_balance || 0))} of {formatCurrency(stats?.total_disbursed || 0)}
-              </p>
-            </div>
->>>>>>> parent of c5cf51a (design update)
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -455,16 +365,16 @@ const StatCard: React.FC<{
   onClick
 }) => (
   <Card 
-    className={`border-brand-green-200 hover:border-brand-green-300 transition-colors ${onClick ? 'cursor-pointer hover:shadow-md' : ''}`}
+    className={`bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md p-3 sm:p-4 ${onClick ? 'cursor-pointer' : ''}`}
     onClick={onClick}
   >
-    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-      <CardTitle className="text-xs sm:text-sm font-medium">{title}</CardTitle>
+    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-0 pt-0">
+      <CardTitle className="text-xs md:text-sm font-medium text-brand-green-800">{title}</CardTitle>
       <Icon className="h-4 w-4 text-brand-green-600" />
     </CardHeader>
-    <CardContent>
-      <div className="text-lg sm:text-2xl font-bold text-brand-green-700">{value}</div>
-      <p className="text-xs text-muted-foreground">{description}</p>
+    <CardContent className="px-0 pb-0">
+      <div className="text-lg md:text-2xl font-bold text-brand-green-700">{value}</div>
+      <p className="text-xs text-muted-foreground hidden sm:block">{description}</p>
     </CardContent>
   </Card>
 );

@@ -481,13 +481,13 @@ const InfoItem: React.FC<{icon: React.ElementType, label: string, value: string 
 );
 
 const StatCard: React.FC<{title: string, value: string | number, icon: React.ElementType}> = ({ title, value, icon: Icon }) => (
-    <Card className="border-brand-green-200 hover:border-brand-green-300 transition-colors">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs sm:text-sm font-medium">{title}</CardTitle>
+    <Card className="bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md p-3 sm:p-4">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-0 pt-0">
+            <CardTitle className="text-xs md:text-sm font-medium text-brand-green-800">{title}</CardTitle>
             <Icon className="h-4 w-4 text-brand-green-600" />
         </CardHeader>
-        <CardContent>
-            <div className="text-lg sm:text-2xl font-bold text-brand-green-700">{value}</div>
+        <CardContent className="px-0 pb-0">
+            <div className="text-xl md:text-2xl font-bold text-brand-green-700">{value}</div>
         </CardContent>
     </Card>
 );
