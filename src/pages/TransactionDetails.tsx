@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -105,6 +105,14 @@ const TransactionDetails: React.FC = () => {
   
   const finalTransactionId = transactionId || getTransactionIdFromUrl();
   
+  console.log('Transaction ID debugging:', {
+    paramTransactionId,
+    transactionId,
+    finalTransactionId,
+    pathname: location.pathname,
+    pathSegments: location.pathname.split('/')
+  });
+  
   // Early return if no transaction ID
   if (!finalTransactionId) {
     console.error('No transaction ID available');
@@ -124,7 +132,7 @@ const TransactionDetails: React.FC = () => {
   const [printing, setPrinting] = useState(false);
 
   // Fetch transaction details
-  const fetchTransactionDetails = async () => {
+  const fetchTransactionDetails = useCallback(async () => {
     if (!finalTransactionId) {
       console.error('No transaction ID provided');
       toast.error('Transaction ID is required');
@@ -132,6 +140,8 @@ const TransactionDetails: React.FC = () => {
       return;
     }
 
+    console.log('Fetching transaction details for ID:', finalTransactionId);
+    
     try {
       setLoading(true);
       
@@ -165,6 +175,8 @@ const TransactionDetails: React.FC = () => {
         .eq('id', finalTransactionId)
         .single();
 
+      console.log('Supabase response:', { data, error });
+
       if (error) {
         console.error('Error fetching transaction:', error);
         console.error('Error details:', {
@@ -173,15 +185,38 @@ const TransactionDetails: React.FC = () => {
           details: error.details,
           hint: error.hint
         });
+        
+        // Check if it's a table not found error
+        if (error.code === '42P01') {
+          toast.error('Transactions table not found. Please run the database migration first.');
+          navigate('/transactions');
+          return;
+        }
+        
         toast.error('Failed to fetch transaction details');
         return;
       }
 
       if (!data) {
+        console.log('No transaction data found');
+        
+        // Check if we have any transactions at all
+        const { count } = await supabase
+          .from('transactions')
+          .select('*', { count: 'exact', head: true });
+        
+        if (count === 0) {
+          toast.error('No transactions found in the system. Please record some payments first.');
+          navigate('/transactions');
+          return;
+        }
+        
         toast.error('Transaction not found');
         navigate('/transactions');
         return;
       }
+
+      console.log('Transaction data found:', data);
 
       // Check access control
       if (userRole === 'branch_admin' && profile?.branch_id && data.branch_id !== profile.branch_id) {
@@ -255,7 +290,7 @@ const TransactionDetails: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [finalTransactionId, userRole, profile, navigate]);
 
   // Get transaction type info
   const getTransactionTypeInfo = (type: string) => {
@@ -487,13 +522,39 @@ const TransactionDetails: React.FC = () => {
   };
 
   useEffect(() => {
-    // Only fetch if we have a transaction ID and we're not already loading
-    if (finalTransactionId && !loading) {
-      fetchTransactionDetails();
-    }
+    // Check if transactions table exists first
+    const checkTableExists = async () => {
+      try {
+        const { error } = await supabase
+          .from('transactions')
+          .select('id')
+          .limit(1);
+        
+        if (error) {
+          console.error('Transactions table check failed:', error);
+          if (error.code === '42P01') {
+            toast.error('Transactions table not found. Please run the database migration first.');
+            navigate('/transactions');
+            return;
+          }
+        } else {
+          console.log('Transactions table exists, proceeding with fetch');
+          // Fetch transaction details when component mounts
+          if (finalTransactionId) {
+            console.log('useEffect triggered, fetching transaction:', finalTransactionId);
+            fetchTransactionDetails();
+          }
+        }
+      } catch (err) {
+        console.error('Error checking table existence:', err);
+      }
+    };
+    
+    checkTableExists();
     
     // Add timeout to prevent infinite loading
     const timeout = setTimeout(() => {
+      console.log('Timeout fired, current loading state:', loading);
       if (loading) {
         console.error('Transaction fetch timeout');
         setLoading(false);
@@ -502,7 +563,7 @@ const TransactionDetails: React.FC = () => {
     }, 10000); // 10 seconds timeout
 
     return () => clearTimeout(timeout);
-  }, [finalTransactionId]); // Remove loading from dependencies to prevent loops
+  }, [finalTransactionId, fetchTransactionDetails]); // Include fetchTransactionDetails in dependencies
 
   if (loading) {
     return <PageLoader text="Loading transaction details..." />;
