@@ -298,7 +298,22 @@ serve(async (req) => {
       console.warn('Repayments table might not exist:', error.message);
     }
 
-    // --- Step 4: Delete the profile record ---
+    // --- Step 4: Call the simplified cleanup function manually ---
+    console.log('Calling simplified cleanup function...');
+    try {
+      const { error: cleanupError } = await supabaseAdmin
+        .rpc('cleanup_user_references_simple', { user_id_param: userId });
+
+      if (cleanupError) {
+        console.warn('Cleanup function error (non-critical):', cleanupError.message);
+      } else {
+        console.log('Cleanup function executed successfully');
+      }
+    } catch (error) {
+      console.warn('Cleanup function call failed (non-critical):', error.message);
+    }
+
+    // --- Step 5: Delete the profile record ---
     console.log('Deleting user profile...');
     const { error: profileDeleteError } = await supabaseAdmin
       .from('profiles')
@@ -312,7 +327,7 @@ serve(async (req) => {
 
     console.log('Profile deleted successfully');
 
-    // --- Step 5: Delete the user from auth.users with proper cleanup ---
+    // --- Step 6: Delete the user from auth.users with proper cleanup ---
     console.log('Deleting user from auth system...');
     
     // First, try to get the auth user to check if it exists
@@ -341,14 +356,14 @@ serve(async (req) => {
       // Continue with the process even if auth deletion fails
     }
 
-    // --- Step 6: Handle email reuse issue ---
+    // --- Step 7: Handle email reuse issue ---
     // Note: Supabase Auth doesn't immediately release emails for reuse
     // This is a limitation of the platform. Users may need to wait or use different emails
     console.log('Note: Email reuse may be limited by Supabase Auth policies');
 
     console.log(`Successfully deleted user ${userId} completely.`);
 
-    // --- Step 7: Send Success Response ---
+    // --- Step 8: Send Success Response ---
     return new Response(JSON.stringify({ 
       success: true, 
       message: `User ${userId} deleted successfully.`,

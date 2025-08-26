@@ -6,6 +6,196 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Helper function to create user-friendly error messages
+function createUserFriendlyError(error: any, context: string = 'user creation') {
+  const errorCode = error.code || error.status || 'UNKNOWN_ERROR'
+  const errorMessage = error.message || 'Unknown error occurred'
+  
+  // Common error patterns and their user-friendly messages
+  const errorPatterns = {
+    // Email-related errors
+    'email_exists': {
+      message: 'This email address is already registered in our system.',
+      suggestion: 'Please use a different email address or contact support if you believe this is an error.',
+      alternatives: [
+        'Try adding a number or suffix to your email (e.g., user2@example.com)',
+        'Use a different email address from another provider',
+        'If you recently deleted a user with this email, wait a few minutes before trying again'
+      ],
+      statusCode: 409
+    },
+    'user_already_registered': {
+      message: 'A user with this email address already exists.',
+      suggestion: 'Please use a different email address or check if you already have an account.',
+      alternatives: [
+        'Try logging in with your existing account',
+        'Use the "Forgot Password" feature if you can\'t remember your password',
+        'Contact support if you need help accessing your account'
+      ],
+      statusCode: 409
+    },
+    'invalid_email': {
+      message: 'The email address format is not valid.',
+      suggestion: 'Please check your email address and try again.',
+      alternatives: [
+        'Make sure you\'ve included the @ symbol',
+        'Check that the domain is correct (e.g., .com, .org, .net)',
+        'Avoid spaces or special characters in the email address'
+      ],
+      statusCode: 400
+    },
+    
+    // Password-related errors
+    'password_too_short': {
+      message: 'Password is too short.',
+      suggestion: 'Please use a password with at least 6 characters.',
+      alternatives: [
+        'Use a mix of letters, numbers, and symbols',
+        'Avoid common words or personal information',
+        'Consider using a passphrase for better security'
+      ],
+      statusCode: 400
+    },
+    'password_too_weak': {
+      message: 'Password is too weak.',
+      suggestion: 'Please use a stronger password.',
+      alternatives: [
+        'Include uppercase and lowercase letters',
+        'Add numbers and special characters',
+        'Avoid common patterns or sequences'
+      ],
+      statusCode: 400
+    },
+    
+    // Rate limiting and network errors
+    'rate_limit': {
+      message: 'Too many requests. Please wait a moment before trying again.',
+      suggestion: 'This helps protect our system from abuse.',
+      alternatives: [
+        'Wait 1-2 minutes before trying again',
+        'Check your internet connection',
+        'Contact support if the problem persists'
+      ],
+      statusCode: 429
+    },
+    'network_error': {
+      message: 'Network connection error.',
+      suggestion: 'Please check your internet connection and try again.',
+      alternatives: [
+        'Verify your internet connection is working',
+        'Try refreshing the page',
+        'Check if other websites are accessible'
+      ],
+      statusCode: 503
+    },
+    
+    // Database and server errors
+    'database_error': {
+      message: 'A system error occurred.',
+      suggestion: 'Please try again in a few moments.',
+      alternatives: [
+        'Wait a few minutes before trying again',
+        'Check if the system is experiencing issues',
+        'Contact support if the problem continues'
+      ],
+      statusCode: 503
+    },
+    'server_error': {
+      message: 'The server is temporarily unavailable.',
+      suggestion: 'Please try again later.',
+      alternatives: [
+        'Wait a few minutes before trying again',
+        'Check our status page for system updates',
+        'Contact support if the problem persists'
+      ],
+      statusCode: 503
+    },
+    
+    // Permission and validation errors
+    'permission_denied': {
+      message: 'You do not have permission to create users.',
+      suggestion: 'Please contact your administrator for access.',
+      alternatives: [
+        'Ask your administrator to grant you user creation permissions',
+        'Have an administrator create the user for you',
+        'Contact support to request access'
+      ],
+      statusCode: 403
+    },
+    'validation_error': {
+      message: 'Some information provided is not valid.',
+      suggestion: 'Please check all fields and try again.',
+      alternatives: [
+        'Review the error messages below each field',
+        'Make sure all required fields are filled',
+        'Check that phone numbers and other data are in the correct format'
+      ],
+      statusCode: 400
+    }
+  }
+  
+  // Try to match the error with known patterns
+  let matchedError = null
+  
+  // Check for exact code matches first
+  if (errorPatterns[errorCode]) {
+    matchedError = errorPatterns[errorCode]
+  } else {
+    // Check for pattern matches in the error message
+    const lowerMessage = errorMessage.toLowerCase()
+    
+    if (lowerMessage.includes('email') && lowerMessage.includes('exists')) {
+      matchedError = errorPatterns['email_exists']
+    } else if (lowerMessage.includes('user') && lowerMessage.includes('registered')) {
+      matchedError = errorPatterns['user_already_registered']
+    } else if (lowerMessage.includes('invalid') && lowerMessage.includes('email')) {
+      matchedError = errorPatterns['invalid_email']
+    } else if (lowerMessage.includes('password') && lowerMessage.includes('short')) {
+      matchedError = errorPatterns['password_too_short']
+    } else if (lowerMessage.includes('password') && lowerMessage.includes('weak')) {
+      matchedError = errorPatterns['password_too_weak']
+    } else if (lowerMessage.includes('rate') && lowerMessage.includes('limit')) {
+      matchedError = errorPatterns['rate_limit']
+    } else if (lowerMessage.includes('network') || lowerMessage.includes('connection')) {
+      matchedError = errorPatterns['network_error']
+    } else if (lowerMessage.includes('database') || lowerMessage.includes('db')) {
+      matchedError = errorPatterns['database_error']
+    } else if (lowerMessage.includes('permission') || lowerMessage.includes('unauthorized')) {
+      matchedError = errorPatterns['permission_denied']
+    } else if (lowerMessage.includes('validation') || lowerMessage.includes('invalid')) {
+      matchedError = errorPatterns['validation_error']
+    }
+  }
+  
+  // If we found a match, use it; otherwise, provide a generic error
+  if (matchedError) {
+    return {
+      success: false,
+      error: matchedError.message,
+      suggestion: matchedError.suggestion,
+      alternatives: matchedError.alternatives,
+      code: errorCode,
+      technicalDetails: errorMessage,
+      statusCode: matchedError.statusCode
+    }
+  } else {
+    // Generic error for unknown cases
+    return {
+      success: false,
+      error: `Unable to ${context}. Please try again.`,
+      suggestion: 'If the problem persists, contact support for assistance.',
+      alternatives: [
+        'Check that all information is correct',
+        'Try again in a few moments',
+        'Contact support if the problem continues'
+      ],
+      code: errorCode,
+      technicalDetails: errorMessage,
+      statusCode: 500
+    }
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -29,7 +219,18 @@ serve(async (req) => {
 
     if (!supabaseUrl || !serviceRoleKey) {
       console.error('Missing environment variables!')
-      throw new Error('Missing required environment variables: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY')
+      const errorResponse = createUserFriendlyError({
+        code: 'CONFIGURATION_ERROR',
+        message: 'Missing required environment variables: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY'
+      }, 'configure the system')
+      
+      return new Response(
+        JSON.stringify(errorResponse),
+        { 
+          status: 200, // Return 200 so Supabase doesn't throw an error
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
     }
 
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
@@ -49,218 +250,141 @@ serve(async (req) => {
     console.log('Parsed request data:')
     console.log('- Email:', email)
     console.log('- Password length:', password?.length || 0)
-    console.log('- User data:', JSON.stringify(userData, null, 2))
 
+    // Validate required fields
     if (!email || !password) {
-      console.error('Missing required fields: email or password')
+      console.error('Missing required fields')
+      const errorResponse = createUserFriendlyError({
+        code: 'MISSING_REQUIRED_FIELDS',
+        message: 'Email and password are required to create a user.'
+      }, 'create user')
+      
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: 'Email and password are required to create a user.',
-          code: 'MISSING_REQUIRED_FIELDS'
-        }),
+        JSON.stringify(errorResponse),
         { 
-          status: 400, 
+          status: 200, // Return 200 so Supabase doesn't throw an error
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       )
     }
 
-    // Basic email validation
+    // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(email)) {
       console.error('Invalid email format:', email)
+      const errorResponse = createUserFriendlyError({
+        code: 'invalid_email',
+        message: 'Invalid email format'
+      }, 'create user')
+      
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: 'Please enter a valid email address.',
-          code: 'INVALID_EMAIL_FORMAT'
-        }),
+        JSON.stringify(errorResponse),
         { 
-          status: 400, 
+          status: 200, // Return 200 so Supabase doesn't throw an error
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       )
     }
 
-    // Basic password validation
+    // Validate password length
     if (password.length < 6) {
       console.error('Password too short:', password.length)
+      const errorResponse = createUserFriendlyError({
+        code: 'password_too_short',
+        message: 'Password must be at least 6 characters long'
+      }, 'create user')
+      
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: 'Password must be at least 6 characters long.',
-          code: 'PASSWORD_TOO_SHORT'
-        }),
+        JSON.stringify(errorResponse),
         { 
-          status: 400, 
+          status: 200, // Return 200 so Supabase doesn't throw an error
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       )
     }
 
-    console.log('=== STEP 1: CREATING AUTH USER ===')
-    console.log('Creating user with email:', email)
-
-    // Create the auth user first
+    console.log('=== CREATING USER IN SUPABASE AUTH ===')
+    
+    // Create the user in Supabase Auth
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
+      email: email.trim().toLowerCase(),
+      password: password,
+      email_confirm: true, // Auto-confirm the email
       user_metadata: {
-        full_name: userData.full_name || userData.name || '',
-        phone_number: userData.phone_number || userData.phone || '',
-        role: userData.role || 'staff',
-        branchId: userData.branchId || null,
-        created_by: userData.created_by || null,
-        ...userData
-      },
-      email_confirm: true // Auto-confirm email for admin-created users
+        full_name: userData.full_name || '',
+        role: userData.role || 'user'
+      }
     })
 
     if (authError) {
-      console.error('=== AUTH USER CREATION FAILED ===')
       console.error('Auth error details:', JSON.stringify(authError, null, 2))
       
-      // Handle the specific email_exists error with a user-friendly message
-      if (authError.message.includes('email_exists') || authError.code === 'email_exists') {
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: 'This email address is already registered in our system. If you recently deleted a user with this email, please wait a few minutes or use a different email address.',
-            code: 'EMAIL_ALREADY_EXISTS',
-            suggestion: 'Try using a different email address or wait a few minutes if you recently deleted a user with this email.',
-            alternative: 'You can also try adding a number or suffix to the email (e.g., user2@example.com)'
-          }),
-          { 
-            status: 409, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        )
-      }
+      // Create user-friendly error response
+      const errorResponse = createUserFriendlyError(authError, 'create user')
       
-      // Translate other common errors to user-friendly messages
-      let userFriendlyMessage = 'Failed to create user'
-      let statusCode = 400
-
-      if (authError.message.toLowerCase().includes('user already registered')) {
-        userFriendlyMessage = 'A user with this email address already exists. Please use a different email or check if the user is already in the system.'
-        statusCode = 409 // Conflict
-      } else if (authError.message.toLowerCase().includes('invalid email')) {
-        userFriendlyMessage = 'Please enter a valid email address.'
-      } else if (authError.message.toLowerCase().includes('password')) {
-        if (authError.message.toLowerCase().includes('too short')) {
-          userFriendlyMessage = 'Password is too short. Please use at least 6 characters.'
-        } else if (authError.message.toLowerCase().includes('too weak')) {
-          userFriendlyMessage = 'Password is too weak. Please use a stronger password with a mix of letters, numbers, and symbols.'
-        } else {
-          userFriendlyMessage = 'Password does not meet the required criteria. Please use at least 6 characters.'
-        }
-      } else if (authError.message.toLowerCase().includes('rate limit')) {
-        userFriendlyMessage = 'Too many requests. Please wait a moment and try again.'
-        statusCode = 429 // Too Many Requests
-      } else if (authError.message.toLowerCase().includes('network')) {
-        userFriendlyMessage = 'Network connection error. Please check your internet connection and try again.'
-        statusCode = 503 // Service Unavailable
-      } else if (authError.message.toLowerCase().includes('database')) {
-        userFriendlyMessage = 'Database error occurred. Please try again in a few moments.'
-        statusCode = 503 // Service Unavailable
-      } else {
-        // For unknown errors, provide a generic but helpful message
-        userFriendlyMessage = `Unable to create user: ${authError.message}. Please check the information and try again.`
-      }
-
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: userFriendlyMessage,
-          code: authError.status || 'AUTH_ERROR',
-          details: authError.message
-        }),
+        JSON.stringify(errorResponse),
         { 
-          status: statusCode, 
+          status: 200, // Return 200 so Supabase doesn't throw an error
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       )
     }
 
-    console.log('=== AUTH USER CREATED SUCCESSFULLY ===')
-    console.log('User ID:', authData.user?.id)
-    console.log('User email:', authData.user?.email)
-    console.log('User metadata:', JSON.stringify(authData.user?.user_metadata, null, 2))
-
-    // DIRECT APPROACH: Create profile manually instead of relying on trigger
-    console.log('=== STEP 2: CREATING PROFILE ===')
-    let profile = null
-    try {
-      console.log('Attempting to create profile for user:', authData.user!.id)
-      
-      const profileData = {
-        id: authData.user!.id,
-        email: authData.user!.email || '',
-        full_name: userData.full_name || userData.name || '',
-        phone_number: userData.phone_number || userData.phone || '',
-        role: userData.role || null,
-        branch_id: userData.branchId || null,
-        created_by: userData.created_by || null
-      }
-      
-      console.log('Profile data to insert:', JSON.stringify(profileData, null, 2))
-
-      const { data: profileDataResult, error: profileError } = await supabaseAdmin
-        .from('profiles')
-        .insert(profileData)
-        .select()
-        .single()
-
-      if (profileError) {
-        console.error('=== PROFILE CREATION FAILED ===')
-        console.error('Profile error details:', JSON.stringify(profileError, null, 2))
-        console.error('Profile error message:', profileError.message)
-        console.error('Profile error code:', profileError.code)
-        console.error('Profile error details:', profileError.details)
-        console.error('Profile error hint:', profileError.hint)
-        throw new Error(`Profile creation failed: ${profileError.message}`)
-      }
-
-      profile = profileDataResult
-      console.log('=== PROFILE CREATED SUCCESSFULLY ===')
-      console.log('Profile data:', JSON.stringify(profile, null, 2))
-    } catch (profileError) {
-      console.error('=== PROFILE CREATION ERROR HANDLING ===')
-      console.error('Profile creation error:', profileError)
-      console.error('Error message:', profileError.message)
-      console.error('Error stack:', profileError.stack)
-      
-      // Try to get existing profile if it was created by trigger
-      console.log('Checking if profile already exists (created by trigger)...')
-      const { data: existingProfile, error: getError } = await supabaseAdmin
-        .from('profiles')
-        .select('*')
-        .eq('id', authData.user!.id)
-        .single()
-
-      if (existingProfile) {
-        profile = existingProfile
-        console.log('=== PROFILE ALREADY EXISTS (CREATED BY TRIGGER) ===')
-        console.log('Existing profile data:', JSON.stringify(profile, null, 2))
-      } else {
-        console.error('=== NO EXISTING PROFILE FOUND ===')
-        console.error('Get profile error:', getError)
-        throw new Error(`Failed to create profile: ${profileError.message}`)
-      }
-    }
-
-    console.log('=== STEP 3: ROLE STORED IN PROFILE ===')
-    console.log('Role is now stored directly in the profile table')
-    console.log('Role assigned:', userData.role || 'No role specified')
-    const roleCreated = !!userData.role
-
-    // Final verification
-    console.log('=== STEP 4: FINAL VERIFICATION ===')
-    console.log('Final profile data:', JSON.stringify(profile, null, 2))
-    console.log('Role created:', roleCreated)
+    console.log('=== USER CREATED IN AUTH SUCCESSFULLY ===')
     console.log('User ID:', authData.user!.id)
     console.log('User email:', authData.user!.email)
+
+    // Create the user profile in the profiles table
+    console.log('=== CREATING USER PROFILE ===')
+    
+    const profileData = {
+      id: authData.user!.id,
+      email: authData.user!.email!,
+      full_name: userData.full_name || '',
+      phone_number: userData.phone_number || null,
+      role: userData.role || 'user',
+      branch_id: userData.branchId || null,
+      created_by: userData.created_by || null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+
+    console.log('Profile data to insert:', JSON.stringify(profileData, null, 2))
+
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .insert(profileData)
+      .select()
+      .single()
+
+    if (profileError) {
+      console.error('Profile creation failed:', profileError)
+      
+      // Try to clean up the auth user since profile creation failed
+      try {
+        await supabaseAdmin.auth.admin.deleteUser(authData.user!.id)
+        console.log('Cleaned up auth user after profile creation failure')
+      } catch (cleanupError) {
+        console.warn('Failed to cleanup auth user:', cleanupError)
+      }
+      
+      const errorResponse = createUserFriendlyError({
+        code: 'PROFILE_CREATION_FAILED',
+        message: profileError.message
+      }, 'create user profile')
+      
+      return new Response(
+        JSON.stringify(errorResponse),
+        { 
+          status: 200, // Return 200 so Supabase doesn't throw an error
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    console.log('=== PROFILE CREATED SUCCESSFULLY ===')
+    console.log('Profile data:', JSON.stringify(profile, null, 2))
 
     // Return success response
     const responseData = {
@@ -269,10 +393,9 @@ serve(async (req) => {
         id: authData.user!.id,
         email: authData.user!.email,
         profile: profile,
-        role: userData.role || null,
-        roleCreated: roleCreated
+        role: userData.role || null
       },
-      message: 'User created successfully with profile and role'
+      message: 'User created successfully with profile'
     }
     
     console.log('=== SUCCESS RESPONSE ===')
@@ -282,6 +405,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify(responseData),
       { 
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     )
@@ -293,38 +417,12 @@ serve(async (req) => {
     console.error('Error stack:', error.stack)
     console.error('Full error object:', JSON.stringify(error, null, 2))
     
-    // Translate common unexpected errors
-    let userFriendlyMessage = 'An unexpected error occurred while creating the user.'
-    let statusCode = 500
-
-    if (error.message.toLowerCase().includes('fetch')) {
-      userFriendlyMessage = 'Unable to connect to the server. Please check your internet connection and try again.'
-      statusCode = 503
-    } else if (error.message.toLowerCase().includes('timeout')) {
-      userFriendlyMessage = 'The request timed out. Please try again.'
-      statusCode = 408
-    } else if (error.message.toLowerCase().includes('json')) {
-      userFriendlyMessage = 'Invalid data format received. Please check the information and try again.'
-      statusCode = 400
-    } else if (error.message.toLowerCase().includes('permission')) {
-      userFriendlyMessage = 'You do not have permission to create users. Please contact your administrator.'
-      statusCode = 403
-    } else if (error.message.toLowerCase().includes('profile creation failed')) {
-      userFriendlyMessage = 'User account was created but profile setup failed. Please contact your administrator'
-      statusCode = 500
-    } else if (error.message.toLowerCase().includes('role creation failed')) {
-      userFriendlyMessage = 'User account and profile were created but role assignment failed. Please contact your administrator.'
-      statusCode = 500
-    }
-
-    const errorResponse = {
-      success: false, 
-      error: userFriendlyMessage,
+    // Create user-friendly error response for unexpected errors
+    const errorResponse = createUserFriendlyError({
       code: 'UNEXPECTED_ERROR',
-      details: error.message,
-      stack: error.stack
-    }
-
+      message: error.message
+    }, 'create user')
+    
     console.error('=== ERROR RESPONSE ===')
     console.error('Error response:', JSON.stringify(errorResponse, null, 2))
     console.log('=== CREATE USER FUNCTION FAILED ===')
@@ -332,7 +430,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify(errorResponse),
       { 
-        status: statusCode, 
+        status: 200, // Return 200 so Supabase doesn't throw an error
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     )

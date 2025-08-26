@@ -62,6 +62,10 @@ const UserFormPage: React.FC = () => {
     const [formError, setFormError] = useState<string | null>(null);
     const [showPassword, setShowPassword] = useState(false);
     const [selectedRole, setSelectedRole] = useState<string>('');
+    const [errorDetails, setErrorDetails] = useState<{
+        suggestion?: string;
+        alternatives?: string[];
+    } | null>(null);
 
     const { register, handleSubmit, control, reset, watch, formState: { errors } } = useForm<UserFormData>({
         resolver: zodResolver(userSchema),
@@ -82,6 +86,8 @@ const UserFormPage: React.FC = () => {
                     if (userData) {
                         reset({ ...userData, branch_id: String(userData.branch_id), password: '' });
                         setSelectedRole(userData.role || '');
+                        setFormError(null);
+                        setErrorDetails(null);
                     }
                 }
             } catch (error: any) {
@@ -96,6 +102,7 @@ const UserFormPage: React.FC = () => {
     const onSubmit = async (data: UserFormData) => {
         setIsSubmitting(true);
         setFormError(null);
+        setErrorDetails(null);
         try {
             if (isEditMode) {
                 // UPDATE user logic
@@ -135,25 +142,57 @@ const UserFormPage: React.FC = () => {
                     return;
                 }
                 
-                // Pass the current user's ID as the creator
-                const response = await supabase.functions.invoke('create-user', {
-                    body: {
-                        email: data.email.trim().toLowerCase(),
-                        password: data.password,
-                        userData: {
-                            full_name: data.full_name,
-                            phone_number: data.phone_number,
-                            role: data.role,
-                            branchId: data.branch_id ? Number(data.branch_id) : null,
-                            created_by: user?.id // Pass the current user's ID
+                try {
+                    // Pass the current user's ID as the creator
+                    const response = await supabase.functions.invoke('create-user', {
+                        body: {
+                            email: data.email.trim().toLowerCase(),
+                            password: data.password,
+                            userData: {
+                                full_name: data.full_name,
+                                phone_number: data.phone_number,
+                                role: data.role,
+                                branchId: data.branch_id ? Number(data.branch_id) : null,
+                                created_by: user?.id // Pass the current user's ID
+                            }
                         }
-                    }
-                });
-                if (response.error) throw new Error(response.error.message);
-                if (!response.data.success) throw new Error(response.data.error);
+                    });
 
-                toast.success("User created successfully!");
-                navigate('/users');
+                    // Handle the response - now all responses come with 200 status
+                    if (response.error) {
+                        // This is a Supabase-level error (e.g., function not deployed, network issue)
+                        throw new Error(response.error.message);
+                    }
+
+                    if (!response.data) {
+                        throw new Error("No response data received from the server");
+                    }
+
+                    if (!response.data.success) {
+                        // This is our custom error from the edge function
+                        const errorData = response.data;
+                        
+                        // Display the user-friendly error message
+                        setFormError(errorData.error || "Failed to create user");
+                        
+                        // Store additional error details for display
+                        setErrorDetails({
+                            suggestion: errorData.suggestion,
+                            alternatives: errorData.alternatives
+                        });
+                        
+                        return; // Don't navigate away, let user see the error
+                    }
+
+                    toast.success("User created successfully!");
+                    navigate('/users');
+                } catch (createError: any) {
+                    // Handle create user specific errors
+                    console.error('Create user error:', createError);
+                    
+                    // For other errors, throw them to be handled by the outer catch block
+                    throw createError;
+                }
             }
         } catch (error: any) {
             setFormError(error.message);
@@ -175,7 +214,30 @@ const UserFormPage: React.FC = () => {
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                        {formError && <Alert variant="destructive"><AlertDescription>{formError}</AlertDescription></Alert>}
+                        {formError && (
+                            <Alert variant="destructive">
+                                <AlertDescription>
+                                    <div className="space-y-2">
+                                        <div className="font-medium">{formError}</div>
+                                        {errorDetails?.suggestion && (
+                                            <div className="text-sm text-red-200 mt-2">
+                                                <strong>Suggestion:</strong> {errorDetails.suggestion}
+                                            </div>
+                                        )}
+                                        {errorDetails?.alternatives && errorDetails.alternatives.length > 0 && (
+                                            <div className="text-sm text-red-200 mt-2">
+                                                <strong>You can try:</strong>
+                                                <ul className="list-disc list-inside mt-1 ml-2">
+                                                    {errorDetails.alternatives.map((alt, index) => (
+                                                        <li key={index}>{alt}</li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                    </div>
+                                </AlertDescription>
+                            </Alert>
+                        )}
                         <FormField label="Full Name" error={errors.full_name} required><Input {...register("full_name")} /></FormField>
                         <FormField label="Email Address" error={errors.email} required><Input type="email" {...register("email")} disabled={isEditMode} /></FormField>
                         <FormField label="Phone Number" error={errors.phone_number}><Input {...register("phone_number")} /></FormField>

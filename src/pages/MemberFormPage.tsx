@@ -25,7 +25,7 @@ const nextOfKinSchema = z.object({
 });
 
 const memberSchema = z.object({
-  profile_picture_url: z.string().optional().default(''),
+  photo_url: z.string().optional().default(''),
   full_name: z.string().min(3, "Full name must be at least 3 characters"),
   dob: z.string().optional().default(''),
   sex: z.string().optional().default(''),
@@ -140,7 +140,7 @@ const MemberFormPage: React.FC = () => {
         setIsSubmitting(true);
         setFormError(null);
         try {
-            let pictureUrl = data.profile_picture_url;
+            let pictureUrl = data.photo_url;
 
             if (profilePictureFile) {
                 const filePath = `public/${user?.id}-${Date.now()}`;
@@ -161,7 +161,7 @@ const MemberFormPage: React.FC = () => {
 
             const finalMemberData = {
                 ...memberData,
-                profile_picture_url: pictureUrl,
+                photo_url: pictureUrl,
                 branch_id: Number(data.branch_id),
                 group_id: data.group_id === 'none' ? null : data.group_id || null, // Include group assignment
                 assigned_officer_id: assignedOfficer,
@@ -248,7 +248,7 @@ const MemberFormPage: React.FC = () => {
                         {formError && <Alert variant="destructive"><AlertDescription>{formError}</AlertDescription></Alert>}
 
                         <FormSection title="Profile Picture">
-                            <ImageUploader currentImageUrl={watch("profile_picture_url")} onImageSelect={setProfilePictureFile} />
+                            <ImageUploader currentImageUrl={watch("photo_url")} onImageSelect={setProfilePictureFile} />
                         </FormSection>
 
                         <FormSection title="Personal Details">

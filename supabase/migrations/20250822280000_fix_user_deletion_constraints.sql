@@ -284,7 +284,7 @@ END $$;
 -- Create a table to track deleted emails and their reuse status
 CREATE TABLE IF NOT EXISTS deleted_email_tracker (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  original_email text NOT NULL,
+  original_email text NOT NULL UNIQUE,
   deleted_at timestamp with time zone DEFAULT NOW(),
   deleted_user_id uuid NOT NULL,
   can_reuse_after timestamp with time zone DEFAULT (NOW() + INTERVAL '24 hours'),
@@ -343,7 +343,7 @@ BEGIN
   -- Insert or update the deleted email record
   INSERT INTO deleted_email_tracker (original_email, deleted_user_id, notes)
   VALUES (user_email, user_id, 'User deleted via delete-user function')
-  ON CONFLICT (original_email) 
+  ON CONFLICT ON CONSTRAINT deleted_email_tracker_original_email_key
   DO UPDATE SET
     deleted_at = NOW(),
     deleted_user_id = user_id,
