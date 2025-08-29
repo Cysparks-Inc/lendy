@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Users, CreditCard, Search, FileText, Settings, User, Shield, UserCheck,
-  UsersRound, Clock, AlertTriangle, Folder, Trash2, Building, Banknote, Receipt
+  UsersRound, Clock, AlertTriangle, Folder, Trash2, Building, Banknote, Receipt, DollarSign
 } from 'lucide-react';
 import { NavGroup, UserRole } from '@/types'; // Import our new, robust types
 
@@ -12,6 +12,7 @@ export const sidebarConfig: NavGroup[] = [
       { title: 'Dashboard', url: '/', icon: LayoutDashboard }, // All roles
       { title: 'Members', url: '/members', icon: Users }, // All roles
       { title: 'Loans', url: '/loans', icon: Banknote }, // All roles
+      { title: 'Loans Overdue', url: '/daily-overdue', icon: AlertTriangle }, // All roles
       { title: 'Transactions', url: '/transactions', icon: Receipt }, // All roles
       { title: 'Search Member', url: '/search-member', icon: Search }, // All roles
       { 
@@ -32,12 +33,6 @@ export const sidebarConfig: NavGroup[] = [
     label: 'Reports & Analytics',
     requiredRoles: ['super_admin', 'branch_admin', 'loan_officer', 'auditor'],
     items: [
-      { 
-        title: 'Daily Overdue', 
-        url: '/daily-overdue', 
-        icon: Clock,
-        requiredRoles: ['super_admin', 'branch_admin', 'loan_officer', 'auditor']
-      },
       { 
         title: 'Realizable Report', 
         url: '/realizable-report', 
@@ -77,6 +72,8 @@ export const sidebarConfig: NavGroup[] = [
     items: [
       { title: 'Users Management', url: '/users', icon: Users },
       { title: 'Branches', url: '/branches', icon: Building },
+      { title: 'Expenses', url: '/expenses', icon: DollarSign },
+      { title: 'Income', url: '/income', icon: DollarSign },
       { title: 'Security', url: '/security', icon: Shield },
     ],
   },

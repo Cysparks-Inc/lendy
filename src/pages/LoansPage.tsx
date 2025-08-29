@@ -7,12 +7,14 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Search, Plus, Eye, CreditCard, Landmark, Banknote, Loader2, DollarSign, AlertTriangle } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Search, Plus, Eye, Edit, CreditCard, Landmark, Banknote, Loader2, DollarSign, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/ui/data-table'; // Reusable component
 import { ExportDropdown } from '@/components/ui/ExportDropdown';
 import { DateRangeFilter, DateRange, filterDataByDateRange } from '@/components/ui/DateRangeFilter';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 // --- Type Definitions ---
 type LoanStatus = 'active' | 'repaid' | 'defaulted' | 'pending';
@@ -28,7 +30,7 @@ interface LoanSummary {
 }
 
 const LoansPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
   const [loans, setLoans] = useState<LoanSummary[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -154,6 +156,16 @@ const LoansPage: React.FC = () => {
     switch (status) { case 'active': return 'default'; case 'repaid': return 'success'; case 'defaulted': return 'destructive'; case 'pending': return 'warning'; default: return 'secondary'; }
   };
 
+  // Helper function to check if a loan can be edited
+  const isLoanEditable = (status: LoanStatus): boolean => {
+    return status === 'active' || status === 'pending';
+  };
+
+  // Helper function to check if user has edit permissions
+  const hasEditPermissions = (): boolean => {
+    return userRole === 'super_admin';
+  };
+
   const columns = [
     { header: 'Member', cell: (row: LoanSummary) => <div><div className="font-medium">{row.member_name}</div><div className="text-sm text-muted-foreground">{row.branch_name}</div></div> },
     { header: 'Principal', cell: (row: LoanSummary) => <div className="font-mono">{formatCurrency(row.principal_amount)}</div> },
@@ -165,7 +177,92 @@ const LoansPage: React.FC = () => {
     }},
     { header: 'Due Date', cell: (row: LoanSummary) => new Date(row.due_date).toLocaleDateString() },
     { header: 'Status', cell: (row: LoanSummary) => <Badge variant={getStatusVariant(row.status)} className="capitalize">{row.status}</Badge> },
-    { header: 'Actions', cell: (row: LoanSummary) => <div className="text-right"><Button asChild variant="outline" size="icon"><Link to={`/loans/${row.id}`}><Eye className="h-4 w-4" /></Link></Button></div> },
+    { 
+      header: (
+        <div className="flex items-center gap-2">
+          <span>Actions</span>
+          {hasEditPermissions() && (
+            <Badge variant="outline" className="text-xs text-blue-600 border-blue-200 bg-blue-50">
+              Super Admin
+            </Badge>
+          )}
+        </div>
+      ), 
+      cell: (row: LoanSummary) => (
+        <div className="flex items-center justify-end gap-2">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button asChild variant="outline" size="icon">
+                  <Link to={`/loans/${row.id}`}>
+                    <Eye className="h-4 w-4" />
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>View Loan Details</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          
+          {hasEditPermissions() && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  {!isLoanEditable(row.status) ? (
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      className="text-gray-400 cursor-not-allowed opacity-50"
+                      disabled
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  ) : (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button 
+                          variant="outline" 
+                          size="icon" 
+                          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Edit Loan</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            You are about to edit loan for <strong>{row.member_name}</strong> (KES {row.principal_amount.toLocaleString()}). 
+                            This action is restricted to Super Admins only.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction asChild>
+                            <Link to={`/loans/${row.id}/edit`}>
+                              Continue to Edit
+                            </Link>
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>
+                    {!isLoanEditable(row.status) 
+                      ? 'Cannot edit completed/defaulted loans' 
+                      : 'Edit Loan (Super Admin Only)'
+                    }
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
+      )
+    },
   ];
 
   // Export columns configuration

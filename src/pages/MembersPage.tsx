@@ -192,9 +192,11 @@ const MembersPage: React.FC = () => {
         cell: (row: MemberSummary) => (
             <div className="flex justify-end gap-2">
                 <Button asChild variant="outline" size="icon"><Link to={`/members/${row.member_id}`}><Eye className="h-4 w-4" /></Link></Button>
-                <Button asChild variant="outline" size="icon"><Link to={`/members/${row.member_id}/edit`}><Edit className="h-4 w-4" /></Link></Button>
                 {userRole === 'super_admin' && (
-                    <Button variant="destructive" size="icon" onClick={() => setDeleteCandidate(row)}><Trash2 className="h-4 w-4" /></Button>
+                    <>
+                        <Button asChild variant="outline" size="icon"><Link to={`/members/${row.member_id}/edit`}><Edit className="h-4 w-4" /></Link></Button>
+                        <Button variant="destructive" size="icon" onClick={() => setDeleteCandidate(row)}><Trash2 className="h-4 w-4" /></Button>
+                    </>
                 )}
             </div>
         )
@@ -225,8 +227,10 @@ const MembersPage: React.FC = () => {
           </h1>
           <p className="text-muted-foreground text-sm md:text-base">
             {userRole === 'loan_officer' 
-              ? 'View and manage members assigned to you by the super admin.'
-              : 'Manage and monitor all registered members.'
+              ? 'View members assigned to you. You can add new members but cannot edit or delete existing ones.'
+              : userRole === 'super_admin'
+              ? 'Full access to manage, edit, and delete all members.'
+              : 'View and add new members. Only super admins can edit or delete existing members.'
             }
           </p>
         </div>

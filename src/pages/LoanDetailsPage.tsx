@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Loader2, Banknote, Calendar, TrendingUp, DollarSign, MessageSquare, Clock } from 'lucide-react';
+import { ArrowLeft, Loader2, Banknote, Calendar, TrendingUp, DollarSign, MessageSquare, Clock, Edit } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { ManualPaymentEntry } from '@/components/loans/ManualPaymentEntry';
@@ -12,6 +13,7 @@ import { PaymentHistory } from '@/components/loans/PaymentHistory';
 
 import { CommunicationLogs } from '@/components/loans/CommunicationLogs';
 import { LogCommunicationDialog } from '@/components/loans/LogCommunicationDialog';
+import { InstallmentScheduleTab } from '@/components/loans/InstallmentScheduleTab';
 
 // --- Type Definitions ---
 interface LoanDetails {
@@ -28,10 +30,17 @@ interface LoanDetails {
   loan_officer_name: string | null;
   interest_rate: number;
   status: string;
+  loan_program?: string;
+  installment_type?: string;
+  processing_fee?: number;
+  interest_disbursed?: number;
+  total_disbursed?: number;
+  group_name?: string;
 }
 
 const LoanDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
   const [loan, setLoan] = useState<LoanDetails | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [isCommunicationDialogOpen, setIsCommunicationDialogOpen] = useState(false);
@@ -57,12 +66,13 @@ const LoanDetailsPage: React.FC = () => {
       
       console.log('Raw loan data:', loanData);
       
-      // Step 2: Fetch related data (member, branch, officer names)
+      // Step 2: Fetch related data (member, branch, officer names, group)
       const memberId = loanData.member_id || loanData.customer_id;
-      const [memberRes, branchRes, officerRes] = await Promise.all([
+      const [memberRes, branchRes, officerRes, groupRes] = await Promise.all([
         memberId ? supabase.from('members').select('full_name').eq('id', memberId).single() : { data: null, error: null },
         loanData.branch_id ? supabase.from('branches').select('name').eq('id', loanData.branch_id).single() : { data: null, error: null },
-        loanData.loan_officer_id ? supabase.from('profiles').select('full_name').eq('id', loanData.loan_officer_id).single() : { data: null, error: null }
+        loanData.loan_officer_id ? supabase.from('profiles').select('full_name').eq('id', loanData.loan_officer_id).single() : { data: null, error: null },
+        loanData.group_id ? supabase.from('groups').select('name').eq('id', loanData.group_id).single() : { data: null, error: null }
       ]);
       
       // Step 3: Transform the data
@@ -79,7 +89,13 @@ const LoanDetailsPage: React.FC = () => {
         branch_name: branchRes?.data?.name || 'Unknown Branch',
         loan_officer_name: officerRes?.data?.full_name || 'Unassigned Officer',
         interest_rate: loanData.interest_rate || 0,
-        status: loanData.status || 'pending'
+        status: loanData.status || 'pending',
+        loan_program: loanData.loan_program,
+        installment_type: loanData.installment_type,
+        processing_fee: loanData.processing_fee,
+        interest_disbursed: loanData.interest_disbursed,
+        total_disbursed: loanData.total_disbursed,
+        group_name: groupRes?.data?.name
       };
       
       console.log('Transformed loan data:', transformedLoan);
@@ -156,37 +172,60 @@ const LoanDetailsPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Member Profile Link */}
+        {/* Member Profile Link and Edit Button */}
         {loan.member_id && (
-          <div className="pt-2">
+          <div className="pt-2 flex gap-2">
             <Button asChild variant="outline" size="sm">
               <Link to={`/members/${loan.member_id}`}>
                 <MessageSquare className="mr-2 h-4 w-4" />
                 View Member Profile
               </Link>
             </Button>
+            {user?.role === 'super_admin' && (
+              <Button asChild variant="outline" size="sm">
+                <Link to={`/loans/${loan.id}/edit`}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit Loan
+                </Link>
+              </Button>
+            )}
           </div>
         )}
       </div>
 
       {/* Summary Cards - Clean Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
         <StatCard icon={DollarSign} title="Outstanding Balance" value={formatCurrency(loan.current_balance)} variant={loan.current_balance > 0 ? 'warning' : 'success'} />
         <StatCard icon={Banknote} title="Principal Amount" value={formatCurrency(loan.principal_amount)} />
         <StatCard icon={TrendingUp} title="Total Repaid" value={formatCurrency(loan.total_paid)} />
         <StatCard icon={Calendar} title="Due Date" value={new Date(loan.due_date).toLocaleDateString()} />
+        <StatCard icon={Banknote} title="Total Disbursed" value={formatCurrency(loan.total_disbursed || 0)} />
       </div>
 
       {/* Main Content Area - Clean Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         {/* Left Column - Tabs */}
         <div className="lg:col-span-2">
-          <Tabs defaultValue="payment_history" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-3">
+          <Tabs defaultValue="installment_schedule" className="space-y-4">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="installment_schedule">Installment Schedule</TabsTrigger>
               <TabsTrigger value="payment_history">Payment History</TabsTrigger>
               <TabsTrigger value="communication_logs">Communication Logs</TabsTrigger>
               <TabsTrigger value="loan_details">Full Details</TabsTrigger>
             </TabsList>
+            
+            <TabsContent value="installment_schedule" className="space-y-4">
+              <InstallmentScheduleTab 
+                loan={{
+                  ...loan,
+                  member_name: loan.member_name,
+                  loan_officer_name: loan.loan_officer_name,
+                  branch_name: loan.branch_name,
+                  group_name: loan.group_name
+                }} 
+                onPaymentSuccess={handlePaymentSuccess} 
+              />
+            </TabsContent>
             
             <TabsContent value="payment_history" className="space-y-4">
               <PaymentHistory loanId={loan.id} />
@@ -224,9 +263,15 @@ const LoanDetailsPage: React.FC = () => {
                 <CardContent className="space-y-4">
                   <InfoItem label="Member Name" value={loan.member_name} />
                   <InfoItem label="Branch" value={loan.branch_name} />
+                  <InfoItem label="Group" value={loan.group_name || 'N/A'} />
                   <InfoItem label="Loan Officer" value={loan.loan_officer_name || 'N/A'} />
                   <InfoItem label="Issue Date" value={new Date(loan.issue_date).toLocaleDateString()} />
                   <InfoItem label="Interest Rate" value={`${loan.interest_rate}%`} />
+                  <InfoItem label="Loan Program" value={loan.loan_program ? (loan.loan_program === 'small_loan' ? 'Small Loan (8 weeks)' : 'Big Loan (12 weeks)') : 'N/A'} />
+                  <InfoItem label="Installment Type" value={loan.installment_type || 'N/A'} />
+                  <InfoItem label="Processing Fee" value={formatCurrency(loan.processing_fee || 0)} />
+                  <InfoItem label="Interest Amount" value={formatCurrency(loan.interest_disbursed || 0)} />
+                  <InfoItem label="Total Disbursed" value={formatCurrency(loan.total_disbursed || 0)} />
                 </CardContent>
               </Card>
             </TabsContent>

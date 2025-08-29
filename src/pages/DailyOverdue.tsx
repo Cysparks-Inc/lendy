@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, Clock, AlertTriangle, Phone, Eye, Loader2 } from 'lucide-react';
+import { Search, Clock, AlertTriangle, Phone, Eye, Loader2, Banknote, DollarSign, TrendingUp, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/ui/data-table';
@@ -27,6 +27,12 @@ interface OverdueItem {
   loan_balance: number;
   loan_officer_name: string;
   risk_level: RiskLevel;
+  loan_program: string;
+  principal_amount: number;
+  applied_at: string;
+  due_date: string;
+  total_installments: number;
+  paid_installments: number;
 }
 
 const DailyOverdue: React.FC = () => {
@@ -61,10 +67,10 @@ const DailyOverdue: React.FC = () => {
     return () => { supabase.removeChannel(subscription); };
   }, [user]);
 
-  const filteredItems = overdueItems.filter(item =>
-    item.member_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.account_number.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+     const filteredItems = overdueItems.filter(item =>
+     item.member_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+     item.account_number.toLowerCase().includes(searchTerm.toLowerCase())
+   );
 
   // Apply date filtering to the already filtered items
   const dateFilteredItems = filterDataByDateRange(filteredItems, dateRange, 'last_payment_date');
@@ -76,36 +82,82 @@ const DailyOverdue: React.FC = () => {
 
   const columns = [
     { header: 'Member', cell: (row: OverdueItem) => (
-      <Link to={`/members/${row.member_id}`} className="font-medium text-primary hover:underline">{row.member_name}</Link>
-    )},
-    { header: 'Loan Acc.', cell: (row: OverdueItem) => <Link to={`/loans/${row.id}`} className="font-mono text-xs hover:underline">{row.account_number}</Link> },
-    { header: 'Overdue Details', cell: (row: OverdueItem) => (
-      <div>
-        <div className="font-semibold text-destructive">{formatCurrency(row.overdue_amount)}</div>
-        <div className="text-xs text-muted-foreground">{row.days_overdue} days overdue</div>
+      <div className="space-y-1">
+                 <Link to={`/members/${row.member_id}`} className="font-medium text-primary hover:underline block">{row.member_name}</Link>
+        <div className="text-xs text-muted-foreground">{row.phone_number}</div>
       </div>
     )},
-    { header: 'Total Balance', cell: (row: OverdueItem) => <div className="font-mono">{formatCurrency(row.loan_balance)}</div> },
-    { header: 'Risk Level', cell: (row: OverdueItem) => <Badge variant={getRiskBadgeVariant(row.risk_level)} className="capitalize">{row.risk_level}</Badge> },
-    { header: 'Assigned Officer', cell: (row: OverdueItem) => row.loan_officer_name },
+         { header: 'Loan Details', cell: (row: OverdueItem) => (
+       <div className="space-y-1">
+         <Link to={`/loans/${row.id}`} className="font-mono text-xs hover:underline block">{row.account_number}</Link>
+         <Badge variant="outline" className="text-xs capitalize">{row.loan_program.replace('_', ' ')}</Badge>
+         <div className="text-xs text-muted-foreground">
+           {row.paid_installments}/{row.total_installments} installments
+         </div>
+       </div>
+     )},
+         { header: 'Overdue Details', cell: (row: OverdueItem) => (
+       <div className="space-y-1">
+         <div className="font-semibold text-destructive">{formatCurrency(row.overdue_amount)}</div>
+         <div className="text-xs text-muted-foreground">{row.days_overdue} days overdue</div>
+         <div className="text-xs text-muted-foreground">Due: {new Date(row.due_date).toLocaleDateString('en-KE')}</div>
+       </div>
+     )},
+         { header: 'Loan Balance', cell: (row: OverdueItem) => (
+       <div className="space-y-1">
+         <div className="font-mono font-semibold">{formatCurrency(row.loan_balance)}</div>
+         <div className="text-xs text-muted-foreground">Principal: {formatCurrency(row.principal_amount)}</div>
+         <div className="text-xs text-muted-foreground">Applied: {new Date(row.applied_at).toLocaleDateString('en-KE')}</div>
+       </div>
+     )},
+    { header: 'Risk & Branch', cell: (row: OverdueItem) => (
+      <div className="space-y-1">
+        <Badge variant={getRiskBadgeVariant(row.risk_level)} className="capitalize">{row.risk_level}</Badge>
+        <div className="text-xs text-muted-foreground">{row.branch_name}</div>
+        <div className="text-xs text-muted-foreground">{row.loan_officer_name}</div>
+      </div>
+    )},
     { header: 'Actions', cell: (row: OverdueItem) => (
-      <div className="flex justify-end gap-2">
-        <Button asChild variant="outline" size="icon"><a href={`tel:${row.phone_number}`}><Phone className="h-4 w-4" /></a></Button>
-        <Button asChild variant="outline" size="icon"><Link to={`/loans/${row.id}`}><Eye className="h-4 w-4" /></Link></Button>
+      <div className="flex flex-col gap-2">
+        <Button asChild variant="outline" size="sm" className="w-full">
+          <a href={`tel:${row.phone_number}`} className="flex items-center gap-2">
+            <Phone className="h-4 w-4" />
+            Call
+          </a>
+        </Button>
+        <Button asChild variant="outline" size="sm" className="w-full">
+          <Link to={`/loans/${row.id}`} className="flex items-center gap-2">
+            <Eye className="h-4 w-4" />
+            View
+          </Link>
+        </Button>
+                 <Button asChild variant="outline" size="sm" className="w-full">
+           <Link to={`/members/${row.member_id}`} className="flex items-center gap-2">
+             <Users className="h-4 w-4" />
+             Member
+           </Link>
+         </Button>
       </div>
     )},
   ];
 
-  const exportColumns = [
-    { header: 'Member Name', accessorKey: 'member_name' },
-    { header: 'Loan Account', accessorKey: 'account_number' },
-    { header: 'Phone Number', accessorKey: 'phone_number' },
-    { header: 'Branch', accessorKey: 'branch_name' },
-    { header: 'Days Overdue', accessorKey: 'days_overdue' },
-    { header: 'Overdue Amount', accessorKey: (row: OverdueItem) => formatCurrency(row.overdue_amount) },
-    { header: 'Total Balance', accessorKey: (row: OverdueItem) => formatCurrency(row.loan_balance) },
-    { header: 'Risk Level', accessorKey: 'risk_level' },
-  ];
+     const exportColumns = [
+     { header: 'Member Name', accessorKey: 'member_name' },
+     { header: 'Phone Number', accessorKey: 'phone_number' },
+           { header: 'Account Number', accessorKey: 'account_number' },
+      { header: 'Loan Program', accessorKey: 'loan_program' },
+     { header: 'Branch', accessorKey: 'branch_name' },
+     { header: 'Days Overdue', accessorKey: 'days_overdue' },
+     { header: 'Overdue Amount', accessorKey: (row: OverdueItem) => formatCurrency(row.overdue_amount) },
+     { header: 'Total Balance', accessorKey: (row: OverdueItem) => formatCurrency(row.loan_balance) },
+     { header: 'Principal Amount', accessorKey: (row: OverdueItem) => formatCurrency(row.principal_amount) },
+     { header: 'Installments Progress', accessorKey: (row: OverdueItem) => `${row.paid_installments}/${row.total_installments}` },
+     { header: 'Applied Date', accessorKey: (row: OverdueItem) => new Date(row.applied_at).toLocaleDateString('en-KE') },
+           { header: 'Due Date', accessorKey: (row: OverdueItem) => new Date(row.due_date).toLocaleDateString('en-KE') },
+     { header: 'Last Payment Date', accessorKey: (row: OverdueItem) => row.last_payment_date ? new Date(row.last_payment_date).toLocaleDateString('en-KE') : 'N/A' },
+     { header: 'Risk Level', accessorKey: 'risk_level' },
+     { header: 'Loan Officer', accessorKey: 'loan_officer_name' },
+   ];
   
   const totalOverdueAmount = overdueItems.reduce((sum, item) => sum + item.overdue_amount, 0);
   const criticalRiskCount = overdueItems.filter(item => item.risk_level === 'critical').length;
@@ -116,14 +168,14 @@ const DailyOverdue: React.FC = () => {
     <div className="space-y-6 p-2 sm:p-4 md:p-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Daily Overdue Report</h1>
-          <p className="text-muted-foreground">Monitor overdue loans and payment collection progress.</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Loans Overdue</h1>
+          <p className="text-muted-foreground">Monitor overdue loans and payment collection progress for both big and small loans.</p>
         </div>
         <ExportDropdown 
           data={dateFilteredItems} 
           columns={exportColumns} 
-          fileName="daily-overdue-report" 
-          reportTitle="Daily Overdue Report"
+          fileName="loans-overdue-report" 
+          reportTitle="Loans Overdue Report"
           dateRange={dateRange}
         />
       </div>
@@ -133,8 +185,16 @@ const DailyOverdue: React.FC = () => {
         <StatCard title="Total Overdue" value={overdueItems.length} icon={Clock} />
         <StatCard title="Overdue Amount" value={formatCurrency(totalOverdueAmount)} icon={AlertTriangle} />
         <StatCard title="Critical Risk" value={criticalRiskCount} icon={AlertTriangle} />
-        <StatCard title="Average Days" value={`${Math.round(overdueItems.reduce((sum, item) => sum + item.days_overdue, 0) / Math.max(overdueItems.length, 1))} days`} icon={Clock} />
+                 <StatCard title="Big Loans" value={overdueItems.filter(item => item.loan_program === 'big_loan').length} icon={Banknote} />
       </div>
+      
+             {/* Additional Stats */}
+       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+         <StatCard title="Small Loans" value={overdueItems.filter(item => item.loan_program === 'small_loan').length} icon={Banknote} />
+         <StatCard title="Average Days" value={`${Math.round(overdueItems.reduce((sum, item) => sum + item.days_overdue, 0) / Math.max(overdueItems.length, 1))} days`} icon={Clock} />
+         <StatCard title="Total Balance" value={formatCurrency(overdueItems.reduce((sum, item) => sum + item.loan_balance, 0))} icon={DollarSign} />
+         <StatCard title="Collection Rate" value={`${Math.round((overdueItems.reduce((sum, item) => sum + item.paid_installments, 0) / Math.max(overdueItems.reduce((sum, item) => sum + item.total_installments, 0), 1)) * 100)}%`} icon={TrendingUp} />
+       </div>
 
       {/* Search and Filters */}
       <Card>
@@ -150,6 +210,9 @@ const DailyOverdue: React.FC = () => {
                       {' '}• Filtered by date range
                     </span>
                   )}
+                  <span className="text-blue-600 font-medium ml-2">
+                    • Latest overdue shown at top
+                  </span>
                 </CardDescription>
               </div>
             </div>

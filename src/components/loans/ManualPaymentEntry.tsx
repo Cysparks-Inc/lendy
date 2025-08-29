@@ -15,7 +15,11 @@ import { toast } from 'sonner';
 // Defines the shape of the loan object this component needs
 interface LoanForPayment {
   id: string; // UUID
-  status: 'pending' | 'active' | 'repaid' | 'defaulted';
+  status: string;
+  current_balance: number;
+  principal_amount: number;
+  interest_disbursed?: number;
+  total_disbursed?: number;
 }
 
 // Defines the props for this component
@@ -30,7 +34,7 @@ interface ManualPaymentEntryProps {
 export const ManualPaymentEntry: React.FC<ManualPaymentEntryProps> = ({ loan, onPaymentSuccess }) => {
   const { user } = useAuth();
   const [amount, setAmount] = useState<string>('');
-  const [paymentMethod, setPaymentMethod] = useState<string>('');
+  const [paymentMethod, setPaymentMethod] = useState<string>('cash');
   const [notes, setNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
@@ -50,25 +54,35 @@ export const ManualPaymentEntry: React.FC<ManualPaymentEntryProps> = ({ loan, on
       setError('Please enter a valid, positive payment amount.');
       return;
     }
-    
-    // --- Data Preparation ---
-    // For now, we assume the full amount is allocated to the principal.
-    // This can be enhanced later with more complex principal/interest allocation logic if needed.
-    const principalComponent = paymentAmount;
-    const interestComponent = 0;
 
+    if (paymentAmount > loan.current_balance) {
+      setError(`Payment amount cannot exceed the outstanding balance of KES ${loan.current_balance.toLocaleString()}`);
+      return;
+    }
+    
+    // Additional validation: payment should not exceed the total loan amount
+    const totalLoanAmount = loan.principal_amount + (loan.interest_disbursed || 0);
+    if (paymentAmount > totalLoanAmount) {
+      setError(`Payment amount cannot exceed the total loan amount of KES ${totalLoanAmount.toLocaleString()}`);
+      return;
+    }
+    
     setIsSubmitting(true);
     try {
+      // Generate unique payment reference
+      const paymentReference = `PAY-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Insert payment record
       const { error: insertError } = await supabase
-        .from('payments')
+        .from('loan_payments')
         .insert({
           loan_id: loan.id,
-          recorded_by: user?.id, // Ensure user context provides the id
+          installment_number: 0, // 0 indicates manual payment not tied to specific installment
           amount: paymentAmount,
-          principal_component: principalComponent,
-          interest_component: interestComponent,
-          payment_method: paymentMethod,
+          payment_date: new Date().toISOString().split('T')[0],
+          payment_reference: paymentReference,
           notes: notes,
+          created_by: user?.id,
         });
 
       if (insertError) throw insertError;
@@ -76,13 +90,16 @@ export const ManualPaymentEntry: React.FC<ManualPaymentEntryProps> = ({ loan, on
       // --- Success Handling ---
       // 1. Reset the form fields
       setAmount('');
-      setPaymentMethod('');
+      setPaymentMethod('cash');
       setNotes('');
       
       // 2. Call the parent's success handler and pass the amount for optimistic UI update
       if (onPaymentSuccess) {
         onPaymentSuccess(paymentAmount);
       }
+
+      toast.success('Payment recorded successfully!');
+      
     } catch (err: any) {
       const errorMessage = err.message || 'An unknown error occurred.';
       setError(errorMessage);
@@ -93,7 +110,7 @@ export const ManualPaymentEntry: React.FC<ManualPaymentEntryProps> = ({ loan, on
   };
 
   // Conditionally render a message if the loan is already paid off
-  if (loan.status === 'repaid') {
+  if (loan.status === 'repaid' || loan.current_balance <= 0) {
     return (
       <Card className="bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800">
         <CardHeader>
@@ -120,17 +137,37 @@ export const ManualPaymentEntry: React.FC<ManualPaymentEntryProps> = ({ loan, on
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
+          
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="text-sm text-blue-600 font-medium">Outstanding Balance</div>
+            <div className="text-lg font-semibold text-blue-900">
+              KES {loan.current_balance.toLocaleString()}
+            </div>
+          </div>
+          
+          <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+            <div className="text-sm text-green-600 font-medium">Payment Distribution</div>
+            <div className="text-xs text-green-700 mt-1">
+              Your payment will be automatically distributed across unpaid installments in order of due date. 
+              You can pay more than the installment amount - the excess will be applied to the next installments.
+            </div>
+          </div>
+
           <div>
             <Label htmlFor="amount">Amount (KES)</Label>
             <Input 
               id="amount" 
               type="number" 
+              step="0.01"
               placeholder="e.g., 5000" 
               value={amount} 
               onChange={e => setAmount(e.target.value)} 
               required 
               disabled={isSubmitting}
             />
+            <p className="text-xs text-muted-foreground mt-1">
+              Maximum payment: KES {(loan.principal_amount + (loan.interest_disbursed || 0)).toLocaleString()}
+            </p>
           </div>
           <div>
             <Label htmlFor="payment_method">Payment Method</Label>

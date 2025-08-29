@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { useForm, useFieldArray, Controller } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,16 +14,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, PlusCircle, Trash2, ArrowLeft, CheckCircle, UserPlus } from 'lucide-react';
+import { Loader2, ArrowLeft, CheckCircle, UserPlus } from 'lucide-react';
 import { ImageUploader } from '@/components/ui/ImageUploader';
 
 // --- Validation Schema with Zod ---
-const nextOfKinSchema = z.object({
-  full_name: z.string().min(1, "Full name is required"),
-  relationship: z.string().min(1, "Relationship is required"),
-  contact_number: z.string().optional().default(''),
-});
-
 const memberSchema = z.object({
   photo_url: z.string().optional().default(''),
   full_name: z.string().min(3, "Full name must be at least 3 characters"),
@@ -33,18 +27,17 @@ const memberSchema = z.object({
   marital_status: z.string().optional().default(''),
   spouse_dob: z.string().optional().default(''),
   kyc_id_type: z.string().min(1, "KYC ID type is required"),
-  id_number: z.string().min(5, "A valid ID number is required"),
+  id_number: z.string().min(5, "A valid KYC ID number is required and must be unique"),
   kra_pin: z.string().optional().default(''),
   address_1: z.string().optional().default(''),
   location: z.string().optional().default(''),
-  house_type: z.string().optional().default(''),
   profession: z.string().optional().default(''),
   monthly_income: z.preprocess(val => (val === '' || val === null) ? 0 : Number(val), z.number().min(0).optional().default(0)),
   branch_id: z.string().min(1, "Branch is required"),
-  group_id: z.string().optional().default('none'), // Optional group assignment
+  group_id: z.string().min(1, "Group assignment is required"),
   // Officer assignment is now mandatory
   assigned_officer_id: z.string().min(1, "Assigning an officer is required"),
-  next_of_kin: z.array(nextOfKinSchema).optional(),
+  registration_fee_paid: z.boolean().optional().default(false),
 });
 
 type MemberFormData = z.infer<typeof memberSchema>;
@@ -52,16 +45,9 @@ type Branch = { id: number; name: string; };
 type AssignableOfficer = { id: string; full_name: string; };
 type Group = { id: string; name: string; branch_id: string; };
 
-const relationshipOptions = ["Spouse", "Parent", "Sibling", "Child", "Guardian", "Other"];
-
 const sanitizeDataForForm = (data: any) => {
   const sanitized = { ...data };
   for (const key in memberSchema.shape) { if (sanitized[key] === null) { sanitized[key] = ''; } }
-  if (!sanitized.next_of_kin || sanitized.next_of_kin.length === 0) {
-    sanitized.next_of_kin = [{ full_name: '', relationship: '', contact_number: '' }];
-  } else {
-    sanitized.next_of_kin = sanitized.next_of_kin.map((nok: any) => ({ ...nok, contact_number: nok.contact_number || '' }));
-  }
   return sanitized;
 };
 
@@ -70,6 +56,28 @@ const MemberFormPage: React.FC = () => {
     const navigate = useNavigate();
     const { user, userRole } = useAuth();
     const isEditMode = Boolean(id);
+    
+    // Restrict editing to super admins only
+    if (isEditMode && userRole !== 'super_admin') {
+        return (
+            <div className="flex flex-col items-center justify-center h-screen p-4 text-center">
+                <div className="max-w-md">
+                    <h1 className="text-2xl font-bold text-red-600 mb-4">Access Denied</h1>
+                    <p className="text-gray-600 mb-6">
+                        Only Super Admins can edit existing members. You can add new members but cannot modify existing ones.
+                    </p>
+                    <div className="flex gap-3">
+                        <Button asChild variant="outline">
+                            <Link to="/members">Back to Members</Link>
+                        </Button>
+                        <Button asChild>
+                            <Link to="/members/new">Add New Member</Link>
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
     
     const [branches, setBranches] = useState<Branch[]>([]);
     const [assignableOfficers, setAssignableOfficers] = useState<AssignableOfficer[]>([]);
@@ -83,10 +91,8 @@ const MemberFormPage: React.FC = () => {
 
     const { register, handleSubmit, control, reset, watch, setValue, formState: { errors } } = useForm<MemberFormData>({
         resolver: zodResolver(memberSchema),
-        defaultValues: { next_of_kin: [] }
+        defaultValues: { registration_fee_paid: false }
     });
-
-    const { fields, append, remove } = useFieldArray({ control, name: "next_of_kin" });
 
     useEffect(() => {
         const fetchData = async () => {
@@ -98,19 +104,22 @@ const MemberFormPage: React.FC = () => {
                     supabase.from('profiles').select('id, full_name').in('role', ['loan_officer', 'branch_admin', 'super_admin']),
                     supabase.from('groups').select('id, name, branch_id')
                 ]);
+                
+                console.log('🏢 Branches loaded:', branchesRes.data);
+                console.log('👥 Officers loaded:', officersRes.data);
+                console.log('📋 Groups loaded:', groupsRes.data);
+                
                 setBranches(branchesRes.data || []);
                 setAssignableOfficers(officersRes.data || []);
                 setGroups(groupsRes.data || []);
 
                 if (isEditMode && id) {
-                    const { data: memberData, error } = await supabase.from('members').select('*, next_of_kin(*)').eq('id', id).single();
+                    const { data: memberData, error } = await supabase.from('members').select('*').eq('id', id).single();
                     if (error) throw error;
                     if (memberData) {
                         const sanitizedData = sanitizeDataForForm(memberData);
                         reset({ ...sanitizedData, branch_id: String(sanitizedData.branch_id), monthly_income: String(sanitizedData.monthly_income || '') });
                     }
-                } else {
-                    reset({ next_of_kin: [{ full_name: '', relationship: '', contact_number: '' }] });
                 }
             } catch (error: any) {
                 toast.error("Failed to load necessary data", { description: error.message });
@@ -124,15 +133,18 @@ const MemberFormPage: React.FC = () => {
     // Filter groups based on selected branch
     const selectedBranchId = watch("branch_id");
     useEffect(() => {
+        console.log('🔍 Branch selection changed:', { selectedBranchId, groups });
         if (selectedBranchId) {
-            const branchGroups = groups.filter(group => group.branch_id === selectedBranchId);
+            // Convert both to strings for comparison to handle type mismatches
+            const branchGroups = groups.filter(group => String(group.branch_id) === String(selectedBranchId));
+            console.log('📍 Filtered groups for branch:', branchGroups);
             setFilteredGroups(branchGroups);
         } else {
             setFilteredGroups([]);
         }
         // Clear group selection if branch changes
         if (selectedBranchId) {
-            setValue("group_id", "none");
+            setValue("group_id", "");
         }
     }, [selectedBranchId, groups, setValue]);
 
@@ -151,7 +163,7 @@ const MemberFormPage: React.FC = () => {
                 pictureUrl = urlData.publicUrl;
             }
 
-            const { next_of_kin, ...memberData } = data;
+            const memberData = data;
             if (memberData.dob === '') memberData.dob = null;
             if (memberData.spouse_dob === '') memberData.spouse_dob = null;
             
@@ -163,7 +175,7 @@ const MemberFormPage: React.FC = () => {
                 ...memberData,
                 photo_url: pictureUrl,
                 branch_id: Number(data.branch_id),
-                group_id: data.group_id === 'none' ? null : data.group_id || null, // Include group assignment
+                group_id: data.group_id, // Group is now required
                 assigned_officer_id: assignedOfficer,
                 created_by: user?.id
             };
@@ -178,18 +190,25 @@ const MemberFormPage: React.FC = () => {
                 memberId = newMember.id;
             }
 
-            if (next_of_kin && memberId) {
-                await supabase.from('next_of_kin').delete().eq('member_id', memberId);
-                const nokData = next_of_kin.filter(nok => nok.full_name).map(nok => ({ ...nok, member_id: memberId }));
-                if (nokData.length > 0) {
-                    const { error: nokError } = await supabase.from('next_of_kin').insert(nokData);
-                    if (nokError) throw nokError;
-                }
-            }
+
             toast.success(`Member ${isEditMode ? 'updated' : 'created'} successfully!`);
             setSuccessData({ id: memberId!, name: data.full_name });
         } catch (error: any) {
-            const errorMessage = error.message.includes('duplicate key') ? 'A member with this ID or Phone Number already exists.' : error.message;
+            let errorMessage = error.message;
+            
+            // Handle specific database errors
+            if (error.code === '23505') {
+                if (error.message.includes('id_number')) {
+                    errorMessage = 'A member with this KYC ID number already exists. Please use a different ID number.';
+                } else if (error.message.includes('phone_number')) {
+                    errorMessage = 'A member with this phone number already exists. Please use a different phone number.';
+                } else {
+                    errorMessage = 'A member with this information already exists. Please check your input.';
+                }
+            } else if (error.message.includes('duplicate key')) {
+                errorMessage = 'A member with this ID or Phone Number already exists.';
+            }
+            
             setFormError(errorMessage);
             toast.error('Operation Failed', { description: errorMessage });
         } finally {
@@ -198,7 +217,7 @@ const MemberFormPage: React.FC = () => {
     };
     
     const handleAddAnother = () => {
-        reset({ next_of_kin: [{ full_name: '', relationship: '', contact_number: '' }] });
+        reset({ registration_fee_paid: false });
         setSuccessData(null);
         setProfilePictureFile(null);
     };
@@ -237,10 +256,10 @@ const MemberFormPage: React.FC = () => {
                         </CardTitle>
                         <CardDescription className="text-brand-green-600">
                             {isEditMode 
-                                ? 'Update member information below.' 
+                                ? 'Update member information below. Only Super Admins can edit existing members.' 
                                 : userRole === 'loan_officer'
-                                    ? 'Register a new member who will be automatically assigned to you.'
-                                    : 'Fill in the details below to register a new member.'
+                                    ? 'Register a new member who will be automatically assigned to you. KYC ID number must be unique.'
+                                    : 'Fill in the details below to register a new member. KYC ID number must be unique.'
                             }
                         </CardDescription>
                     </CardHeader>
@@ -254,50 +273,64 @@ const MemberFormPage: React.FC = () => {
                         <FormSection title="Personal Details">
                             <FormField label="Full Name" error={errors.full_name} required><Input {...register("full_name")} /></FormField>
                             <FormField label="Date of Birth" error={errors.dob}><Input type="date" {...register("dob")} /></FormField>
-                            <FormField label="Sex" error={errors.sex}><Controller name="sex" control={control} render={({ field }) => <Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue placeholder="Select sex..." /></SelectTrigger><SelectContent><SelectItem value="Male">Male</SelectItem><SelectItem value="Female">Female</SelectItem></SelectContent></Select>} /></FormField>
+                            <FormField label="Sex" error={errors.sex}><Controller name="sex" control={control} render={({ field }) => <Select onValueChange={field.onChange} value={field.value || ""}><SelectTrigger><SelectValue placeholder="Select sex..." /></SelectTrigger><SelectContent><SelectItem value="Male">Male</SelectItem><SelectItem value="Female">Female</SelectItem></SelectContent></Select>} /></FormField>
                             <FormField label="Phone Number" error={errors.phone_number} required><Input {...register("phone_number")} /></FormField>
-                            <FormField label="Marital Status" error={errors.marital_status}><Controller name="marital_status" control={control} render={({ field }) => <Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue placeholder="Select status..." /></SelectTrigger><SelectContent><SelectItem value="Single">Single</SelectItem><SelectItem value="Married">Married</SelectItem><SelectItem value="Divorced">Divorced</SelectItem><SelectItem value="Widowed">Widowed</SelectItem></SelectContent></Select>} /></FormField>
+                            <FormField label="Marital Status" error={errors.marital_status}><Controller name="marital_status" control={control} render={({ field }) => <Select onValueChange={field.onChange} value={field.value || ""}><SelectTrigger><SelectValue placeholder="Select status..." /></SelectTrigger><SelectContent><SelectItem value="Single">Single</SelectItem><SelectItem value="Married">Married</SelectItem><SelectItem value="Divorced">Divorced</SelectItem><SelectItem value="Widowed">Widowed</SelectItem></SelectContent></Select>} /></FormField>
                             {watch("marital_status") === "Married" && <FormField label="Spouse Date of Birth" error={errors.spouse_dob}><Input type="date" {...register("spouse_dob")} /></FormField>}
                         </FormSection>
 
                         <FormSection title="KYC & Financial Information">
-                            <FormField label="KYC ID Type" error={errors.kyc_id_type} required><Controller name="kyc_id_type" control={control} render={({ field }) => <Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue placeholder="Select ID type..." /></SelectTrigger><SelectContent><SelectItem value="National ID">National ID</SelectItem><SelectItem value="Passport">Passport</SelectItem><SelectItem value="Other">Other</SelectItem></SelectContent></Select>} /></FormField>
-                            <FormField label="ID Number" error={errors.id_number} required><Input {...register("id_number")} /></FormField>
+                            <FormField label="KYC ID Type" error={errors.kyc_id_type} required><Controller name="kyc_id_type" control={control} render={({ field }) => <Select onValueChange={field.onChange} value={field.value || ""}><SelectTrigger><SelectValue placeholder="Select ID type..." /></SelectTrigger><SelectContent><SelectItem value="National ID">National ID</SelectItem><SelectItem value="Passport">Passport</SelectItem><SelectItem value="Other">Other</SelectItem></SelectContent></Select>} /></FormField>
+                            <FormField label="ID Number" error={errors.id_number} required>
+                                <Input {...register("id_number")} placeholder="e.g., 12345678" />
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    This KYC ID number must be unique and will be used to prevent duplicate member registrations.
+                                </p>
+                            </FormField>
                             <FormField label="KRA PIN (Optional)" error={errors.kra_pin}><Input {...register("kra_pin")} /></FormField>
                             <FormField label="Profession" error={errors.profession}><Input {...register("profession")} /></FormField>
                             <FormField label="Monthly Income (KES, Optional)" error={errors.monthly_income}><Input type="number" {...register("monthly_income")} /></FormField>
                         </FormSection>
 
+                        <FormSection title="Registration & Fees">
+                            <div className="col-span-full">
+                                <div className="flex items-center space-x-2">
+                                    <input
+                                        type="checkbox"
+                                        id="registration_fee_paid"
+                                        {...register("registration_fee_paid")}
+                                        className="h-4 w-4 text-brand-green-600 focus:ring-brand-green-500 border-gray-300 rounded"
+                                    />
+                                    <Label htmlFor="registration_fee_paid" className="text-sm font-medium">
+                                        Registration Fee Paid (KES 500)
+                                    </Label>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-1 ml-6">
+                                    Check this box when the member has paid the KES 500 registration fee
+                                </p>
+                            </div>
+                        </FormSection>
+
                         <FormSection title="Address & Housing">
                             <FormField label="Location / Estate" error={errors.location}><Input {...register("location")} /></FormField>
                             <FormField label="Address" error={errors.address_1}><Input {...register("address_1")} /></FormField>
-                            <FormField label="House Type" error={errors.house_type}><Input {...register("house_type")} /></FormField>
                         </FormSection>
-
-                        <div>
-                            <h3 className="text-lg font-medium">Next of Kin</h3>
-                            <div className="space-y-4 mt-4">
-                                {fields.map((field, index) => (
-                                    <div key={field.id} className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 border rounded-lg relative">
-                                        <FormField label="Full Name" error={errors.next_of_kin?.[index]?.full_name} required><Input {...register(`next_of_kin.${index}.full_name`)} /></FormField>
-                                        <FormField label="Relationship" error={errors.next_of_kin?.[index]?.relationship} required><Controller name={`next_of_kin.${index}.relationship`} control={control} render={({ field }) => <Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger><SelectContent>{relationshipOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}</SelectContent></Select>} /></FormField>
-                                        <FormField label="Contact Number" error={errors.next_of_kin?.[index]?.contact_number}><Input {...register(`next_of_kin.${index}.contact_number`)} /></FormField>
-                                        <div className="md:col-start-4 flex items-end">{fields.length > 1 && <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}><Trash2 className="h-4 w-4 text-red-500" /></Button>}</div>
-                                    </div>
-                                ))}
-                                <Button type="button" variant="outline" size="sm" onClick={() => append({ full_name: '', relationship: '', contact_number: '' })}><PlusCircle className="mr-2 h-4 w-4" />Add Next of Kin</Button>
-                            </div>
-                        </div>
 
                         <FormSection title={userRole === 'loan_officer' ? 'Branch & Group Assignment' : 'Branch, Group & Officer Assignment'}>
                             <FormField label="Branch" error={errors.branch_id} required><Controller name="branch_id" control={control} render={({ field }) => <Select onValueChange={field.onChange} value={String(field.value || '')}><SelectTrigger><SelectValue placeholder="Assign a branch..." /></SelectTrigger><SelectContent>{branches.map(b => <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>)}</SelectContent></Select>} /></FormField>
-                            <FormField label="Group (Optional)" error={errors.group_id}>
+                            <FormField label="Group" error={errors.group_id} required>
                                 <Controller name="group_id" control={control} render={({ field }) => (
-                                    <Select onValueChange={field.onChange} value={field.value} disabled={!selectedBranchId}>
+                                    <Select onValueChange={field.onChange} value={field.value || ""} disabled={!selectedBranchId}>
                                         <SelectTrigger><SelectValue placeholder={selectedBranchId ? "Select a group..." : "Select branch first"} /></SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="none">No Group</SelectItem>
-                                            {filteredGroups.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
+                                            {console.log('🎯 Rendering group dropdown:', { selectedBranchId, filteredGroups, totalGroups: groups.length, fieldValue: field.value })}
+                                            {filteredGroups.length > 0 ? (
+                                                filteredGroups.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)
+                                            ) : (
+                                                <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                                                    {selectedBranchId ? `No groups available for branch ${selectedBranchId}` : 'Select a branch first'}
+                                                </div>
+                                            )}
                                         </SelectContent>
                                     </Select>
                                 )} />
@@ -305,7 +338,7 @@ const MemberFormPage: React.FC = () => {
                             {userRole !== 'loan_officer' && (
                                 <FormField label="Assign to Officer" error={errors.assigned_officer_id} required>
                                     <Controller name="assigned_officer_id" control={control} render={({ field }) => (
-                                        <Select onValueChange={field.onChange} value={field.value}>
+                                        <Select onValueChange={field.onChange} value={field.value || ""}>
                                             <SelectTrigger><SelectValue placeholder="Select an officer..." /></SelectTrigger>
                                             <SelectContent>{assignableOfficers.map(o => <SelectItem key={o.id} value={o.id}>{o.full_name}</SelectItem>)}</SelectContent>
                                         </Select>

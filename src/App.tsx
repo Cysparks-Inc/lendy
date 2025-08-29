@@ -34,6 +34,8 @@ import Security from "@/pages/Security";
 import Branches from "@/pages/Branches";
 import Transactions from "@/pages/Transactions";
 import TransactionDetails from "@/pages/TransactionDetails";
+import ExpensesPage from "@/pages/ExpensesPage";
+import IncomePage from "@/pages/IncomePage";
 
 const queryClient = new QueryClient();
 
@@ -84,6 +86,8 @@ const App = () => (
                 <Route path="branches" element={<Branches />} />
                 <Route path="transactions" element={<Transactions />} />
                 <Route path="transactions/:id" element={<TransactionDetails />} />
+                <Route path="expenses" element={<ExpensesPage />} />
+                <Route path="income" element={<IncomePage />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>

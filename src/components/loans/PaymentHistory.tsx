@@ -2,22 +2,29 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from 'lucide-react';
-import { ScrollableContainer } from '@/components/ui/scrollable-container'; // Assuming this component exists
+import { Loader2 } from 'lucide-react';
+import { ScrollableContainer } from '@/components/ui/scrollable-container';
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 
 // --- Type Definitions ---
 
-// Defines the shape of the data we expect from the `payments_with_profile` view
+// Defines the shape of a payment record
 interface Payment {
-  id: number;
-  loan_id: string; // UUID
-  payment_date: string; // ISO string from Supabase
+  id: string;
+  payment_date: string;
   amount: number;
   payment_method: string;
-  notes: string | null;
-  recorded_by_name: string | null;
+  notes?: string;
+  created_by?: string;
+  created_at: string;
+}
+
+// Defines the shape of installment information
+interface InstallmentInfo {
+  installment_number: number;
+  amount_applied: number;
+  is_fully_paid: boolean;
 }
 
 // Defines the props for the PaymentHistory component
@@ -43,7 +50,7 @@ export const PaymentHistory: React.FC<PaymentHistoryProps> = ({ loanId }) => {
 
       try {
         const { data, error, count } = await supabase
-          .from('payments_with_profile') // Using our efficient view
+          .from('loan_payments')
           .select('*', { count: 'exact' })
           .eq('loan_id', loanId)
           .order('payment_date', { ascending: false })
@@ -72,6 +79,18 @@ export const PaymentHistory: React.FC<PaymentHistoryProps> = ({ loanId }) => {
   const formatDate = (dateString: string): string => 
     new Date(dateString).toLocaleString('en-KE', { dateStyle: 'medium', timeStyle: 'short' });
 
+  // Function to get installment details for a payment
+  const getInstallmentDetails = async (paymentId: string): Promise<InstallmentInfo[]> => {
+    try {
+      // This would need to be implemented based on how we track payment distribution
+      // For now, we'll return a placeholder
+      return [];
+    } catch (error) {
+      console.error('Failed to get installment details:', error);
+      return [];
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -96,7 +115,7 @@ export const PaymentHistory: React.FC<PaymentHistoryProps> = ({ loanId }) => {
                     <TableHead>Date</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
                     <TableHead>Method</TableHead>
-                    <TableHead>Recorded By</TableHead>
+                    <TableHead>Installments Affected</TableHead>
                     <TableHead>Notes</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -106,45 +125,48 @@ export const PaymentHistory: React.FC<PaymentHistoryProps> = ({ loanId }) => {
                       <TableCell className="font-medium whitespace-nowrap">{formatDate(p.payment_date)}</TableCell>
                       <TableCell className="text-right font-mono">{formatCurrency(p.amount)}</TableCell>
                       <TableCell><Badge variant="outline">{p.payment_method}</Badge></TableCell>
-                      <TableCell>{p.recorded_by_name || 'N/A'}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        <div className="text-xs">
+                          <div className="font-medium">Payment Distribution</div>
+                          <div className="text-muted-foreground">
+                            Automatically applied to unpaid installments in order
+                          </div>
+                        </div>
+                      </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{p.notes || '-'}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             </ScrollableContainer>
-            <PaginationControls page={page} setPage={setPage} count={count} perPage={PAYMENTS_PER_PAGE} />
+            {count > PAYMENTS_PER_PAGE && (
+              <div className="mt-4">
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious 
+                        onClick={() => setPage(Math.max(0, page - 1))}
+                        className={page === 0 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                      />
+                    </PaginationItem>
+                    <PaginationItem>
+                      <span className="px-4 py-2 text-sm text-muted-foreground">
+                        Page {page + 1} of {Math.ceil(count / PAYMENTS_PER_PAGE)}
+                      </span>
+                    </PaginationItem>
+                    <PaginationItem>
+                      <PaginationNext 
+                        onClick={() => setPage(page + 1)}
+                        className={page >= Math.ceil(count / PAYMENTS_PER_PAGE) - 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            )}
           </>
         )}
       </CardContent>
     </Card>
-  );
-};
-
-// --- Pagination Sub-component with Typed Props ---
-
-interface PaginationControlsProps {
-  page: number;
-  setPage: React.Dispatch<React.SetStateAction<number>>;
-  count: number;
-  perPage: number;
-}
-
-const PaginationControls: React.FC<PaginationControlsProps> = ({ page, setPage, count, perPage }) => {
-  const totalPages = Math.ceil(count / perPage);
-  if (totalPages <= 1) return null;
-
-  return (
-    <div className="flex items-center justify-between pt-4">
-      <div className="text-sm text-muted-foreground">
-        Page {page + 1} of {totalPages}
-      </div>
-      <div className="flex items-center space-x-2">
-        <Button variant="outline" size="icon" onClick={() => setPage(0)} disabled={page === 0}><ChevronsLeft className="h-4 w-4" /></Button>
-        <Button variant="outline" size="icon" onClick={() => setPage(p => p - 1)} disabled={page === 0}><ChevronLeft className="h-4 w-4" /></Button>
-        <Button variant="outline" size="icon" onClick={() => setPage(p => p + 1)} disabled={page >= totalPages - 1}><ChevronRight className="h-4 w-4" /></Button>
-        <Button variant="outline" size="icon" onClick={() => setPage(totalPages - 1)} disabled={page >= totalPages - 1}><ChevronsRight className="h-4 w-4" /></Button>
-      </div>
-    </div>
   );
 };

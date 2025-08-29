@@ -14,7 +14,8 @@ import {
   TrendingDown,
   Eye,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  AlertTriangle
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { InlineLoader, QuickLoader } from '@/components/ui/loader';
@@ -263,7 +264,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Stats Cards - Now Clickable */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 sm:gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4 sm:gap-6">
         <StatCard
           icon={Banknote}
           title={userRole === 'loan_officer' ? 'My Portfolio Disbursed' : 'System Disbursed'}
@@ -292,7 +293,43 @@ const Dashboard: React.FC = () => {
           description={userRole === 'loan_officer' ? `${stats?.active_loans || 0} active in your portfolio` : `${stats?.active_loans || 0} active`}
           onClick={() => handleStatCardClick('loans')}
         />
+        {stats?.overdue_loans > 0 && (
+          <StatCard
+            icon={AlertTriangle}
+            title="Overdue Loans"
+            value={stats.overdue_loans}
+            description="Requires immediate attention"
+            onClick={() => navigate('/daily-overdue')}
+          />
+        )}
       </div>
+
+      {/* Loans Overdue Alert Card */}
+      {stats?.overdue_loans > 0 && (
+        <Card className="border-red-200 bg-red-50 hover:bg-red-100 transition-colors">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-red-100 rounded-full">
+                  <AlertTriangle className="h-5 w-5 text-red-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-red-800">Loans Overdue Alert</CardTitle>
+                  <CardDescription className="text-red-600">
+                    {stats.overdue_loans} loan{stats.overdue_loans > 1 ? 's' : ''} require{stats.overdue_loans > 1 ? '' : 's'} immediate attention
+                  </CardDescription>
+                </div>
+              </div>
+              <Button asChild variant="outline" className="border-red-300 text-red-700 hover:bg-red-100">
+                <Link to="/daily-overdue">
+                  View Overdue
+                  <AlertTriangle className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
+          </CardHeader>
+        </Card>
+      )}
 
       {/* Recent Activity and System Health */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
