@@ -99,6 +99,14 @@ const LoanDetailsPage: React.FC = () => {
       };
       
       console.log('Transformed loan data:', transformedLoan);
+      
+      // Debug: Log the key values that should change after payment
+      console.log('🔍 Key loan values after refresh:', {
+        current_balance: transformedLoan.current_balance,
+        total_paid: transformedLoan.total_paid,
+        status: transformedLoan.status
+      });
+      
       setLoan(transformedLoan);
     } catch (error: any) {
       toast.error('Failed to fetch loan details', { description: error.message });
@@ -118,19 +126,35 @@ const LoanDetailsPage: React.FC = () => {
     
     // 1. Optimistic UI Update: Update the local state immediately
     if (loan) {
+      console.log('🎯 Optimistic update - Before:', {
+        current_balance: loan.current_balance,
+        total_paid: loan.total_paid
+      });
+      
       setLoan(prevLoan => {
         if (!prevLoan) return null;
-        return {
+        const updatedLoan = {
           ...prevLoan,
           current_balance: prevLoan.current_balance - paymentAmount,
           total_paid: prevLoan.total_paid + paymentAmount,
         };
+        
+        console.log('🎯 Optimistic update - After:', {
+          current_balance: updatedLoan.current_balance,
+          total_paid: updatedLoan.total_paid
+        });
+        
+        return updatedLoan;
       });
     }
 
     // 2. Background Sync: Refetch data to ensure consistency with the database trigger.
     // This will correct any minor discrepancies and update the status if the loan becomes 'repaid'.
-    setTimeout(() => fetchLoanDetails(), 500); // Small delay to give the trigger time
+    // Increased delay to give the trigger more time to execute
+    setTimeout(() => {
+      console.log('🔄 Refreshing loan data after payment...');
+      fetchLoanDetails();
+    }, 1000); // Increased from 500ms to 1000ms
   };
 
   const formatCurrency = (amount: number): string => 
@@ -195,7 +219,12 @@ const LoanDetailsPage: React.FC = () => {
 
       {/* Summary Cards - Clean Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
-        <StatCard icon={DollarSign} title="Outstanding Balance" value={formatCurrency(loan.current_balance)} variant={loan.current_balance > 0 ? 'warning' : 'success'} />
+        <StatCard 
+          icon={DollarSign} 
+          title="Outstanding Balance" 
+          value={formatCurrency(Math.max(0, ((loan.principal_amount || 0) + (loan.interest_disbursed || 0) + (loan.processing_fee || 0)) - (loan.total_paid || 0)))} 
+          variant={((loan.principal_amount || 0) + (loan.interest_disbursed || 0) + (loan.processing_fee || 0)) - (loan.total_paid || 0) > 0 ? 'warning' : 'success'} 
+        />
         <StatCard icon={Banknote} title="Principal Amount" value={formatCurrency(loan.principal_amount)} />
         <StatCard icon={TrendingUp} title="Total Repaid" value={formatCurrency(loan.total_paid)} />
         <StatCard icon={Calendar} title="Due Date" value={new Date(loan.due_date).toLocaleDateString()} />

@@ -148,7 +148,16 @@ const MemberFormPage: React.FC = () => {
         }
     }, [selectedBranchId, groups, setValue]);
 
+    // Auto-set assigned_officer_id for loan officers
+    useEffect(() => {
+        if (userRole === 'loan_officer' && user?.id) {
+            console.log('👮 Auto-setting assigned_officer_id for loan officer:', user.id);
+            setValue('assigned_officer_id', user.id);
+        }
+    }, [userRole, user?.id, setValue]);
+
     const onSubmit = async (data: MemberFormData) => {
+        console.log('🚀 Form submission started:', { data, userRole, userId: user?.id });
         setIsSubmitting(true);
         setFormError(null);
         try {
@@ -170,6 +179,8 @@ const MemberFormPage: React.FC = () => {
             // If the current user is a loan officer, they are forced to be the assignee.
             // Otherwise, we use the value from the (now mandatory) dropdown.
             const assignedOfficer = userRole === 'loan_officer' ? user?.id : (data.assigned_officer_id || null);
+            
+            console.log('👮 Assigned officer logic:', { userRole, assignedOfficer, dataAssignedOfficer: data.assigned_officer_id });
 
             const finalMemberData = {
                 ...memberData,
@@ -179,6 +190,8 @@ const MemberFormPage: React.FC = () => {
                 assigned_officer_id: assignedOfficer,
                 created_by: user?.id
             };
+
+            console.log('🎯 Final member data to submit:', finalMemberData);
 
             let memberId = id;
             if (isEditMode) {
@@ -190,10 +203,11 @@ const MemberFormPage: React.FC = () => {
                 memberId = newMember.id;
             }
 
-
+            console.log('✅ Member saved successfully:', memberId);
             toast.success(`Member ${isEditMode ? 'updated' : 'created'} successfully!`);
             setSuccessData({ id: memberId!, name: data.full_name });
         } catch (error: any) {
+            console.error('❌ Error submitting member:', error);
             let errorMessage = error.message;
             
             // Handle specific database errors

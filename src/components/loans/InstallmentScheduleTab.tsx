@@ -83,14 +83,17 @@ export const InstallmentScheduleTab: React.FC<InstallmentScheduleTabProps> = ({ 
 
       const totalAmount = Math.round((installmentPrincipal + installmentInterest) * 100) / 100;
       
-      // Determine status based on current balance and total paid
+      // Determine status based on total paid vs what should be paid for this installment
       let status: 'pending' | 'paid' | 'overdue' = 'pending';
       const dueDateObj = new Date(dueDate);
       const today = new Date();
       
-      if (loan.total_paid >= totalAmount * i) {
+      // Calculate cumulative amount that should be paid by this installment
+      const cumulativeAmountDue = totalAmount * i;
+      
+      if (loan.total_paid >= cumulativeAmountDue) {
         status = 'paid';
-      } else if (dueDateObj < today && loan.total_paid < totalAmount * i) {
+      } else if (dueDateObj < today && loan.total_paid < cumulativeAmountDue) {
         status = 'overdue';
       }
 
@@ -155,6 +158,17 @@ export const InstallmentScheduleTab: React.FC<InstallmentScheduleTabProps> = ({ 
       // Refresh the schedule
       generateInstallmentSchedule();
     } catch (error: any) {
+      // Enhanced error logging to debug the total_paid column issue
+      console.error('=== INSTALLMENT PAYMENT ERROR DETAILS ===');
+      console.error('Error object:', error);
+      console.error('Error message:', error.message);
+      console.error('Error code:', error.code);
+      console.error('Error details:', error.details);
+      console.error('Error hint:', error.hint);
+      console.error('Full error:', JSON.stringify(error, null, 2));
+      console.error('Loan object being used:', loan);
+      console.error('=== END ERROR DETAILS ===');
+      
       toast.error('Failed to record payment', { description: error.message });
     } finally {
       setRecordingPayment(false);

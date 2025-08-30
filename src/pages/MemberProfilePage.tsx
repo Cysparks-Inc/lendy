@@ -5,8 +5,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { ArrowLeft, Loader2, Phone, Mail, MessageSquare, Briefcase, Home, Banknote, Users, DollarSign, Edit, Eye, UserCheck, PlusCircle, FileText, History } from 'lucide-react';
+import { ArrowLeft, Loader2, Phone, Mail, MessageSquare, Briefcase, Home,Landmark, Banknote, Users, DollarSign, Edit, Eye, UserCheck, PlusCircle, FileText, History } from 'lucide-react';
 import { toast } from 'sonner';
 
 // --- UI/UX FIX: Import the styled Tabs components from shadcn/ui ---
@@ -23,7 +25,16 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
 // --- Type Definitions ---
 interface NextOfKin { full_name: string; relationship: string; contact_number: string | null; }
-interface MemberLoan { id: string; principal_amount: number; current_balance: number; status: 'active' | 'repaid' | 'defaulted' | 'pending'; due_date: string; }
+interface MemberLoan { 
+  id: string; 
+  principal_amount: number; 
+  current_balance: number; 
+  status: 'active' | 'repaid' | 'defaulted' | 'pending'; 
+  due_date: string; 
+  total_paid?: number;
+  interest_disbursed?: number;
+  processing_fee?: number;
+}
 interface MemberProfileData {
   id: string;
   first_name: string;
@@ -58,6 +69,7 @@ const MemberProfilePage: React.FC = () => {
   const [groupName, setGroupName] = useState<string>('N/A');
   const [branchName, setBranchName] = useState<string>('N/A');
   const [communicationLogsKey, setCommunicationLogsKey] = useState(0); // For forcing refresh
+  const [loanStatusFilter, setLoanStatusFilter] = useState<string>('all');
 
   const fetchData = async () => {
     if (!id) return;
@@ -100,7 +112,7 @@ const MemberProfilePage: React.FC = () => {
 
         // Fetch loans - try both member_id and customer_id to handle different schema versions
         let loansRes;
-        const loanColumns = 'id, principal_amount, current_balance, status, due_date, member_id, customer_id';
+        const loanColumns = 'id, principal_amount, current_balance, status, due_date, member_id, customer_id, total_paid, interest_disbursed, processing_fee';
         
         try {
           // First try member_id with the current member's ID
@@ -240,9 +252,9 @@ const MemberProfilePage: React.FC = () => {
   const getStatusVariant = (status: MemberLoan['status']) => {
     switch (status) { 
       case 'active': return 'default'; 
-      case 'repaid': return 'default'; 
+      case 'repaid': return 'success'; 
       case 'defaulted': return 'destructive'; 
-      case 'pending': return 'secondary'; 
+      case 'pending': return 'warning'; 
       default: return 'secondary'; 
     }
   };
@@ -257,7 +269,15 @@ const MemberProfilePage: React.FC = () => {
   if (loading) { return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>; }
   if (!member) { return <div className="text-center p-10"><h2 className="text-xl font-semibold">Member Not Found</h2></div>; }
   
-  const totalOutstanding = loans.reduce((sum, loan) => sum + (loan.current_balance || 0), 0);
+  const totalOutstanding = loans
+    .filter(loan => loan.status !== 'repaid')
+    .reduce((sum, loan) => sum + (loan.current_balance || 0), 0);
+  
+  // Filter loans based on status filter
+  const filteredLoans = loanStatusFilter === 'all' 
+    ? loans 
+    : loans.filter(loan => loan.status === loanStatusFilter);
+  
   const cleanPhoneNumber = member.phone_number.replace(/[^0-9]/g, '');
 
   return (
@@ -401,12 +421,23 @@ const MemberProfilePage: React.FC = () => {
 
                 {/* Main Content - Full width on mobile, right columns on desktop */}
                 <div className="lg:col-span-2 space-y-6">
-                    {/* Stats Cards - Responsive grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                        <StatCard icon={Banknote} title="Active Loans" value={loans.length} />
-                        <StatCard icon={DollarSign} title="Total Outstanding" value={formatCurrency(totalOutstanding)} />
-                        <StatCard icon={Users} title="Member No." value={member.member_no} />
-                    </div>
+                                         {/* Stats Cards - Responsive grid */}
+                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6">
+                         <StatCard icon={Banknote} title="Total Loans" value={loans.length} />
+                         <StatCard icon={DollarSign} title="Active Loans" value={loans.filter(l => l.status === 'active').length} />
+                         <StatCard icon={DollarSign} title="Repaid Loans" value={loans.filter(l => l.status === 'repaid').length} />
+                         <StatCard icon={Landmark} title="Total Outstanding" value={formatCurrency(totalOutstanding)} />
+                         <StatCard icon={Users} title="Member No." value={member.member_no} />
+                         {loanStatusFilter !== 'all' && (
+                           <div className="col-span-5">
+                             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
+                               <p className="text-sm text-blue-800 font-medium">
+                                 Filtered View: {filteredLoans.length} {loanStatusFilter} loans
+                               </p>
+                             </div>
+                           </div>
+                         )}
+                     </div>
                     
                     {/* Activity & History Card */}
                     <Card>
@@ -420,11 +451,62 @@ const MemberProfilePage: React.FC = () => {
                                     <TabsTrigger value="communication">Communication History</TabsTrigger>
                                 </TabsList>
                                 <TabsContent value="loans" className="mt-6">
+                                    <div className="mb-4">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <span className="text-sm font-medium">Filter by status:</span>
+                                            <Select value={loanStatusFilter} onValueChange={setLoanStatusFilter}>
+                                                <SelectTrigger className="w-32">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="all">All Loans</SelectItem>
+                                                    <SelectItem value="active">Active</SelectItem>
+                                                    <SelectItem value="repaid">Repaid</SelectItem>
+                                                    <SelectItem value="pending">Pending</SelectItem>
+                                                    <SelectItem value="defaulted">Defaulted</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">
+                                            {loanStatusFilter === 'all' 
+                                              ? `Showing all ${loans.length} loans` 
+                                              : `Showing ${filteredLoans.length} ${loanStatusFilter} loans`
+                                            }
+                                        </p>
+                                    </div>
                                     <DataTable 
                                         columns={[
                                             { header: 'Loan ID', cell: (row) => <span className="font-mono text-xs">{row.id.slice(0, 8)}...</span> },
                                             { header: 'Principal', cell: (row) => formatCurrency(row.principal_amount) },
                                             { header: 'Outstanding', cell: (row) => formatCurrency(row.current_balance) },
+                                            { header: 'Progress', cell: (row) => {
+                                                // Calculate progress based on total paid vs total amount due
+                                                const totalAmountDue = row.principal_amount + (row.interest_disbursed || 0) + (row.processing_fee || 0);
+                                                let progress = 0;
+                                                if (totalAmountDue > 0) {
+                                                    progress = Math.min(100, (row.total_paid / totalAmountDue) * 100);
+                                                } else if (row.status === 'repaid') {
+                                                    progress = 100;
+                                                }
+                                                
+                                                // Ensure progress is 100% for fully repaid loans
+                                                if (row.status === 'repaid' && row.total_paid > 0) {
+                                                    progress = 100;
+                                                }
+                                                
+                                                return (
+                                                    <div className="flex items-center gap-2">
+                                                        <Progress 
+                                                            value={progress} 
+                                                            className="w-20 h-2" 
+                                                            style={{
+                                                                '--progress-background': row.status === 'repaid' ? 'hsl(142.1 76.2% 36.3%)' : undefined
+                                                            } as React.CSSProperties}
+                                                        />
+                                                        <span className="text-xs font-medium">{progress.toFixed(0)}%</span>
+                                                    </div>
+                                                );
+                                            }},
                                             { header: 'Status', cell: (row) => <Badge variant={getStatusVariant(row.status)} className="capitalize">{row.status}</Badge> },
                                             { header: 'Due Date', cell: (row) => new Date(row.due_date).toLocaleDateString() },
                                             { header: 'Actions', cell: (row) => (
@@ -437,7 +519,7 @@ const MemberProfilePage: React.FC = () => {
                                                 </div>
                                             ) }
                                         ]} 
-                                        data={loans} 
+                                        data={filteredLoans} 
                                         emptyStateMessage="No loan history for this member." 
                                     />
                                 </TabsContent>

@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
+import { Checkbox } from '@/components/ui/checkbox';
 import { 
   Plus, 
   Users, 
@@ -18,11 +19,26 @@ import {
   DollarSign,
   AlertCircle,
   UserPlus,
-  X
+  X,
+  Search,
+  Filter,
+  Download,
+  Eye,
+  CreditCard,
+  Landmark,
+  Banknote,
+  Loader2
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+
+// jsPDF for PDF export
+declare global {
+  interface Window {
+    jsPDF: any;
+  }
+}
 
 // Types
 interface Branch {
@@ -62,6 +78,26 @@ interface GroupMember {
   branch_id?: number;
 }
 
+interface GroupTransaction {
+  id: string;
+  member_name: string;
+  program_name: string;
+  disbursed_date: string;
+  outstanding_amount: number;
+  loan_collection: number;
+  security_deposit: number;
+  security_balance: number;
+  as_on_outstanding: number;
+  member_id: string;
+  loan_id: string;
+  status: string;
+  principal_amount: number;
+  interest_amount: number;
+  processing_fee: number;
+  total_paid: number;
+  current_balance: number;
+}
+
 interface LoanOfficer {
   id: string;
   full_name: string;
@@ -77,6 +113,7 @@ const Groups: React.FC = () => {
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
   const [groupMembers, setGroupMembers] = useState<GroupMember[]>([]);
   const [availableMembers, setAvailableMembers] = useState<GroupMember[]>([]);
+  const [groupTransactions, setGroupTransactions] = useState<GroupTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isManagingMembers, setIsManagingMembers] = useState(false);
@@ -85,11 +122,15 @@ const Groups: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [branchFilter, setBranchFilter] = useState('');
   const [officerFilter, setOfficerFilter] = useState('');
+  const [processFilter, setProcessFilter] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
+  const [dayFilter, setDayFilter] = useState('');
   
   // Dialog states
   const [dialogOpen, setDialogOpen] = useState(false);
   const [manageMembersOpen, setManageMembersOpen] = useState(false);
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+  const [editingGroupId, setEditingGroupId] = useState<number | null>(null);
   
   // Form data
   const [formData, setFormData] = useState({
@@ -315,6 +356,79 @@ const Groups: React.FC = () => {
     }
   };
 
+  const fetchGroupTransactions = async (group: Group) => {
+    try {
+      console.log('🔍 Fetching transactions for group:', group.id);
+      
+      // First get all members in the group
+      const { data: membersData, error: membersError } = await supabase
+        .from('members')
+        .select('id, full_name')
+        .eq('group_id', group.id);
+      
+      if (membersError) throw membersError;
+      
+      if (!membersData || membersData.length === 0) {
+        setGroupTransactions([]);
+        return;
+      }
+      
+      const memberIds = membersData.map(m => m.id);
+      
+      // Fetch loans for these members
+      const { data: loansData, error: loansError } = await supabase
+        .from('loans')
+        .select(`
+          id,
+          customer_id,
+          principal_amount,
+          interest_disbursed,
+          processing_fee,
+          total_paid,
+          current_balance,
+          status,
+          issue_date,
+          loan_program,
+          loan_officer_id
+        `)
+        .in('customer_id', memberIds);
+      
+      if (loansError) throw loansError;
+      
+      // Transform data to match GroupTransaction interface
+      const transactions: GroupTransaction[] = (loansData || []).map(loan => {
+        const member = membersData.find(m => m.id === loan.customer_id);
+        const totalAmount = (loan.principal_amount || 0) + (loan.interest_disbursed || 0) + (loan.processing_fee || 0);
+        
+        return {
+          id: `${loan.id}-${loan.customer_id}`,
+          member_name: member?.full_name || 'Unknown Member',
+          program_name: loan.loan_program || 'Small Loan',
+          disbursed_date: loan.issue_date || new Date().toISOString().split('T')[0],
+          outstanding_amount: totalAmount,
+          loan_collection: loan.total_paid || 0,
+          security_deposit: 0, // Not implemented in current schema
+          security_balance: 0, // Not implemented in current schema
+          as_on_outstanding: loan.current_balance || 0,
+          member_id: loan.customer_id,
+          loan_id: loan.id,
+          status: loan.status || 'pending',
+          principal_amount: loan.principal_amount || 0,
+          interest_amount: loan.interest_disbursed || 0,
+          processing_fee: loan.processing_fee || 0,
+          total_paid: loan.total_paid || 0,
+          current_balance: loan.current_balance || 0
+        };
+      });
+      
+      setGroupTransactions(transactions);
+      
+    } catch (error) {
+      console.error('Failed to fetch group transactions:', error);
+      toast.error('Failed to load group transactions');
+    }
+  };
+
   // Event handlers
   const handleGroupSelect = async (groupId: string) => {
     console.log('Group selected:', groupId);
@@ -329,6 +443,8 @@ const Groups: React.FC = () => {
       await fetchGroupMembers(group);
       console.log('Fetching available members for group:', group.id);
       await fetchAvailableMembers(group);
+      console.log('Fetching transactions for group:', group.id);
+      await fetchGroupTransactions(group);
     } else {
       console.error('Group not found for ID:', groupId);
     }
@@ -352,19 +468,40 @@ const Groups: React.FC = () => {
         meeting_day: formData.meeting_day
       };
       
-      const { error } = await supabase
-        .from('groups')
-        .insert([submitData]);
+      if (editingGroupId) {
+        // Update existing group
+        const { error } = await supabase
+          .from('groups')
+          .update({
+            ...submitData,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', editingGroupId);
+        
+        if (error) throw error;
+        
+        toast.success('Group updated successfully');
+      } else {
+        // Create new group
+        const { error } = await supabase
+          .from('groups')
+          .insert([{
+            ...submitData,
+            created_by: user?.id
+          }]);
+        
+        if (error) throw error;
+        
+        toast.success('Group created successfully');
+      }
       
-      if (error) throw error;
-      
-      toast.success('Group created successfully');
       setDialogOpen(false);
       setFormData({ name: '', description: '', branch_id: '', meeting_day: 1 });
+      setEditingGroupId(null);
       fetchGroups();
     } catch (error: any) {
-      console.error('Failed to create group:', error);
-      toast.error('Failed to create group');
+      console.error('Failed to save group:', error);
+      toast.error(`Failed to ${editingGroupId ? 'update' : 'create'} group`);
     } finally {
       setIsSubmitting(false);
     }
@@ -420,18 +557,104 @@ const Groups: React.FC = () => {
     setSelectedMembers([]);
   };
 
-  // Filtered data
-  const filteredGroups = groups.filter(group =>
-    (group.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (group.description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (group.branch_name || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filtered data - More robust filtering
+  const filteredGroups = groups.filter(group => {
+    const searchMatch = (group.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                       (group.description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                       (group.branch_name || '').toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const branchMatch = branchFilter === 'all' || !branchFilter || group.branch_id?.toString() === branchFilter;
+    const dayMatch = dayFilter === 'all' || !dayFilter || group.meeting_day?.toString() === dayFilter;
+    
+    return searchMatch && branchMatch && dayMatch;
+  });
 
   const filteredGroupMembers = groupMembers.filter(member => {
     const branchMatch = branchFilter === 'all' || !branchFilter || member.branch_id?.toString() === branchFilter;
     const officerMatch = officerFilter === 'all' || !officerFilter || member.assigned_officer_id === officerFilter;
     return branchMatch && officerMatch;
   });
+
+  const filteredTransactions = groupTransactions.filter(transaction => {
+    const searchMatch = transaction.member_name.toLowerCase().includes(searchTerm.toLowerCase());
+    const processMatch = !processFilter || transaction.program_name.toLowerCase().includes(processFilter.toLowerCase());
+    const dateMatch = !dateFilter || transaction.disbursed_date.includes(dateFilter);
+    return searchMatch && processMatch && dateMatch;
+  });
+
+  // Calculate totals for transaction sheet
+  const totalOutstanding = filteredTransactions.reduce((sum, t) => sum + t.outstanding_amount, 0);
+  const totalAsOnOutstanding = filteredTransactions.reduce((sum, t) => sum + t.as_on_outstanding, 0);
+
+  // Helper function for currency formatting
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-KE', { 
+      style: 'currency', 
+      currency: 'KES' 
+    }).format(amount || 0);
+  };
+
+  // Helper function to get day name from meeting day number
+  const getDayName = (dayNumber: number) => {
+    const days = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    return days[dayNumber] || 'Unknown';
+  };
+
+  // PDF Export function
+  const handleExportPDF = () => {
+    if (!selectedGroup || filteredTransactions.length === 0) return;
+    
+    const doc = new window.jsPDF();
+    
+    // Header
+    doc.setFontSize(20);
+    doc.text('Group Transaction Sheet', 105, 20, { align: 'center' });
+    
+    doc.setFontSize(12);
+    doc.text(`Group: ${selectedGroup.name}`, 20, 35);
+    doc.text(`Branch: ${selectedGroup.branch_name}`, 20, 45);
+    doc.text(`Meeting Day: ${getDayName(selectedGroup.meeting_day)}`, 20, 55);
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, 65);
+    
+    // Table headers
+    const headers = ['P#', 'Member Name', 'Program', 'Disbursed Date', 'Outstanding', 'Collection', 'As On Outstanding'];
+    const data = filteredTransactions.map((transaction, index) => [
+      index + 1,
+      transaction.member_name,
+      transaction.program_name,
+      new Date(transaction.disbursed_date).toLocaleDateString('en-GB'),
+      formatCurrency(transaction.outstanding_amount),
+      transaction.loan_collection > 0 ? formatCurrency(transaction.loan_collection) : '-',
+      formatCurrency(transaction.as_on_outstanding)
+    ]);
+    
+    // Add totals row
+    data.push(['', '', '', '', 'Total', '', formatCurrency(totalOutstanding)]);
+    data.push(['', '', '', '', 'Total', '', formatCurrency(totalAsOnOutstanding)]);
+    
+    doc.autoTable({
+      head: [headers],
+      body: data,
+      startY: 80,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [66, 139, 202] }
+    });
+    
+    doc.save(`${selectedGroup.name}_transaction_sheet_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
+  // Edit Group function
+  const handleEditGroup = (group: Group) => {
+    if (!group) return;
+    setFormData({
+      name: group.name,
+      description: group.description || '',
+      branch_id: group.branch_id.toString(),
+      meeting_day: group.meeting_day || 1
+    });
+    setEditingGroupId(group.id);
+    setDialogOpen(true);
+  };
 
   // Effects
   useEffect(() => {
@@ -488,10 +711,16 @@ const Groups: React.FC = () => {
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Groups Management</h1>
-            <p className="text-muted-foreground">Manage loan groups and their members</p>
+            <h1 className="text-2xl font-bold tracking-tight">Group Transaction Sheet</h1>
+            <p className="text-muted-foreground">View and manage groups</p>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                        <Dialog open={dialogOpen} onOpenChange={(open) => {
+                setDialogOpen(open);
+                if (!open) {
+                  setFormData({ name: '', description: '', branch_id: '', meeting_day: 1 });
+                  setEditingGroupId(null);
+                }
+              }}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
@@ -500,8 +729,8 @@ const Groups: React.FC = () => {
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle>Create New Group</DialogTitle>
-                <DialogDescription>Add a new loan group to the system</DialogDescription>
+                <DialogTitle>{editingGroupId ? 'Edit Group' : 'Create New Group'}</DialogTitle>
+                <DialogDescription>{editingGroupId ? 'Update the group information' : 'Add a new loan group to the system'}</DialogDescription>
               </DialogHeader>
               <form onSubmit={handleFormSubmit} className="space-y-4">
                 <div className="space-y-2">
@@ -559,7 +788,7 @@ const Groups: React.FC = () => {
                   <Button type="submit" disabled={isSubmitting}>
                     {isSubmitting ? (
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    ) : 'Create Group'}
+                    ) : editingGroupId ? 'Update Group' : 'Create Group'}
                   </Button>
                 </DialogFooter>
               </form>
@@ -567,260 +796,254 @@ const Groups: React.FC = () => {
           </Dialog>
         </div>
 
-        {/* Main Content */}
+        {/* Main Content - AMBS Style Group Transaction Sheet */}
         <div className="space-y-6">
-          {/* Group Selection and Filters */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Group Selection & Filters
-              </CardTitle>
-              <CardDescription>Select a group and apply filters to view detailed information</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Group Selection */}
+          {/* Filter Controls - Functional and Clean */}
+          <div className="bg-white border rounded-lg shadow-sm p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               <div className="space-y-2">
-                <Label>Select Group</Label>
-                <Select value={selectedGroup?.id.toString() || ''} onValueChange={handleGroupSelect}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Choose a group to view details..." />
+                <Label className="text-sm font-medium text-gray-700">Branch</Label>
+                <Select value={branchFilter} onValueChange={setBranchFilter}>
+                  <SelectTrigger className="h-9 border-gray-300 bg-white">
+                    <SelectValue placeholder="Select branch" />
                   </SelectTrigger>
                   <SelectContent>
-                    {filteredGroups.map(group => (
-                      <SelectItem key={group.id} value={group.id.toString()}>
-                        {group.name} - {group.branch_name} ({group.member_count} members)
+                    <SelectItem value="all">All branches</SelectItem>
+                    {branches.map(branch => (
+                      <SelectItem key={branch.id} value={branch.id.toString()}>
+                        {branch.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
+              
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700">Meeting Day</Label>
+                <Select value={dayFilter} onValueChange={setDayFilter}>
+                  <SelectTrigger className="h-9 border-gray-300 bg-white">
+                    <SelectValue placeholder="Select day" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All days</SelectItem>
+                    <SelectItem value="1">Monday</SelectItem>
+                    <SelectItem value="2">Tuesday</SelectItem>
+                    <SelectItem value="3">Wednesday</SelectItem>
+                    <SelectItem value="4">Thursday</SelectItem>
+                    <SelectItem value="5">Friday</SelectItem>
+                    <SelectItem value="6">Saturday</SelectItem>
+                    <SelectItem value="7">Sunday</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700">Group</Label>
+                <Select value={selectedGroup?.id.toString() || ''} onValueChange={handleGroupSelect}>
+                  <SelectTrigger className="h-9 border-gray-300 bg-white">
+                    <SelectValue placeholder="Select group" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredGroups.map(group => (
+                      <SelectItem key={group.id} value={group.id.toString()}>
+                        {group.name} - {group.branch_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700">Process</Label>
+                <Select value={processFilter} onValueChange={setProcessFilter}>
+                  <SelectTrigger className="h-9 border-gray-300 bg-white">
+                    <SelectValue placeholder="Select process" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All processes</SelectItem>
+                    <SelectItem value="small_loan">Small Loan</SelectItem>
+                    <SelectItem value="big_loan">Big Loan</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700">Loan Officer</Label>
+                <Select value={officerFilter} onValueChange={setOfficerFilter}>
+                  <SelectTrigger className="h-9 border-gray-300 bg-white">
+                    <SelectValue placeholder="Select officer" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All officers</SelectItem>
+                    {loanOfficers.map(officer => (
+                      <SelectItem key={officer.id} value={officer.id}>
+                        {officer.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
 
-              {/* Filters */}
-              {selectedGroup && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Filter by Branch</Label>
-                    <Select value={branchFilter} onValueChange={setBranchFilter}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="All branches" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All branches</SelectItem>
-                        {branches.map(branch => (
-                          <SelectItem key={branch.id} value={branch.id.toString()}>
-                            {branch.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Filter by Loan Officer</Label>
-                    <Select value={officerFilter} onValueChange={setOfficerFilter}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="All officers" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All officers</SelectItem>
-                        {loanOfficers.map(officer => (
-                          <SelectItem key={officer.id} value={officer.id}>
-                            {officer.full_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Group Details and Members */}
+          {/* AMBS Style Transaction Sheet */}
           {selectedGroup ? (
             <div className="space-y-6">
-              {/* Group Information */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Building2 className="h-5 w-5" />
-                    {selectedGroup.name}
-                  </CardTitle>
-                  <CardDescription>Group details and statistics</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="text-center p-4 border rounded-lg">
-                      <div className="text-2xl font-bold text-blue-600">{selectedGroup.member_count}</div>
-                      <div className="text-sm text-muted-foreground">Total Members</div>
-                    </div>
-                    <div className="text-center p-4 border rounded-lg">
-                      <div className="text-2xl font-bold text-green-600">{filteredGroupMembers.length}</div>
-                      <div className="text-sm text-muted-foreground">Filtered Members</div>
-                    </div>
-                    <div className="text-center p-4 border rounded-lg">
-                      <div className="text-2xl font-bold text-purple-600">{selectedGroup.branch_name}</div>
-                      <div className="text-sm text-muted-foreground">Branch</div>
-                    </div>
-                    <div className="text-center p-4 border rounded-lg">
-                      <div className="text-2xl font-bold text-orange-600">
-                        {['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][selectedGroup.meeting_day]}
-                      </div>
-                      <div className="text-sm text-muted-foreground">Meeting Day</div>
-                    </div>
+              {/* Group Summary Info - AMBS Style */}
+              <div className="bg-white border rounded-lg shadow-sm p-6">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-blue-600">{selectedGroup.member_count}</div>
+                    <div className="text-sm text-gray-600 mt-1">Total Members</div>
                   </div>
-                  
-                  <Separator className="my-4" />
-                  
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">{selectedGroup.description || 'No description'}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">Created: {new Date(selectedGroup.created_at).toLocaleDateString()}</span>
-                    </div>
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-green-600">{filteredTransactions.length}</div>
+                    <div className="text-sm text-gray-600 mt-1">Active Loans</div>
                   </div>
-                </CardContent>
-              </Card>
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-purple-600">{formatCurrency(totalOutstanding)}</div>
+                    <div className="text-sm text-gray-600 mt-1">Total Outstanding</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-orange-600">{formatCurrency(totalAsOnOutstanding)}</div>
+                    <div className="text-sm text-gray-600 mt-1">As On Outstanding</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-indigo-600">{getDayName(selectedGroup.meeting_day)}</div>
+                    <div className="text-sm text-gray-600 mt-1">Meeting Day</div>
+                  </div>
+                </div>
+              </div>
 
-              {/* Members Management */}
-              <Card>
-                <CardHeader>
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                    <div>
-                      <CardTitle className="flex items-center gap-2">
-                        <UserCheck className="h-5 w-5" />
-                        Group Members ({filteredGroupMembers.length})
-                      </CardTitle>
-                      <CardDescription>Manage group membership and view member details</CardDescription>
+                            {/* AMBS Style Transaction Table */}
+              <div className="bg-white border rounded-lg shadow-sm overflow-hidden">
+                {filteredTransactions.length > 0 ? (
+                  <>
+                    {/* Table Header */}
+                    <div className="bg-gray-50 border-b px-6 py-3">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-semibold text-gray-800">Group Transaction Sheet</h3>
+                                      <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setManageMembersOpen(true)}
+                  disabled={availableMembers.length === 0}
+                  className="h-8 px-3 text-sm"
+                >
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Add Members
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-8 px-3 text-sm"
+                  onClick={() => handleEditGroup(selectedGroup)}
+                >
+                  <Eye className="mr-2 h-4 w-4" />
+                  Edit Group
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-8 px-3 text-sm"
+                  onClick={handleExportPDF}
+                  disabled={filteredTransactions.length === 0}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Export PDF
+                </Button>
+              </div>
+                      </div>
                     </div>
-                    <Button 
-                      variant="outline" 
-                      onClick={() => setManageMembersOpen(true)}
-                      disabled={availableMembers.length === 0}
-                    >
-                      <UserPlus className="mr-2 h-4 w-4" />
-                      Add Members
-                    </Button>
+                    
+                    {/* Transaction Table - Exactly like AMBS */}
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-gray-100 border-b">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-700 border-r">
+                              <Checkbox />
+                            </th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-700 border-r">P#</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-700 border-r">Member Full Name</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-700 border-r">Program Name</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-700 border-r">Disbursed Date</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-700 border-r">Outstanding Amount</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-700 border-r">Loan Collection</th>
+                            <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">As On Outstanding</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredTransactions.map((transaction, index) => (
+                            <tr key={transaction.id} className="border-b hover:bg-gray-50">
+                              <td className="px-4 py-3 border-r">
+                                <Checkbox />
+                              </td>
+                              <td className="px-4 py-3 text-sm font-medium text-gray-900 border-r">{index + 1}</td>
+                              <td className="px-4 py-3 border-r">
+                                <span className="font-medium text-blue-600 underline cursor-pointer hover:text-blue-800">
+                                  {transaction.member_name}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-700 border-r">{transaction.program_name}</td>
+                              <td className="px-4 py-3 text-sm text-gray-700 border-r">
+                                {new Date(transaction.disbursed_date).toLocaleDateString('en-GB')}
+                              </td>
+                              <td className="px-4 py-3 text-sm font-medium text-gray-900 border-r">
+                                {formatCurrency(transaction.outstanding_amount)}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-700 border-r">
+                                {transaction.loan_collection > 0 ? formatCurrency(transaction.loan_collection) : '-'}
+                              </td>
+                              <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                                {formatCurrency(transaction.as_on_outstanding)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot className="bg-gray-100 border-t">
+                          <tr className="font-medium">
+                            <td className="px-4 py-3 border-r"></td>
+                            <td className="px-4 py-3 border-r"></td>
+                            <td className="px-4 py-3 border-r"></td>
+                            <td className="px-4 py-3 border-r"></td>
+                            <td className="px-4 py-3 border-r"></td>
+                            <td className="px-4 py-3 text-sm border-r">Total</td>
+                            <td className="px-4 py-3 text-sm border-r">-</td>
+                            <td className="px-4 py-3 text-sm font-bold text-gray-900">{formatCurrency(totalOutstanding)}</td>
+                          </tr>
+                          <tr className="font-medium">
+                            <td className="px-4 py-3 border-r"></td>
+                            <td className="px-4 py-3 border-r"></td>
+                            <td className="px-4 py-3 border-r"></td>
+                            <td className="px-4 py-3 border-r"></td>
+                            <td className="px-4 py-3 border-r"></td>
+                            <td className="px-4 py-3 text-sm border-r">Total</td>
+                            <td className="px-4 py-3 text-sm border-r">-</td>
+                            <td className="px-4 py-3 text-sm font-bold text-gray-900">{formatCurrency(totalAsOnOutstanding)}</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-16 text-gray-500">
+                    <CreditCard className="mx-auto h-16 w-16 mb-4 text-gray-400" />
+                    <p className="text-lg font-medium text-gray-600">No transactions found</p>
+                    <p className="text-sm text-gray-500">Select a group to view its transaction data</p>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <Tabs defaultValue="members" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2">
-                      <TabsTrigger value="members">Members List</TabsTrigger>
-                      <TabsTrigger value="loans">Loan Data</TabsTrigger>
-                    </TabsList>
-                    
-                    <TabsContent value="members" className="space-y-4">
-                      {filteredGroupMembers.length > 0 ? (
-                        <div className="space-y-3">
-                          {filteredGroupMembers.map(member => (
-                            <div 
-                              key={member.id} 
-                              className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors gap-3"
-                            >
-                              <div className="flex items-center gap-3 min-w-0 flex-1">
-                                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                  <Users className="h-5 w-5 text-blue-600" />
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                  <div className="font-medium text-base">{member.full_name}</div>
-                                  <div className="text-sm text-muted-foreground">
-                                    {member.id_number} • {member.phone_number}
-                                  </div>
-                                  <div className="text-sm text-muted-foreground">
-                                    {member.profession} • {member.monthly_income ? `$${member.monthly_income.toLocaleString()}/month` : 'No income data'}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground mt-1">
-                                    Member since: {new Date(member.member_since).toLocaleDateString()}
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              <div className="flex flex-col items-end gap-2 text-sm">
-                                <div className="text-right">
-                                  <div className="font-medium">Loans: {member.total_loans}</div>
-                                  <div className="text-muted-foreground">Active: {member.active_loans}</div>
-                                </div>
-                                <div className="text-right">
-                                  <div className="font-medium text-green-600">
-                                    ${member.total_outstanding.toLocaleString()}
-                                  </div>
-                                  <div className="text-muted-foreground">Outstanding</div>
-                                </div>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleRemoveMemberFromGroup(member.id)}
-                                  className="flex-shrink-0"
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="text-center py-8 text-muted-foreground">
-                          <Users className="mx-auto h-12 w-12 mb-4" />
-                          <p className="text-base">No members found</p>
-                          <p className="text-sm">Try adjusting your filters or add members to this group</p>
-                        </div>
-                      )}
-                    </TabsContent>
-                    
-                    <TabsContent value="loans" className="space-y-4">
-                      {filteredGroupMembers.length > 0 ? (
-                        <div className="space-y-3">
-                          {filteredGroupMembers.map(member => (
-                            <div key={member.id} className="border rounded-lg p-4">
-                              <div className="flex items-center justify-between mb-3">
-                                <h4 className="font-medium">{member.full_name}</h4>
-                                <Badge variant={member.active_loans > 0 ? "default" : "secondary"}>
-                                  {member.active_loans} Active Loans
-                                </Badge>
-                              </div>
-                              
-                              {member.active_loans > 0 ? (
-                                <div className="space-y-2">
-                                  <div className="text-sm text-muted-foreground">
-                                    Total Outstanding: <span className="font-medium text-green-600">${member.total_outstanding.toLocaleString()}</span>
-                                  </div>
-                                  <div className="text-sm text-muted-foreground">
-                                    Loan Officer: <span className="font-medium">{member.loan_officer_name}</span>
-                                  </div>
-                                  <div className="text-sm text-muted-foreground">
-                                    Last Loan: <span className="font-medium">{new Date(member.last_loan_date).toLocaleDateString()}</span>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="text-sm text-muted-foreground">No active loans</div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="text-center py-8 text-muted-foreground">
-                          <DollarSign className="mx-auto h-12 w-12 mb-4" />
-                          <p className="text-base">No loan data available</p>
-                          <p className="text-sm">No members found with the current filters</p>
-                        </div>
-                      )}
-                    </TabsContent>
-                  </Tabs>
-                </CardContent>
-              </Card>
+                )}
+              </div>
             </div>
           ) : (
-            <Card>
-              <CardContent className="text-center py-8 md:py-12 text-muted-foreground">
-                <Users className="mx-auto h-12 md:h-16 w-12 md:w-16 mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No Group Selected</h3>
-                <p className="text-sm md:text-base">Select a group from the dropdown above to view its details, members, and loan information</p>
-              </CardContent>
-            </Card>
+            <div className="bg-white border rounded-lg shadow-sm">
+              <div className="text-center py-16 text-gray-500">
+                <CreditCard className="mx-auto h-16 w-16 mb-4 text-gray-400" />
+                <h3 className="text-lg font-semibold mb-2 text-gray-600">No Group Selected</h3>
+                <p className="text-sm text-gray-500">Select a group from the dropdown above to view its transaction sheet, member loans, and financial data</p>
+              </div>
+            </div>
           )}
         </div>
       </div>

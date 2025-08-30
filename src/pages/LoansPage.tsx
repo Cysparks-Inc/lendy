@@ -27,6 +27,8 @@ interface LoanSummary {
   total_paid: number;
   due_date: string;
   status: LoanStatus;
+  interest_disbursed?: number;
+  processing_fee?: number;
 }
 
 const LoansPage: React.FC = () => {
@@ -109,7 +111,9 @@ const LoansPage: React.FC = () => {
           status: loan.status || 'pending',
           member_id: memberId,
           branch_id: loan.branch_id,
-          loan_officer_id: loan.loan_officer_id
+          loan_officer_id: loan.loan_officer_id,
+          interest_disbursed: loan.interest_disbursed || 0,
+          processing_fee: loan.processing_fee || 0
         };
       });
       
@@ -153,7 +157,13 @@ const LoansPage: React.FC = () => {
 
   const formatCurrency = (amount: number) => new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(amount || 0);
   const getStatusVariant = (status: LoanStatus) => {
-    switch (status) { case 'active': return 'default'; case 'repaid': return 'success'; case 'defaulted': return 'destructive'; case 'pending': return 'warning'; default: return 'secondary'; }
+    switch (status) { 
+      case 'active': return 'default'; 
+      case 'repaid': return 'success'; 
+      case 'defaulted': return 'destructive'; 
+      case 'pending': return 'warning'; 
+      default: return 'secondary'; 
+    }
   };
 
   // Helper function to check if a loan can be edited
@@ -171,9 +181,35 @@ const LoansPage: React.FC = () => {
     { header: 'Principal', cell: (row: LoanSummary) => <div className="font-mono">{formatCurrency(row.principal_amount)}</div> },
     { header: 'Outstanding', cell: (row: LoanSummary) => <div className="font-mono">{formatCurrency(row.current_balance)}</div> },
     { header: 'Progress', cell: (row: LoanSummary) => {
-        const totalDue = row.principal_amount + (row.current_balance - row.principal_amount + row.total_paid);
-        const progress = totalDue > 0 ? (row.total_paid / totalDue) * 100 : (row.status === 'repaid' ? 100 : 0);
-        return <div className="flex items-center gap-2"><Progress value={progress} className="w-24 h-2" /><span className="text-sm font-medium">{progress.toFixed(0)}%</span></div>
+        // Calculate total amount due (principal + interest + processing fee)
+        // For now, we'll use a simplified calculation, but ideally this should include processing_fee
+        const totalAmountDue = row.principal_amount + (row.interest_disbursed || 0) + (row.processing_fee || 0);
+        
+        // Calculate progress based on total paid vs total amount due
+        let progress = 0;
+        if (totalAmountDue > 0) {
+            progress = Math.min(100, (row.total_paid / totalAmountDue) * 100);
+        } else if (row.status === 'repaid') {
+            progress = 100;
+        }
+        
+        // Ensure progress is 100% for fully repaid loans
+        if (row.status === 'repaid' && row.total_paid > 0) {
+            progress = 100;
+        }
+        
+        return (
+            <div className="flex items-center gap-2">
+                <Progress 
+                    value={progress} 
+                    className="w-24 h-2" 
+                    style={{
+                        '--progress-background': row.status === 'repaid' ? 'hsl(142.1 76.2% 36.3%)' : undefined
+                    } as React.CSSProperties}
+                />
+                <span className="text-sm font-medium">{progress.toFixed(0)}%</span>
+            </div>
+        );
     }},
     { header: 'Due Date', cell: (row: LoanSummary) => new Date(row.due_date).toLocaleDateString() },
     { header: 'Status', cell: (row: LoanSummary) => <Badge variant={getStatusVariant(row.status)} className="capitalize">{row.status}</Badge> },
@@ -281,7 +317,9 @@ const LoansPage: React.FC = () => {
     }},
   ];
 
-  const totalOutstanding = loans.reduce((sum, loan) => sum + (loan.current_balance > 0 ? loan.current_balance : 0), 0);
+  const totalOutstanding = loans
+    .filter(loan => loan.status !== 'repaid')
+    .reduce((sum, loan) => sum + (loan.current_balance > 0 ? loan.current_balance : 0), 0);
   
   if (loading) { return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>; }
 
@@ -311,10 +349,11 @@ const LoansPage: React.FC = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-3 md:gap-4 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 md:gap-4 grid-cols-2 lg:grid-cols-5">
         <StatCard title="Total Loans" value={loans.length} icon={CreditCard} />
         <StatCard title="Outstanding Balance" value={formatCurrency(totalOutstanding)} icon={Landmark} />
         <StatCard title="Active Loans" value={loans.filter(l => l.status === 'active').length} icon={Banknote} />
+        <StatCard title="Repaid Loans" value={loans.filter(l => l.status === 'repaid').length} icon={DollarSign} />
         <StatCard title="Defaulted" value={loans.filter(l => l.status === 'defaulted').length} icon={AlertTriangle} />
       </div>
 
@@ -327,6 +366,16 @@ const LoansPage: React.FC = () => {
                 <CardTitle className="text-lg">Loan Accounts</CardTitle>
                 <CardDescription className="text-sm">
                   Showing {dateFilteredLoans.length} of {filteredLoans.length} loans
+                  {statusFilter === 'all' && (
+                    <span className="text-brand-green-600 font-medium">
+                      {' '}• Showing all loan statuses
+                    </span>
+                  )}
+                  {statusFilter !== 'all' && (
+                    <span className="text-brand-green-600 font-medium">
+                      {' '}• Filtered by status: {statusFilter}
+                    </span>
+                  )}
                   {dateRange.from && dateRange.to && (
                     <span className="text-brand-green-600 font-medium">
                       {' '}• Filtered by date range

@@ -55,8 +55,9 @@ export const ManualPaymentEntry: React.FC<ManualPaymentEntryProps> = ({ loan, on
       return;
     }
 
-    if (paymentAmount > loan.current_balance) {
-      setError(`Payment amount cannot exceed the outstanding balance of KES ${loan.current_balance.toLocaleString()}`);
+    const outstandingBalance = Math.max(0, ((loan.principal_amount || 0) + (loan.interest_disbursed || 0) + (loan.processing_fee || 0)) - (loan.total_paid || 0));
+    if (paymentAmount > outstandingBalance) {
+      setError(`Payment amount cannot exceed the outstanding balance of KES ${outstandingBalance.toLocaleString()}`);
       return;
     }
     
@@ -101,6 +102,16 @@ export const ManualPaymentEntry: React.FC<ManualPaymentEntryProps> = ({ loan, on
       toast.success('Payment recorded successfully!');
       
     } catch (err: any) {
+      // Enhanced error logging to debug the total_paid column issue
+      console.error('=== PAYMENT ERROR DETAILS ===');
+      console.error('Error object:', err);
+      console.error('Error message:', err.message);
+      console.error('Error code:', err.code);
+      console.error('Error details:', err.details);
+      console.error('Error hint:', err.hint);
+      console.error('Full error:', JSON.stringify(err, null, 2));
+      console.error('=== END ERROR DETAILS ===');
+      
       const errorMessage = err.message || 'An unknown error occurred.';
       setError(errorMessage);
       toast.error('Failed to record payment', { description: errorMessage });
@@ -110,7 +121,11 @@ export const ManualPaymentEntry: React.FC<ManualPaymentEntryProps> = ({ loan, on
   };
 
   // Conditionally render a message if the loan is already paid off
-  if (loan.status === 'repaid' || loan.current_balance <= 0) {
+  // Check if the loan is actually fully paid by comparing total paid vs total amount due
+  const totalAmountDue = (loan.principal_amount || 0) + (loan.interest_disbursed || 0) + (loan.processing_fee || 0);
+  const isFullyPaid = loan.total_paid >= totalAmountDue;
+  
+  if (loan.status === 'repaid' || isFullyPaid) {
     return (
       <Card className="bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800">
         <CardHeader>
@@ -141,7 +156,17 @@ export const ManualPaymentEntry: React.FC<ManualPaymentEntryProps> = ({ loan, on
           <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <div className="text-sm text-blue-600 font-medium">Outstanding Balance</div>
             <div className="text-lg font-semibold text-blue-900">
-              KES {loan.current_balance.toLocaleString()}
+              KES {Math.max(0, ((loan.principal_amount || 0) + (loan.interest_disbursed || 0) + (loan.processing_fee || 0)) - (loan.total_paid || 0)).toLocaleString()}
+            </div>
+          </div>
+          
+          <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+            <div className="text-sm text-gray-600 font-medium">Loan Breakdown</div>
+            <div className="text-xs text-gray-700 space-y-1 mt-1">
+              <div>Principal: KES {(loan.principal_amount || 0).toLocaleString()}</div>
+              <div>Interest: KES {(loan.interest_disbursed || 0).toLocaleString()}</div>
+              <div>Processing Fee: KES {(loan.processing_fee || 0).toLocaleString()}</div>
+              <div className="font-semibold border-t pt-1">Total Due: KES {((loan.principal_amount || 0) + (loan.interest_disbursed || 0) + (loan.processing_fee || 0)).toLocaleString()}</div>
             </div>
           </div>
           
@@ -166,7 +191,7 @@ export const ManualPaymentEntry: React.FC<ManualPaymentEntryProps> = ({ loan, on
               disabled={isSubmitting}
             />
             <p className="text-xs text-muted-foreground mt-1">
-              Maximum payment: KES {(loan.principal_amount + (loan.interest_disbursed || 0)).toLocaleString()}
+              Maximum payment: KES {(loan.principal_amount + (loan.interest_disbursed || 0) + (loan.processing_fee || 0)).toLocaleString()}
             </p>
           </div>
           <div>
