@@ -81,8 +81,9 @@ const LoanFormPage: React.FC = () => {
     const { id: loanId } = useParams<{ id: string }>();
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, profile } = useAuth();
     const isEditMode = Boolean(loanId);
+    const userRole = profile?.role || 'member';
 
     // Data states
     const [members, setMembers] = useState<Member[]>([]);
@@ -146,6 +147,17 @@ const LoanFormPage: React.FC = () => {
             phone_number: memberData.phone_number
         };
     }, []);
+
+    // Access control for editing loans - only super admins can edit
+    useEffect(() => {
+        if (isEditMode && userRole !== 'super_admin') {
+            toast.error('Access Denied', { 
+                description: 'Only Super Admins can edit loans. Please contact your administrator.' 
+            });
+            navigate('/loans');
+            return;
+        }
+    }, [isEditMode, userRole, navigate]);
 
     // Load initial data with proper error handling and sequencing
     useEffect(() => {
@@ -214,6 +226,56 @@ const LoanFormPage: React.FC = () => {
                     }
                 }
 
+                // If in edit mode, load the existing loan data
+                if (isEditMode && loanId) {
+                    try {
+                        const { data: loanData, error: loanError } = await supabase
+                            .from('loans')
+                            .select('*')
+                            .eq('id', loanId)
+                            .single();
+
+                        if (loanError) throw loanError;
+
+                        if (loanData) {
+                            // Get the member ID (could be either member_id or customer_id)
+                            const memberId = loanData.customer_id;
+                            
+                            if (memberId) {
+                                // Load the member data for this loan
+                                const { data: memberData, error: memberError } = await supabase
+                                    .from('members')
+                                    .select('id, full_name, branch_id, group_id, id_number, phone_number')
+                                    .eq('id', memberId)
+                                    .single();
+
+                                if (memberError) throw memberError;
+
+                                if (memberData) {
+                                    const formattedMember = formatMemberWithBranchGroup(memberData, branchesData, groupsData);
+                                    setMembers([formattedMember]);
+                                    setMemberSearchTerm(formattedMember.full_name);
+                                }
+                            }
+
+                            // Populate the form with existing loan data using correct column names
+                            reset({
+                                customer_id: memberId || '',
+                                loan_program: loanData.loan_program || 'small_loan',
+                                principal_amount: loanData.principal_amount || 0,
+                                issue_date: loanData.issue_date || getCurrentDate(),
+                                installment_type: (loanData.repayment_schedule as 'weekly' | 'monthly') || 'weekly',
+                                loan_officer_id: loanData.loan_officer_id || '',
+                                branch_id: loanData.branch_id,
+                                group_id: loanData.group_id
+                            });
+                        }
+                    } catch (error: any) {
+                        console.error('Error loading loan data:', error);
+                        toast.error("Failed to load loan data", { description: error.message });
+                    }
+                }
+
             } catch (error: any) {
                 console.error('Error loading initial data:', error);
                 toast.error("Failed to load data", { description: error.message });
@@ -223,7 +285,7 @@ const LoanFormPage: React.FC = () => {
         };
 
         loadInitialData();
-    }, [prefilledMemberId, setValue, formatMemberWithBranchGroup]);
+    }, [prefilledMemberId, isEditMode, loanId, setValue, formatMemberWithBranchGroup, reset]);
 
     // Handle member selection changes with debounced updates
     useEffect(() => {
