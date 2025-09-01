@@ -316,92 +316,95 @@ const GroupDetails: React.FC = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-6 space-y-6">
+    <div className="container mx-auto px-4 py-4 sm:py-6 space-y-4 sm:space-y-6">
       {/* Header with back button */}
-      <div className="flex items-center gap-4">
+      <div className="space-y-4">
         <Button
           variant="outline"
           onClick={() => navigate('/groups')}
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 w-full sm:w-auto"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Groups
         </Button>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{group.name}</h1>
-          <p className="text-muted-foreground">Group Transaction Sheet & Management</p>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{group.name}</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Group Transaction Sheet & Management</p>
         </div>
       </div>
 
       {/* Group Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
         <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-blue-600">{groupMembersCount}</div>
-            <div className="text-sm text-gray-600">Total Members</div>
+          <CardContent className="p-3 sm:p-4 text-center">
+            <div className="text-lg sm:text-2xl font-bold text-blue-600">{groupMembersCount}</div>
+            <div className="text-xs sm:text-sm text-gray-600">Total Members</div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-green-600">{groupTransactions.length}</div>
-            <div className="text-sm text-gray-600">Active Loans</div>
+          <CardContent className="p-3 sm:p-4 text-center">
+            <div className="text-lg sm:text-2xl font-bold text-green-600">{groupTransactions.length}</div>
+            <div className="text-xs sm:text-sm text-gray-600">Active Loans</div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-purple-600">{formatCurrency(totalOutstanding)}</div>
-            <div className="text-sm text-gray-600">Total Outstanding</div>
+          <CardContent className="p-3 sm:p-4 text-center">
+            <div className="text-lg sm:text-2xl font-bold text-purple-600">{formatCurrency(totalOutstanding)}</div>
+            <div className="text-xs sm:text-sm text-gray-600">Total Outstanding</div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-orange-600">{formatCurrency(totalAsOnOutstanding)}</div>
-            <div className="text-sm text-gray-600">As On Outstanding</div>
+          <CardContent className="p-3 sm:p-4 text-center">
+            <div className="text-lg sm:text-2xl font-bold text-orange-600">{formatCurrency(totalAsOnOutstanding)}</div>
+            <div className="text-xs sm:text-sm text-gray-600">As On Outstanding</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-indigo-600">{getDayName(group.meeting_day)}</div>
-            <div className="text-sm text-gray-600">Meeting Day</div>
+        <Card className="col-span-2 sm:col-span-1">
+          <CardContent className="p-3 sm:p-4 text-center">
+            <div className="text-lg sm:text-2xl font-bold text-indigo-600">{getDayName(group.meeting_day)}</div>
+            <div className="text-xs sm:text-sm text-gray-600">Meeting Day</div>
           </CardContent>
         </Card>
       </div>
 
       {/* Action Buttons */}
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-col sm:flex-row gap-3">
         <Button
           onClick={() => setBulkPaymentDialog(true)}
           disabled={groupTransactions.length === 0}
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 w-full sm:w-auto"
         >
           <CreditCard className="h-4 w-4" />
-          Record Bulk Payment
+          <span className="hidden sm:inline">Record Bulk Payment</span>
+          <span className="sm:hidden">Bulk Payment</span>
         </Button>
         <Button
           variant="outline"
           onClick={() => navigate(`/groups/${groupId}/members`)}
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 w-full sm:w-auto"
         >
           <Users className="h-4 w-4" />
-          Manage Members
+          <span className="hidden sm:inline">Manage Members</span>
+          <span className="sm:hidden">Members</span>
         </Button>
         <Button
           variant="outline"
           onClick={() => navigate(`/groups/${groupId}/edit`)}
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 w-full sm:w-auto"
         >
           <Building2 className="h-4 w-4" />
-          Edit Group
+          <span className="hidden sm:inline">Edit Group</span>
+          <span className="sm:hidden">Edit</span>
         </Button>
       </div>
 
       {/* Transaction Sheet */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <CardTitle>Group Transaction Sheet</CardTitle>
-              <CardDescription>
+              <CardTitle className="text-lg sm:text-xl">Group Transaction Sheet</CardTitle>
+              <CardDescription className="text-sm">
                 {group.name} - {group.branch_name} - {getDayName(group.meeting_day)}
               </CardDescription>
             </div>
@@ -410,6 +413,7 @@ const GroupDetails: React.FC = () => {
               size="sm"
               onClick={handleExportPDF}
               disabled={groupTransactions.length === 0}
+              className="w-full sm:w-auto"
             >
               <Download className="h-4 w-4 mr-2" />
               Export PDF
@@ -464,14 +468,15 @@ const GroupDetails: React.FC = () => {
                       <td className="px-4 py-3 text-sm font-medium text-gray-900 border-r">
                         {formatCurrency(transaction.as_on_outstanding)}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-2 sm:px-4 py-3">
                         <Button
                           size="sm"
                           onClick={() => handleRecordPayment(transaction.member_id, transaction.loan_id)}
-                          className="flex items-center gap-1"
+                          className="flex items-center gap-1 text-xs sm:text-sm"
                         >
                           <CreditCard className="h-3 w-3" />
-                          Record Payment
+                          <span className="hidden sm:inline">Record Payment</span>
+                          <span className="sm:hidden">Pay</span>
                         </Button>
                       </td>
                     </tr>

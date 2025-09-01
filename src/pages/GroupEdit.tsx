@@ -37,6 +37,10 @@ const GroupEdit: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   
+  // Check if we're creating a new group or editing an existing one
+  // Treat absence of groupId (route /groups/new) or explicit 'new' as create mode
+  const isCreating = !groupId || groupId === 'new';
+  
   // State
   const [group, setGroup] = useState<Group | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -53,12 +57,27 @@ const GroupEdit: React.FC = () => {
 
   // Fetch group data and branches
   const fetchData = async () => {
-    if (!groupId) return;
-    
     try {
       setLoading(true);
       
-      // Fetch group details
+      // Fetch branches first (needed for both create and edit)
+      const { data: branchesData, error: branchesError } = await supabase
+        .from('branches')
+        .select('*')
+        .order('name');
+      
+      if (branchesError) throw branchesError;
+      setBranches(branchesData || []);
+      
+      // If we're creating a new group, we don't need to fetch group data
+      if (isCreating) {
+        setLoading(false);
+        return;
+      }
+      
+      // If we're editing, fetch the group details
+      if (!groupId) return;
+      
       const { data: groupData, error: groupError } = await supabase
         .from('groups')
         .select('*')
@@ -76,15 +95,6 @@ const GroupEdit: React.FC = () => {
         meeting_day: groupData.meeting_day || 1
       });
       
-      // Fetch branches
-      const { data: branchesData, error: branchesError } = await supabase
-        .from('branches')
-        .select('*')
-        .order('name');
-      
-      if (branchesError) throw branchesError;
-      setBranches(branchesData || []);
-      
     } catch (error: any) {
       console.error('Failed to fetch data:', error);
       toast.error('Failed to load group data');
@@ -96,8 +106,6 @@ const GroupEdit: React.FC = () => {
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!groupId) return;
     
     // Validate required fields
     if (!formData.branch_id) {
@@ -114,19 +122,36 @@ const GroupEdit: React.FC = () => {
         meeting_day: formData.meeting_day
       };
       
-      const { error } = await supabase
-        .from('groups')
-        .update(submitData)
-        .eq('id', groupId);
-      
-      if (error) throw error;
-      
-      toast.success('Group updated successfully');
-      navigate(`/groups/${groupId}`);
+      if (isCreating) {
+        // Create new group (only include columns that exist in schema)
+        const { data, error } = await supabase
+          .from('groups')
+          .insert([submitData])
+          .select()
+          .single();
+        
+        if (error) throw error;
+        
+        toast.success('Group created successfully');
+        navigate(`/groups/${data.id}`);
+      } else {
+        // Update existing group
+        if (!groupId) return;
+        
+        const { error } = await supabase
+          .from('groups')
+          .update(submitData)
+          .eq('id', groupId);
+        
+        if (error) throw error;
+        
+        toast.success('Group updated successfully');
+        navigate(`/groups/${groupId}`);
+      }
       
     } catch (error: any) {
-      console.error('Failed to update group:', error);
-      toast.error('Failed to update group');
+      console.error(`Failed to ${isCreating ? 'create' : 'update'} group:`, error);
+      toast.error(`Failed to ${isCreating ? 'create' : 'update'} group`);
     } finally {
       setIsSubmitting(false);
     }
@@ -134,7 +159,7 @@ const GroupEdit: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-  }, [groupId]);
+  }, [groupId, isCreating]);
 
   if (loading) {
     return (
@@ -144,7 +169,7 @@ const GroupEdit: React.FC = () => {
     );
   }
 
-  if (!group) {
+  if (!group && !isCreating) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -157,20 +182,24 @@ const GroupEdit: React.FC = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-6 space-y-6">
+    <div className="container mx-auto px-4 py-4 sm:py-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="space-y-4">
         <Button
           variant="outline"
-          onClick={() => navigate(`/groups/${groupId}`)}
-          className="flex items-center gap-2"
+          onClick={() => navigate('/groups')}
+          className="flex items-center gap-2 w-full sm:w-auto"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to Group
+          Back to Groups
         </Button>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Edit Group</h1>
-          <p className="text-muted-foreground">Update group information</p>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
+            {isCreating ? 'Create New Group' : 'Edit Group'}
+          </h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
+            {isCreating ? 'Add a new group to the system' : 'Update group information'}
+          </p>
         </div>
       </div>
 
@@ -186,8 +215,8 @@ const GroupEdit: React.FC = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               <div className="space-y-2">
                 <Label htmlFor="name">Group Name *</Label>
                 <Input
@@ -244,22 +273,23 @@ const GroupEdit: React.FC = () => {
               </Select>
             </div>
             
-            <div className="flex justify-end gap-4">
+            <div className="flex flex-col sm:flex-row justify-end gap-3 sm:gap-4">
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => navigate(`/groups/${groupId}`)}
+                onClick={() => navigate('/groups')}
                 disabled={isSubmitting}
+                className="w-full sm:w-auto"
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
                 {isSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                 ) : (
                   <Save className="h-4 w-4 mr-2" />
                 )}
-                Update Group
+                {isCreating ? 'Create Group' : 'Update Group'}
               </Button>
             </div>
           </form>

@@ -161,12 +161,12 @@ const Groups: React.FC = () => {
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="space-y-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Group Transaction Sheet</h1>
-          <p className="text-muted-foreground">View and manage groups</p>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Group Transaction Sheet</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">View and manage groups</p>
         </div>
-        <Button onClick={() => navigate('/groups/create')}>
+        <Button onClick={() => navigate('/groups/new')} className="w-full sm:w-auto">
           <Plus className="mr-2 h-4 w-4" />
           Create Group
         </Button>
@@ -174,16 +174,17 @@ const Groups: React.FC = () => {
 
       {/* Main Content - AMBS Style Group Transaction Sheet */}
       <div className="space-y-6">
-        {/* Improved Filter Controls - Horizontal Layout */}
-        <div className="bg-white border rounded-lg shadow-sm p-6">
+        {/* Improved Filter Controls - Mobile Responsive */}
+        <div className="bg-white border rounded-lg shadow-sm p-4 sm:p-6">
           <div className="space-y-4">
-            <div className="flex items-center gap-4">
+            {/* Meeting Day Filter */}
+            <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-gray-500" />
-                <h3 className="text-lg font-medium text-gray-900">Meeting Day:</h3>
+                <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500" />
+                <h3 className="text-sm sm:text-lg font-medium text-gray-900">Meeting Day:</h3>
               </div>
               <Select value={dayFilter} onValueChange={setDayFilter}>
-                <SelectTrigger className="h-10 border-gray-300 bg-white w-40">
+                <SelectTrigger className="h-10 border-gray-300 bg-white w-full sm:w-40">
                   <SelectValue placeholder="Select day" />
                 </SelectTrigger>
                 <SelectContent>
@@ -197,40 +198,42 @@ const Groups: React.FC = () => {
                   <SelectItem value="7">Sunday</SelectItem>
                 </SelectContent>
               </Select>
-              
-              {dayFilter && dayFilter !== 'all' && (
-                <>
-                  <div className="flex items-center gap-2">
-                    <Building2 className="h-5 w-5 text-gray-500" />
-                    <h3 className="text-lg font-medium text-gray-900">Branch:</h3>
-                  </div>
-                  <Select value={branchFilter} onValueChange={setBranchFilter}>
-                    <SelectTrigger className="h-10 border-gray-300 bg-white w-40">
-                      <SelectValue placeholder="Select branch" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All branches</SelectItem>
-                      {branches.map(branch => (
-                        <SelectItem key={branch.id} value={branch.id.toString()}>
-                          {branch.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </>
-              )}
             </div>
             
-            <div className="flex items-center gap-4">
+            {/* Branch Filter - Only show when day is selected */}
+            {dayFilter && dayFilter !== 'all' && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500" />
+                  <h3 className="text-sm sm:text-lg font-medium text-gray-900">Branch:</h3>
+                </div>
+                <Select value={branchFilter} onValueChange={setBranchFilter}>
+                  <SelectTrigger className="h-10 border-gray-300 bg-white w-full sm:w-40">
+                    <SelectValue placeholder="Select branch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All branches</SelectItem>
+                    {branches.map(branch => (
+                      <SelectItem key={branch.id} value={branch.id.toString()}>
+                        {branch.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            
+            {/* Search Filter */}
+            <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <Search className="h-5 w-5 text-gray-500" />
-                <h3 className="text-lg font-medium text-gray-900">Search:</h3>
+                <Search className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500" />
+                <h3 className="text-sm sm:text-lg font-medium text-gray-900">Search:</h3>
               </div>
               <Input
-                placeholder="Search groups by name, description, or branch..."
+                placeholder="Search groups..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="h-10 border-gray-300 bg-white w-80"
+                className="h-10 border-gray-300 bg-white w-full"
               />
             </div>
           </div>
@@ -256,56 +259,61 @@ const Groups: React.FC = () => {
           </div>
 
           {displayGroups.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {displayGroups.map(group => (
                 <Card key={group.id} className="hover:shadow-md transition-shadow">
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <CardTitle className="text-lg">{group.name}</CardTitle>
-                        <CardDescription className="text-sm">
+                      <div className="space-y-1 flex-1 min-w-0">
+                        <CardTitle className="text-base sm:text-lg truncate">{group.name}</CardTitle>
+                        <CardDescription className="text-xs sm:text-sm line-clamp-2">
                           {group.description || 'No description'}
                         </CardDescription>
                       </div>
-                      <Badge variant="outline" className="text-xs">
+                      <Badge variant="outline" className="text-xs flex-shrink-0 ml-2">
                         {getDayName(group.meeting_day)}
                       </Badge>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Building2 className="h-4 w-4" />
-                      <span>{group.branch_name}</span>
+                    <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600">
+                      <Building2 className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                      <span className="truncate">{group.branch_name}</span>
                     </div>
                     
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Users className="h-4 w-4" />
+                    <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600">
+                      <Users className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
                       <span>{group.member_count || 0} members</span>
                     </div>
 
-                    <div className="flex gap-2 pt-2">
+                    <div className="flex flex-col sm:flex-row gap-2 pt-2">
                       <Button
                         size="sm"
                         onClick={() => navigate(`/groups/${group.id}`)}
-                        className="flex-1"
+                        className="flex-1 text-xs sm:text-sm"
                       >
-                        <Eye className="h-4 w-4 mr-2" />
-                        View Details
+                        <Eye className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                        <span className="hidden sm:inline">View Details</span>
+                        <span className="sm:hidden">View</span>
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => navigate(`/groups/${group.id}/edit`)}
-                      >
-                        <Building2 className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => navigate(`/groups/${group.id}/members`)}
-                      >
-                        <Users className="h-4 w-4" />
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigate(`/groups/${group.id}/edit`)}
+                          className="flex-1 sm:flex-none"
+                        >
+                          <Building2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigate(`/groups/${group.id}/members`)}
+                          className="flex-1 sm:flex-none"
+                        >
+                          <Users className="h-3 w-3 sm:h-4 sm:w-4" />
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

@@ -59,6 +59,7 @@ const App = () => (
                 <Route path="loan-officer/:id" element={<LoanOfficerProfilePage />} />
                 <Route path="master-roll" element={<MasterRoll />} />
                 <Route path="groups" element={<Groups />} />
+                <Route path="groups/new" element={<GroupEdit />} />
                 <Route path="groups/:groupId" element={<GroupDetails />} />
                 <Route path="groups/:groupId/edit" element={<GroupEdit />} />
                 <Route path="groups/:groupId/members" element={<GroupMembers />} />
