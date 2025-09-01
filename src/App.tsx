@@ -14,6 +14,10 @@ import LoanOfficer from "@/pages/LoanOfficer";
 import LoanOfficerProfilePage from './pages/LoanOfficerProfilePage';
 import MasterRoll from "@/pages/MasterRoll";
 import Groups from "@/pages/Groups";
+import GroupDetails from "@/pages/GroupDetails";
+import GroupEdit from "@/pages/GroupEdit";
+import GroupMembers from "@/pages/GroupMembers";
+import BulkPayment from "@/pages/BulkPayment";
 import Members from "@/pages/MembersPage";
 import MemberFormPage from './pages/MemberFormPage';
 import MemberProfilePage from './pages/MemberProfilePage';
@@ -55,6 +59,10 @@ const App = () => (
                 <Route path="loan-officer/:id" element={<LoanOfficerProfilePage />} />
                 <Route path="master-roll" element={<MasterRoll />} />
                 <Route path="groups" element={<Groups />} />
+                <Route path="groups/:groupId" element={<GroupDetails />} />
+                <Route path="groups/:groupId/edit" element={<GroupEdit />} />
+                <Route path="groups/:groupId/members" element={<GroupMembers />} />
+                <Route path="bulk-payment" element={<BulkPayment />} />
                 <Route path="members" element={<Members />} />
                 <Route path="members/new" element={<MemberFormPage />} />
                 <Route path="members/:id" element={<MemberProfilePage />} />
