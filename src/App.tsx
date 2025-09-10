@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { NotificationProvider } from "@/contexts/NotificationContext";
 import AppLayout from "@/components/AppLayout"; // Using your original path
 
 // --- Using all your original page component imports ---
@@ -12,7 +13,6 @@ import Auth from "@/pages/Auth";
 import NotFound from "./pages/NotFound";
 import LoanOfficer from "@/pages/LoanOfficer";
 import LoanOfficerProfilePage from './pages/LoanOfficerProfilePage';
-import MasterRoll from "@/pages/MasterRoll";
 import Groups from "@/pages/Groups";
 import GroupDetails from "@/pages/GroupDetails";
 import GroupEdit from "@/pages/GroupEdit";
@@ -40,13 +40,17 @@ import Transactions from "@/pages/Transactions";
 import TransactionDetails from "@/pages/TransactionDetails";
 import ExpensesPage from "@/pages/ExpensesPage";
 import IncomePage from "@/pages/IncomePage";
+import ReceivePayments from "@/pages/ReceivePayments";
+import Notifications from "@/pages/Notifications";
+import LoanApprovals from "@/pages/LoanApprovals";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <TooltipProvider>
+      <NotificationProvider>
+        <TooltipProvider>
         <Toaster />
         <Sonner />
         <BrowserRouter>
@@ -57,7 +61,6 @@ const App = () => (
                 <Route index element={<Dashboard />} />
                 <Route path="loan-officer" element={<LoanOfficer />} />
                 <Route path="loan-officer/:id" element={<LoanOfficerProfilePage />} />
-                <Route path="master-roll" element={<MasterRoll />} />
                 <Route path="groups" element={<Groups />} />
                 <Route path="groups/new" element={<GroupEdit />} />
                 <Route path="groups/:groupId" element={<GroupDetails />} />
@@ -73,8 +76,10 @@ const App = () => (
                 {/* Note: Removed duplicate /loans route. Using LoanAccounts as per your import. */}
                 <Route path="loans" element={<LoanAccounts />} /> 
                 <Route path="loans/new" element={<LoanFormPage />} /> 
+                <Route path="loans/approvals" element={<LoanApprovals />} />
                 <Route path="loans/:id" element={<LoanDetailsPage />} />
                 <Route path="loans/:id/edit" element={<LoanFormPage />} /> 
+                <Route path="receive-payments" element={<ReceivePayments />} />
                 
                 <Route path="daily-overdue" element={<DailyOverdue />} />
                 <Route path="realizable-report" element={<RealizableReport />} />
@@ -97,12 +102,14 @@ const App = () => (
                 <Route path="transactions/:id" element={<TransactionDetails />} />
                 <Route path="expenses" element={<ExpensesPage />} />
                 <Route path="income" element={<IncomePage />} />
+                <Route path="notifications" element={<Notifications />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
           </div>
         </BrowserRouter>
-      </TooltipProvider>
+        </TooltipProvider>
+      </NotificationProvider>
     </AuthProvider>
   </QueryClientProvider>
 );

@@ -40,8 +40,6 @@ const LoanOfficerPage: React.FC = () => {
     if (!user) return;
     setLoading(true);
     try {
-      console.log('Fetching loan officers with performance data...');
-      
       // Step 1: Fetch all loan officers (profiles with loan_officer role)
       const { data: officersData, error: officersError } = await supabase
         .from('profiles')
@@ -49,8 +47,6 @@ const LoanOfficerPage: React.FC = () => {
         .eq('role', 'loan_officer');
 
       if (officersError) throw officersError;
-      
-      console.log('Raw officers data:', officersData);
       
       if (!officersData || officersData.length === 0) {
         setOfficers([]);
@@ -64,10 +60,8 @@ const LoanOfficerPage: React.FC = () => {
         .select('loan_officer_id, principal_amount, current_balance, status');
 
       if (loansError) {
-        console.warn('Loans fetch error:', loansError);
+        // Continue without loan data
       }
-      
-      console.log('Raw loans data for officer stats:', loansData);
       
       // Step 3: Calculate performance metrics for each officer
       const officersWithPerformance = officersData.map(officer => {
@@ -94,8 +88,6 @@ const LoanOfficerPage: React.FC = () => {
         const performance = totalLoans > 0 ? 
           ((completedLoans / totalLoans) * 100) : 0;
         
-        console.log(`Officer ${officer.full_name}: ${totalLoans} loans, Ksh ${totalPortfolio} portfolio, Ksh ${outstandingBalance} outstanding`);
-        
         return {
           id: officer.id,
           name: officer.full_name || 'Unknown Officer',
@@ -115,11 +107,9 @@ const LoanOfficerPage: React.FC = () => {
         };
       });
       
-      console.log('Officers with performance data calculated:', officersWithPerformance);
       setOfficers(officersWithPerformance);
       
     } catch (error: any) {
-      console.error('Error fetching officer data:', error);
       toast.error('Failed to fetch officer data', { description: error.message });
       setOfficers([]);
     } finally {

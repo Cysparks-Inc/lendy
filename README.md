@@ -347,4 +347,4 @@ For support and questions:
 
 **Built with ❤️ for the microfinance community**
 
-*Last updated: December 2024*
+*Last updated: September 2025*

@@ -41,15 +41,74 @@ const SearchMemberPage: React.FC = () => {
     setSearchResults([]);
     
     try {
-      // Call our fixed, secure RPC function
-      const { data, error: rpcError } = await supabase.rpc('search_members_securely', {
-        requesting_user_id: user.id,
-        search_term: searchTerm.trim()
-      });
+      // Search members directly from the members table without ambiguous relationships
+      const { data: membersData, error: membersError } = await supabase
+        .from('members')
+        .select(`
+          id,
+          full_name,
+          id_number,
+          phone_number,
+          status,
+          branch_id,
+          group_id
+        `)
+        .or(`full_name.ilike.%${searchTerm.trim()}%,id_number.ilike.%${searchTerm.trim()}%,phone_number.ilike.%${searchTerm.trim()}%`)
+        .limit(20);
 
-      if (rpcError) throw rpcError;
+      if (membersError) throw membersError;
       
-      setSearchResults(data || []);
+      if (!membersData || membersData.length === 0) {
+        setSearchResults([]);
+        return;
+      }
+
+      // Fetch branch and group names separately to avoid relationship ambiguity
+      const branchIds = [...new Set(membersData.map((member: any) => member.branch_id).filter(Boolean))];
+      const groupIds = [...new Set(membersData.map((member: any) => member.group_id).filter(Boolean))];
+
+      const [branchesRes, groupsRes, loansRes] = await Promise.all([
+        branchIds.length > 0 ? supabase.from('branches').select('id, name').in('id', branchIds) : { data: [], error: null },
+        groupIds.length > 0 ? supabase.from('groups').select('id, name').in('id', groupIds) : { data: [], error: null },
+        supabase.from('loans').select('*').in('customer_id', membersData.map((member: any) => member.id))
+      ]);
+
+      if (branchesRes.error) throw branchesRes.error;
+      if (groupsRes.error) throw groupsRes.error;
+      if (loansRes.error) throw loansRes.error;
+
+      // Create lookup maps
+      const branchesMap = new Map((branchesRes.data || []).map(b => [b.id, b.name]));
+      const groupsMap = new Map((groupsRes.data || []).map(g => [g.id, g.name]));
+      const loansData = loansRes.data || [];
+
+      // Calculate loan statistics for each member
+      const membersWithLoanData = membersData.map((member: any) => {
+        const memberLoans = loansData?.filter((loan: any) => loan.customer_id === member.id) || [];
+        
+        const totalLoans = memberLoans.length;
+        const outstandingBalance = memberLoans.reduce((sum: number, loan: any) => {
+          const status = loan.status as string;
+          if (status === 'active' || status === 'pending') {
+            return sum + (loan.current_balance || 0);
+          }
+          return sum;
+        }, 0);
+
+        return {
+          id: member.id,
+          full_name: member.full_name || 'Unknown Member',
+          id_number: member.id_number || member.id.slice(0, 8),
+          phone_number: member.phone_number || 'N/A',
+          branch_name: branchesMap.get(member.branch_id) || 'Nairobi',
+          status: member.status || 'active',
+          total_loans: totalLoans,
+          outstanding_balance: outstandingBalance,
+          profile_picture_url: null
+        };
+      });
+      
+      setSearchResults(membersWithLoanData);
 
     } catch (error: any) {
       setError(error.message);
@@ -131,8 +190,8 @@ const SearchMemberPage: React.FC = () => {
                         </div>
                         <div className="col-span-1 flex justify-between md:justify-end items-center gap-4">
                             <div className="text-right">
-                                <p className="font-bold text-lg">{formatCurrency(member.outstanding_balance)}</p>
-                                <p className="text-sm text-muted-foreground">Outstanding</p>
+                                <p className="font-bold text-lg">{member.total_loans}</p>
+                                <p className="text-sm text-muted-foreground">Total Loans</p>
                             </div>
                             <Badge variant={member.status === 'active' ? 'default' : 'secondary'} className="capitalize">{member.status}</Badge>
                         </div>

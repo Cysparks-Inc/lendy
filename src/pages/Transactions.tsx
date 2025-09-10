@@ -30,6 +30,7 @@ import { format } from 'date-fns';
 import { Label } from '@/components/ui/label';
 import { DataTable } from '@/components/ui/data-table';
 import { Link } from 'react-router-dom';
+import { DateRangeFilter, DateRange, filterDataByDateRange } from '@/components/ui/DateRangeFilter';
 
 // Types
 interface Transaction {
@@ -76,8 +77,6 @@ interface TransactionFilters {
   transaction_type: string;
   status: string;
   payment_method: string;
-  date_from: string;
-  date_to: string;
   branch_id: string;
   loan_officer_id: string;
 }
@@ -130,11 +129,10 @@ const Transactions: React.FC = () => {
     transaction_type: 'all',
     status: 'all',
     payment_method: 'all',
-    date_from: '',
-    date_to: '',
     branch_id: 'all',
     loan_officer_id: 'all'
   });
+  const [dateRange, setDateRange] = useState<DateRange>({ from: undefined, to: undefined });
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -149,38 +147,16 @@ const Transactions: React.FC = () => {
       
       let query = supabase
         .from('transactions')
-        .select(`
-          *,
-          loans(
-            id,
-            account_number,
-            member_id,
-            loan_officer_id
-          ),
-          members(
-            id,
-            full_name
-          ),
-          branch_id(
-            id,
-            name
-          ),
-          profiles(
-            id,
-            full_name
-          )
-        `)
+        .select('*')
         .order('transaction_date', { ascending: false });
 
-      // Apply role-based filtering
+      // Apply only basic filters (no relationship filters)
       if (userRole === 'branch_admin' && profile?.branch_id) {
         query = query.eq('branch_id', profile.branch_id);
-      } else if (userRole === 'loan_officer') {
-        query = query.eq('loans.loan_officer_id', user?.id);
       }
-      // Super admin can see all transactions
+      // Note: loan_officer filtering will be done after getting the data
 
-      // Apply filters
+      // Apply basic filters
       if (filters.transaction_type !== 'all') {
         query = query.eq('transaction_type', filters.transaction_type);
       }
@@ -193,30 +169,63 @@ const Transactions: React.FC = () => {
       if (filters.branch_id !== 'all') {
         query = query.eq('branch_id', filters.branch_id);
       }
-      if (filters.loan_officer_id !== 'all') {
-        query = query.eq('loans.loan_officer_id', filters.loan_officer_id);
+      if (dateRange.from) {
+        query = query.gte('transaction_date', dateRange.from.toISOString().split('T')[0]);
       }
-      if (filters.date_from) {
-        query = query.gte('transaction_date', filters.date_from);
-      }
-      if (filters.date_to) {
-        query = query.lte('transaction_date', filters.date_to);
+      if (dateRange.to) {
+        query = query.lte('transaction_date', dateRange.to.toISOString().split('T')[0]);
       }
       if (filters.search) {
         query = query.or(`
           reference_number.ilike.%${filters.search}%,
-          description.ilike.%${filters.search}%,
-          members.full_name.ilike.%${filters.search}%,
-          loans.account_number.ilike.%${filters.search}%
+          description.ilike.%${filters.search}%
         `);
       }
 
-      // Apply pagination
+      // Create a separate query for counting (without pagination)
+      let countQuery = supabase
+        .from('transactions')
+        .select('*', { count: 'exact', head: true });
+
+      // Apply the same basic filters to count query
+      if (userRole === 'branch_admin' && profile?.branch_id) {
+        countQuery = countQuery.eq('branch_id', profile.branch_id);
+      }
+
+      if (filters.transaction_type !== 'all') {
+        countQuery = countQuery.eq('transaction_type', filters.transaction_type);
+      }
+      if (filters.status !== 'all') {
+        countQuery = countQuery.eq('status', filters.status);
+      }
+      if (filters.payment_method !== 'all') {
+        countQuery = countQuery.eq('payment_method', filters.payment_method);
+      }
+      if (filters.branch_id !== 'all') {
+        countQuery = countQuery.eq('branch_id', filters.branch_id);
+      }
+      if (dateRange.from) {
+        countQuery = countQuery.gte('transaction_date', dateRange.from.toISOString().split('T')[0]);
+      }
+      if (dateRange.to) {
+        countQuery = countQuery.lte('transaction_date', dateRange.to.toISOString().split('T')[0]);
+      }
+      if (filters.search) {
+        countQuery = countQuery.or(`
+          reference_number.ilike.%${filters.search}%,
+          description.ilike.%${filters.search}%
+        `);
+      }
+
+      // Get count
+      const { count } = await countQuery;
+      
+      // Apply pagination to main query
       const from = (currentPage - 1) * itemsPerPage;
       const to = from + itemsPerPage - 1;
       query = query.range(from, to);
 
-      const { data, error, count } = await query;
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching transactions:', error);
@@ -224,45 +233,99 @@ const Transactions: React.FC = () => {
         return;
       }
 
+      if (!data || data.length === 0) {
+        setTransactions([]);
+        setTotalTransactions(0);
+        setTotalPages(1);
+        return;
+      }
+
+      // Fetch related data separately to avoid relationship issues
+      const loanIds = [...new Set(data.map(tx => tx.loan_id).filter(Boolean))];
+      const memberIds = [...new Set(data.map(tx => tx.member_id).filter(Boolean))];
+      const branchIds = [...new Set(data.map(tx => tx.branch_id).filter(Boolean))];
+
+      const [loansRes, membersRes, branchesRes] = await Promise.all([
+        loanIds.length > 0 ? supabase.from('loans').select('id, account_number, member_id, loan_officer_id').in('id', loanIds) : { data: [], error: null },
+        memberIds.length > 0 ? supabase.from('members').select('id, full_name').in('id', memberIds) : { data: [], error: null },
+        branchIds.length > 0 ? supabase.from('branches').select('id, name').in('id', branchIds) : { data: [], error: null }
+      ]);
+
+      // Create lookup maps
+      const loansMap = new Map((loansRes.data || []).map(loan => [loan.id, loan]));
+      const membersMap = new Map((membersRes.data || []).map(member => [member.id, member]));
+      const branchesMap = new Map((branchesRes.data || []).map(branch => [branch.id, branch]));
+
       // Transform data to match our interface
-      const transformedTransactions: Transaction[] = (data || []).map(tx => ({
-        id: tx.id,
-        transaction_type: tx.transaction_type,
-        amount: tx.amount,
-        currency: tx.currency || 'KES',
-        status: tx.status,
-        payment_method: tx.payment_method,
-        reference_number: tx.reference_number,
-        description: tx.description,
-        transaction_date: tx.transaction_date,
-        created_at: tx.created_at,
-        updated_at: tx.updated_at,
-        
-        // Related entities
-        loan_id: tx.loans?.id,
-        member_id: tx.members?.id,
-        loan_account_number: tx.loans?.account_number,
-        member_name: tx.members?.full_name,
-        branch_id: tx.branch_id,
-        branch_name: tx.branch_id?.name, // Assuming branch_id is an object with a 'name' property
-        loan_officer_id: tx.loans?.loan_officer_id,
-        loan_officer_name: tx.profiles?.full_name,
-        
-        // Additional details
-        fees: tx.fees,
-        penalties: tx.penalties,
-        principal_paid: tx.principal_paid,
-        interest_paid: tx.interest_paid,
-        total_paid: tx.total_paid,
-        balance_before: tx.balance_before,
-        balance_after: tx.balance_after,
-        
-        // Metadata
-        notes: tx.notes,
-        receipt_url: tx.receipt_url,
-        created_by: tx.created_by,
-        created_by_name: tx.created_by_name
-      }));
+      let transformedTransactions: Transaction[] = data.map(tx => {
+        const loan = loansMap.get(tx.loan_id);
+        const member = membersMap.get(tx.member_id);
+        const branch = branchesMap.get(tx.branch_id);
+
+        return {
+          id: tx.id,
+          transaction_type: tx.transaction_type,
+          amount: tx.amount,
+          currency: tx.currency || 'KES',
+          status: tx.status,
+          payment_method: tx.payment_method,
+          reference_number: tx.reference_number,
+          description: tx.description,
+          transaction_date: tx.transaction_date,
+          created_at: tx.created_at,
+          updated_at: tx.updated_at,
+          
+          // Related entities
+          loan_id: tx.loan_id,
+          member_id: tx.member_id,
+          loan_account_number: loan?.account_number,
+          member_name: member?.full_name,
+          branch_id: tx.branch_id,
+          branch_name: branch?.name,
+          loan_officer_id: loan?.loan_officer_id,
+          loan_officer_name: '', // Will be fetched separately if needed
+          
+          // Additional details
+          fees: tx.fees,
+          penalties: tx.penalties,
+          principal_paid: tx.principal_paid,
+          interest_paid: tx.interest_paid,
+          total_paid: tx.total_paid,
+          balance_before: tx.balance_before,
+          balance_after: tx.balance_after,
+          
+          // Metadata
+          notes: tx.notes,
+          receipt_url: tx.receipt_url,
+          created_by: tx.created_by,
+          created_by_name: tx.created_by_name
+        };
+      });
+
+      // Apply client-side filtering after data transformation
+      if (userRole === 'loan_officer') {
+        transformedTransactions = transformedTransactions.filter(tx => 
+          tx.loan_officer_id === user?.id
+        );
+      }
+
+      // Apply loan officer filter if selected
+      if (filters.loan_officer_id !== 'all') {
+        transformedTransactions = transformedTransactions.filter(tx => 
+          tx.loan_officer_id === filters.loan_officer_id
+        );
+      }
+
+      // Apply advanced search filtering (member name, loan account number)
+      if (filters.search) {
+        const searchTerm = filters.search.toLowerCase();
+        transformedTransactions = transformedTransactions.filter(tx => 
+          tx.member_name?.toLowerCase().includes(searchTerm) ||
+          tx.loan_account_number?.toLowerCase().includes(searchTerm) ||
+          tx.reference_number?.toLowerCase().includes(searchTerm) ||
+          tx.description?.toLowerCase().includes(searchTerm)
+        );
+      }
 
       setTransactions(transformedTransactions);
       setTotalTransactions(count || 0);
@@ -323,11 +386,10 @@ const Transactions: React.FC = () => {
       transaction_type: 'all',
       status: 'all',
       payment_method: 'all',
-      date_from: '',
-      date_to: '',
       branch_id: 'all',
       loan_officer_id: 'all'
     });
+    setDateRange({ from: undefined, to: undefined });
     setCurrentPage(1);
   };
 
@@ -383,10 +445,9 @@ const Transactions: React.FC = () => {
   const calculateSummary = () => {
     const total = transactions.reduce((sum, tx) => sum + tx.amount, 0);
     const completed = transactions.filter(tx => tx.status === 'completed').reduce((sum, tx) => sum + tx.amount, 0);
-    const pending = transactions.filter(tx => tx.status === 'pending').reduce((sum, tx) => sum + tx.amount, 0);
     const failed = transactions.filter(tx => tx.status === 'failed').reduce((sum, tx) => sum + tx.amount, 0);
 
-    return { total, completed, pending, failed };
+    return { total, completed, failed };
   };
 
   useEffect(() => {
@@ -440,7 +501,7 @@ const Transactions: React.FC = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-2 gap-3 md:gap-4">
         <Card className="p-3 sm:p-4">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-0 pt-0">
             <CardTitle className="text-xs md:text-sm font-medium">Total Transactions</CardTitle>
@@ -454,20 +515,6 @@ const Transactions: React.FC = () => {
           </CardContent>
         </Card>
 
-        <Card className="p-3 sm:p-4">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-0 pt-0">
-            <CardTitle className="text-xs md:text-sm font-medium">Total Amount</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="px-0 pb-0">
-            <div className="text-xl md:text-2xl font-bold">
-              KES {summary.total.toLocaleString()}
-            </div>
-            <p className="text-xs text-muted-foreground hidden sm:block">
-              All transaction types
-            </p>
-          </CardContent>
-        </Card>
 
         <Card className="p-3 sm:p-4">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-0 pt-0">
@@ -484,20 +531,6 @@ const Transactions: React.FC = () => {
           </CardContent>
         </Card>
 
-        <Card className="p-3 sm:p-4">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-0 pt-0">
-            <CardTitle className="text-xs md:text-sm font-medium">Pending</CardTitle>
-            <TrendingUp className="h-4 w-4 text-yellow-600" />
-          </CardHeader>
-          <CardContent className="px-0 pb-0">
-            <div className="text-xl md:text-2xl font-bold text-yellow-600">
-              KES {summary.pending.toLocaleString()}
-            </div>
-            <p className="text-xs text-muted-foreground hidden sm:block">
-              Awaiting completion
-            </p>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Filters */}
@@ -581,22 +614,11 @@ const Transactions: React.FC = () => {
 
             {/* Date Range */}
             <div className="space-y-2">
-              <Label className="text-body font-medium">Date From</Label>
-              <Input
-                type="date"
-                value={filters.date_from}
-                onChange={(e) => handleFilterChange('date_from', e.target.value)}
-                className="w-full text-body"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-body font-medium">Date To</Label>
-              <Input
-                type="date"
-                value={filters.date_to}
-                onChange={(e) => handleFilterChange('date_to', e.target.value)}
-                className="w-full text-body"
+              <Label className="text-body font-medium">Date Range</Label>
+              <DateRangeFilter
+                onDateRangeChange={setDateRange}
+                placeholder="Filter by date range"
+                showPresets={true}
               />
             </div>
 

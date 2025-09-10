@@ -95,6 +95,8 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
   });
   const [isOpen, setIsOpen] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState<string>('');
+  const [customFrom, setCustomFrom] = useState<string>('');
+  const [customTo, setCustomTo] = useState<string>('');
 
   /**
    * Handle preset date range selection
@@ -152,11 +154,39 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
   };
 
   /**
+   * Handle custom date range selection
+   */
+  const handleCustomDateSelect = () => {
+    if (customFrom && customTo) {
+      const fromDate = new Date(customFrom);
+      const toDate = new Date(customTo);
+      
+      // Ensure from date is not after to date
+      if (fromDate > toDate) {
+        // Swap dates if from is after to
+        const temp = fromDate;
+        fromDate.setTime(toDate.getTime());
+        toDate.setTime(temp.getTime());
+        setCustomFrom(toDate.toISOString().split('T')[0]);
+        setCustomTo(fromDate.toISOString().split('T')[0]);
+      }
+      
+      const newRange = { from: fromDate, to: toDate };
+      setDateRange(newRange);
+      setSelectedPreset(''); // Clear preset selection
+      onDateRangeChange(newRange);
+      setIsOpen(false);
+    }
+  };
+
+  /**
    * Clear all date filters
    */
   const handleClearFilter = () => {
     setDateRange({ from: undefined, to: undefined });
     setSelectedPreset('');
+    setCustomFrom('');
+    setCustomTo('');
     onDateRangeChange({ from: undefined, to: undefined });
   };
 
@@ -169,12 +199,16 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
       return preset?.label || placeholder;
     }
     if (dateRange.from && dateRange.to) {
+      // Check if it's a custom range (not from presets)
+      if (customFrom && customTo) {
+        return `${format(dateRange.from, 'MMM dd, yyyy')} - ${format(dateRange.to, 'MMM dd, yyyy')}`;
+      }
       return `${format(dateRange.from, 'MMM dd')} - ${format(dateRange.to, 'MMM dd, yyyy')}`;
     }
     return placeholder;
   };
 
-  const hasActiveFilter = selectedPreset || (dateRange.from && dateRange.to);
+  const hasActiveFilter = selectedPreset || (dateRange.from && dateRange.to) || (customFrom && customTo);
 
   return (
     <div className={cn("flex items-center gap-2", className)}>
@@ -200,16 +234,65 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
           avoidCollisions={true}
           collisionPadding={20}
         >
-          <div className="p-6 space-y-4 max-w-[500px]">
+          <div className="p-6 space-y-6 max-w-[600px]">
             <div className="text-center">
               <h3 className="text-lg font-semibold text-foreground mb-2">Select Date Range</h3>
               <p className="text-sm text-muted-foreground">Choose from quick presets or pick custom dates</p>
             </div>
             
+            {/* Custom Date Range Section */}
+            <div className="space-y-4">
+              <Label className="text-sm font-medium text-foreground">Custom Date Range</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="customFrom" className="text-xs text-muted-foreground">From Date</Label>
+                  <Input
+                    id="customFrom"
+                    type="date"
+                    value={customFrom}
+                    onChange={(e) => setCustomFrom(e.target.value)}
+                    className="w-full"
+                    placeholder="Select start date"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="customTo" className="text-xs text-muted-foreground">To Date</Label>
+                  <Input
+                    id="customTo"
+                    type="date"
+                    value={customTo}
+                    onChange={(e) => setCustomTo(e.target.value)}
+                    className="w-full"
+                    placeholder="Select end date"
+                  />
+                </div>
+              </div>
+              <Button 
+                onClick={handleCustomDateSelect}
+                disabled={!customFrom || !customTo}
+                className="w-full"
+                size="sm"
+              >
+                Apply Custom Range
+              </Button>
+            </div>
+
+            {/* Divider */}
+            {showPresets && (
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">Or</span>
+                </div>
+              </div>
+            )}
+            
             {showPresets && (
               <div className="space-y-4">
                 <Label className="text-sm font-medium text-foreground text-center block">Quick Select</Label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[60vh] overflow-y-auto pr-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[40vh] overflow-y-auto pr-2">
                   {presetRanges.map((preset) => (
                     <Button
                       key={preset.value}
@@ -224,12 +307,6 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
                 </div>
               </div>
             )}
-            
-            <div className="text-center pt-2">
-              <p className="text-xs text-muted-foreground">
-                Click any preset above to apply the filter
-              </p>
-            </div>
           </div>
         </PopoverContent>
       </Popover>

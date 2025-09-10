@@ -105,9 +105,6 @@ const MemberFormPage: React.FC = () => {
                     supabase.from('groups').select('id, name, branch_id')
                 ]);
                 
-                console.log('🏢 Branches loaded:', branchesRes.data);
-                console.log('👥 Officers loaded:', officersRes.data);
-                console.log('📋 Groups loaded:', groupsRes.data);
                 
                 setBranches(branchesRes.data || []);
                 setAssignableOfficers(officersRes.data || []);
@@ -133,11 +130,9 @@ const MemberFormPage: React.FC = () => {
     // Filter groups based on selected branch
     const selectedBranchId = watch("branch_id");
     useEffect(() => {
-        console.log('🔍 Branch selection changed:', { selectedBranchId, groups });
         if (selectedBranchId) {
             // Convert both to strings for comparison to handle type mismatches
             const branchGroups = groups.filter(group => String(group.branch_id) === String(selectedBranchId));
-            console.log('📍 Filtered groups for branch:', branchGroups);
             setFilteredGroups(branchGroups);
         } else {
             setFilteredGroups([]);
@@ -151,13 +146,11 @@ const MemberFormPage: React.FC = () => {
     // Auto-set assigned_officer_id for loan officers
     useEffect(() => {
         if (userRole === 'loan_officer' && user?.id) {
-            console.log('👮 Auto-setting assigned_officer_id for loan officer:', user.id);
             setValue('assigned_officer_id', user.id);
         }
     }, [userRole, user?.id, setValue]);
 
     const onSubmit = async (data: MemberFormData) => {
-        console.log('🚀 Form submission started:', { data, userRole, userId: user?.id });
         setIsSubmitting(true);
         setFormError(null);
         try {
@@ -179,8 +172,6 @@ const MemberFormPage: React.FC = () => {
             // If the current user is a loan officer, they are forced to be the assignee.
             // Otherwise, we use the value from the (now mandatory) dropdown.
             const assignedOfficer = userRole === 'loan_officer' ? user?.id : (data.assigned_officer_id || null);
-            
-            console.log('👮 Assigned officer logic:', { userRole, assignedOfficer, dataAssignedOfficer: data.assigned_officer_id });
 
             const finalMemberData = {
                 ...memberData,
@@ -191,7 +182,6 @@ const MemberFormPage: React.FC = () => {
                 created_by: user?.id
             };
 
-            console.log('🎯 Final member data to submit:', finalMemberData);
 
             let memberId = id;
             if (isEditMode) {
@@ -203,11 +193,9 @@ const MemberFormPage: React.FC = () => {
                 memberId = newMember.id;
             }
 
-            console.log('✅ Member saved successfully:', memberId);
             toast.success(`Member ${isEditMode ? 'updated' : 'created'} successfully!`);
             setSuccessData({ id: memberId!, name: data.full_name });
         } catch (error: any) {
-            console.error('❌ Error submitting member:', error);
             let errorMessage = error.message;
             
             // Handle specific database errors

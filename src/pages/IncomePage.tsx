@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, TrendingUp, DollarSign, Users, FileText, Download, Filter, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 import { ExportDropdown } from '@/components/ui/ExportDropdown';
+import { DateRangeFilter, DateRange, filterDataByDateRange } from '@/components/ui/DateRangeFilter';
 
 // --- Type Definitions ---
 
@@ -24,6 +25,7 @@ interface IncomeRecord {
   loan_id?: string;
   transaction_date: string;
   created_at: string;
+  loan_officer_name?: string;
 }
 
 interface IncomeSummary {
@@ -35,10 +37,9 @@ interface IncomeSummary {
 }
 
 interface FilterState {
-  dateFrom: string;
-  dateTo: string;
   incomeType: 'all' | 'processing_fee' | 'interest' | 'registration_fee' | 'activation_fee';
   memberName: string;
+  loanOfficer: string;
 }
 
 const IncomePage: React.FC = () => {
@@ -56,22 +57,15 @@ const IncomePage: React.FC = () => {
   
      // Filter state
    const [filters, setFilters] = useState<FilterState>({
-     dateFrom: '',
-     dateTo: '',
      incomeType: 'all',
-     memberName: ''
+     memberName: '',
+     loanOfficer: 'all'
    });
+   const [dateRange, setDateRange] = useState<DateRange>({ from: undefined, to: undefined });
   
   // Filtered records based on current filters
   const filteredRecords = React.useMemo(() => {
-    return incomeRecords.filter(record => {
-      // Date filter
-      if (filters.dateFrom && new Date(record.transaction_date) < new Date(filters.dateFrom)) {
-        return false;
-      }
-      if (filters.dateTo && new Date(record.transaction_date) > new Date(filters.dateTo)) {
-        return false;
-      }
+    return filterDataByDateRange(incomeRecords, dateRange, 'transaction_date').filter(record => {
       
              // Income type filter
        if (filters.incomeType && filters.incomeType !== 'all' && record.source !== filters.incomeType) {
@@ -84,23 +78,29 @@ const IncomePage: React.FC = () => {
         return false;
       }
       
+      // Loan officer filter
+      if (filters.loanOfficer && filters.loanOfficer !== 'all' && record.loan_officer_name && 
+          !record.loan_officer_name.toLowerCase().includes(filters.loanOfficer.toLowerCase())) {
+        return false;
+      }
+      
       return true;
     });
-  }, [incomeRecords, filters]);
+  }, [incomeRecords, filters, dateRange]);
    
 
 
-  // Check if user is super admin
+  // Check if user is super admin or admin
   useEffect(() => {
-    if (userRole !== 'super_admin') {
-      toast.error('Access Denied', { description: 'Only Super Admins can access this page.' });
+    if (userRole !== 'super_admin' && userRole !== 'admin') {
+      toast.error('Access Denied', { description: 'Only Super Admins and Admins can access this page.' });
       // Redirect to dashboard or show access denied message
       return;
     }
   }, [userRole]);
 
   useEffect(() => {
-    if (userRole === 'super_admin') {
+    if (userRole === 'super_admin' || userRole === 'admin') {
       fetchIncomeData();
     }
   }, [userRole]);
@@ -160,11 +160,8 @@ const IncomePage: React.FC = () => {
 
       // Add processing fees from loans table (direct)
       if (processingFees.data) {
-        console.log('Processing fees from loans table:', processingFees.data);
-        console.log('Processing fees data structure:', JSON.stringify(processingFees.data, null, 2));
         processingFees.data.forEach(loan => {
           if (loan.processing_fee && loan.processing_fee > 0) {
-            console.log('Processing loan:', loan);
             allIncome.push({
               id: `pf-loan-${loan.id}`,
               source: 'processing_fee',
@@ -177,14 +174,10 @@ const IncomePage: React.FC = () => {
             });
           }
         });
-      } else {
-        console.log('No processing fees found in loans table');
-        console.log('Processing fees query result:', processingFees);
       }
 
       // Add processing fees from transactions table (recorded by trigger function)
       if (processingFeeTransactions.data) {
-        console.log('Processing fee transactions found:', processingFeeTransactions.data);
         processingFeeTransactions.data.forEach(transaction => {
           allIncome.push({
             id: `pf-txn-${transaction.id}`,
@@ -197,8 +190,6 @@ const IncomePage: React.FC = () => {
             created_at: transaction.created_at
           });
         });
-      } else {
-        console.log('No processing fee transactions found in transactions table');
       }
 
             // Add interest payments
@@ -265,9 +256,6 @@ const IncomePage: React.FC = () => {
       
              setIncomeRecords(allIncome);
        
-       // Debug: Log the data being set for export
-       console.log('Income records set for export:', allIncome);
-       console.log('Export columns:', exportColumns);
 
       // Calculate summary
       const summary = allIncome.reduce((acc, record) => {
@@ -298,7 +286,6 @@ const IncomePage: React.FC = () => {
       setIncomeSummary(summary);
 
     } catch (error: any) {
-      console.error('Error fetching income data:', error);
       toast.error('Failed to fetch income data', { description: error.message });
     } finally {
       setLoading(false);
@@ -319,14 +306,14 @@ const IncomePage: React.FC = () => {
     }
   };
   
-     const resetFilters = () => {
-     setFilters({
-       dateFrom: '',
-       dateTo: '',
-       incomeType: 'all',
-       memberName: ''
-     });
-   };
+  const resetFilters = () => {
+    setFilters({
+      incomeType: 'all',
+      memberName: '',
+      loanOfficer: 'all'
+    });
+    setDateRange({ from: undefined, to: undefined });
+  };
 
   const getSourceIcon = (source: string) => {
     switch (source) {
@@ -409,39 +396,19 @@ const IncomePage: React.FC = () => {
              Filter Income Data
            </CardTitle>
            <CardDescription>
-             Filter income records by date range, income type, and member name
+             Filter income records by date range, income type, member name, and loan officer
            </CardDescription>
          </CardHeader>
          <CardContent>
-           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-             {/* Date From */}
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+             {/* Date Range */}
              <div className="space-y-2">
-               <Label htmlFor="dateFrom">Date From</Label>
-               <div className="relative">
-                 <Calendar className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                 <Input
-                   id="dateFrom"
-                   type="date"
-                   value={filters.dateFrom}
-                   onChange={(e) => setFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
-                   className="pl-10"
-                 />
-               </div>
-             </div>
-             
-             {/* Date To */}
-             <div className="space-y-2">
-               <Label htmlFor="dateTo">Date To</Label>
-               <div className="relative">
-                 <Calendar className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                 <Input
-                   id="dateTo"
-                   type="date"
-                   value={filters.dateTo}
-                   onChange={(e) => setFilters(prev => ({ ...prev, dateTo: e.target.value }))}
-                   className="pl-10"
-                 />
-               </div>
+               <Label>Date Range</Label>
+               <DateRangeFilter
+                 onDateRangeChange={setDateRange}
+                 placeholder="Filter by date range"
+                 showPresets={true}
+               />
              </div>
              
              {/* Income Type */}
@@ -472,6 +439,17 @@ const IncomePage: React.FC = () => {
                  placeholder="Search by member name..."
                  value={filters.memberName}
                  onChange={(e) => setFilters(prev => ({ ...prev, memberName: e.target.value }))}
+               />
+             </div>
+             
+             {/* Loan Officer */}
+             <div className="space-y-2">
+               <Label htmlFor="loanOfficer">Loan Officer</Label>
+               <Input
+                 id="loanOfficer"
+                 placeholder="Search by loan officer..."
+                 value={filters.loanOfficer === 'all' ? '' : filters.loanOfficer}
+                 onChange={(e) => setFilters(prev => ({ ...prev, loanOfficer: e.target.value || 'all' }))}
                />
              </div>
            </div>
@@ -574,6 +552,7 @@ const IncomePage: React.FC = () => {
                       <TableHead>Source</TableHead>
                       <TableHead>Description</TableHead>
                       <TableHead>Member</TableHead>
+                      <TableHead>Loan Officer</TableHead>
                       <TableHead className="text-right">Amount</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -589,6 +568,7 @@ const IncomePage: React.FC = () => {
                         </TableCell>
                         <TableCell>{record.description}</TableCell>
                         <TableCell>{record.member_name || 'N/A'}</TableCell>
+                        <TableCell>{record.loan_officer_name || 'N/A'}</TableCell>
                         <TableCell className="text-right font-mono">
                           {formatCurrency(record.amount)}
                         </TableCell>
@@ -627,6 +607,7 @@ const IncomePage: React.FC = () => {
                          <TableHead>Date</TableHead>
                          <TableHead>Description</TableHead>
                          <TableHead>Member</TableHead>
+                         <TableHead>Loan Officer</TableHead>
                          <TableHead className="text-right">Amount</TableHead>
                        </TableRow>
                      </TableHeader>
@@ -636,6 +617,7 @@ const IncomePage: React.FC = () => {
                             <TableCell>{formatDate(record.transaction_date)}</TableCell>
                             <TableCell>{record.description}</TableCell>
                             <TableCell>{record.member_name || 'N/A'}</TableCell>
+                            <TableCell>{record.loan_officer_name || 'N/A'}</TableCell>
                             <TableCell className="text-right font-mono">
                               {formatCurrency(record.amount)}
                             </TableCell>

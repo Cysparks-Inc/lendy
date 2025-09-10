@@ -22,6 +22,7 @@ interface LoanSummary {
   id: string;
   member_name?: string;
   branch_name?: string;
+  loan_officer_name?: string;
   principal_amount: number;
   current_balance: number;
   total_paid: number;
@@ -37,13 +38,14 @@ const LoansPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [branchFilter, setBranchFilter] = useState<string>('all');
+  const [officerFilter, setOfficerFilter] = useState<string>('all');
   const [dateRange, setDateRange] = useState<DateRange>({ from: undefined, to: undefined });
 
   // --- THE PROPER FIX: Fetch Names Without Relationship Conflicts ---
   const fetchLoans = async () => {
     try {
       setLoading(true);
-      console.log('Starting to fetch loans...');
       
       // Step 1: Fetch all loans
       const { data: loansData, error: loansError } = await supabase
@@ -51,14 +53,10 @@ const LoansPage: React.FC = () => {
         .select('*');
 
       if (loansError) {
-        console.error('Loans query error:', loansError);
         throw loansError;
       }
       
-      console.log('Raw loans data from database:', loansData);
-      
       if (!loansData || loansData.length === 0) {
-        console.log('No loans found');
         setLoans([]);
         setLoading(false);
         return;
@@ -69,8 +67,6 @@ const LoansPage: React.FC = () => {
       const branchIds = [...new Set(loansData.map(loan => loan.branch_id).filter(Boolean))];
       const officerIds = [...new Set(loansData.map(loan => loan.loan_officer_id).filter(Boolean))];
       
-      console.log('Unique IDs to fetch:', { memberIds, branchIds, officerIds });
-      
       // Step 3: Batch fetch related data
       const [membersRes, branchesRes, officersRes] = await Promise.all([
         memberIds.length > 0 ? supabase.from('members').select('id, full_name').in('id', memberIds) : { data: [], error: null },
@@ -78,20 +74,10 @@ const LoansPage: React.FC = () => {
         officerIds.length > 0 ? supabase.from('profiles').select('id, full_name').in('id', officerIds) : { data: [], error: null }
       ]);
       
-      if (membersRes.error) console.error('Members fetch error:', membersRes.error);
-      if (branchesRes.error) console.error('Branches fetch error:', branchesRes.error);
-      if (officersRes.error) console.error('Officers fetch error:', officersRes.error);
-      
       // Step 4: Create lookup maps
       const membersMap = new Map((membersRes.data || []).map(m => [m.id, m.full_name]));
       const branchesMap = new Map((branchesRes.data || []).map(b => [b.id, b.name]));
       const officersMap = new Map((officersRes.data || []).map(o => [o.id, o.full_name]));
-      
-      console.log('Lookup maps created:', {
-        members: Object.fromEntries(membersMap),
-        branches: Object.fromEntries(branchesMap),
-        officers: Object.fromEntries(officersMap)
-      });
       
       // Step 5: Transform loans with real names
       const transformedLoans = loansData.map(loan => {
@@ -104,6 +90,7 @@ const LoansPage: React.FC = () => {
           id: loan.id,
           member_name: memberName,
           branch_name: branchName,
+          loan_officer_name: officerName,
           principal_amount: loan.principal_amount || 0,
           current_balance: loan.current_balance || 0,
           total_paid: loan.total_paid || 0,
@@ -117,11 +104,8 @@ const LoansPage: React.FC = () => {
         };
       });
       
-      console.log('Transformed loans with real names:', transformedLoans);
-      console.log('Setting loans state with', transformedLoans.length, 'loans');
       setLoans(transformedLoans);
     } catch (error: any) {
-      console.error('Error fetching loans:', error);
       toast.error('Failed to fetch loans', { description: error.message });
       setLoans([]); // Set empty array on error
     } finally {
@@ -136,7 +120,6 @@ const LoansPage: React.FC = () => {
     const channel = supabase
       .channel('public:loans')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'loans' }, (payload) => {
-        console.log('Loan data changed, refreshing...');
         fetchLoans(); // Refetch data when any change occurs
       })
       .subscribe();
@@ -149,7 +132,9 @@ const LoansPage: React.FC = () => {
   const filteredLoans = loans.filter(loan => {
     const searchMatch = (loan.member_name || '').toLowerCase().includes(searchTerm.toLowerCase());
     const statusMatch = statusFilter === 'all' || loan.status === statusFilter;
-    return searchMatch && statusMatch;
+    const branchMatch = branchFilter === 'all' || (loan.branch_name || '').toLowerCase().includes(branchFilter.toLowerCase());
+    const officerMatch = officerFilter === 'all' || (loan.loan_officer_name || '').toLowerCase().includes(officerFilter.toLowerCase());
+    return searchMatch && statusMatch && branchMatch && officerMatch;
   });
 
   // Apply date filtering to the already filtered loans
@@ -352,7 +337,7 @@ const LoansPage: React.FC = () => {
       <div className="grid gap-3 md:gap-4 grid-cols-2 lg:grid-cols-5">
         <StatCard title="Total Loans" value={loans.length} icon={CreditCard} />
         <StatCard title="Outstanding Balance" value={formatCurrency(totalOutstanding)} icon={Landmark} />
-        <StatCard title="Active Loans" value={loans.filter(l => l.status === 'active').length} icon={Banknote} />
+        <StatCard title="Active Loans" value={loans.filter(l => l.status === 'active' || l.status === 'pending').length} icon={Banknote} />
         <StatCard title="Repaid Loans" value={loans.filter(l => l.status === 'repaid').length} icon={DollarSign} />
         <StatCard title="Defaulted" value={loans.filter(l => l.status === 'defaulted').length} icon={AlertTriangle} />
       </div>
@@ -374,6 +359,16 @@ const LoansPage: React.FC = () => {
                   {statusFilter !== 'all' && (
                     <span className="text-brand-green-600 font-medium">
                       {' '}• Filtered by status: {statusFilter}
+                    </span>
+                  )}
+                  {branchFilter !== 'all' && (
+                    <span className="text-brand-green-600 font-medium">
+                      {' '}• Branch: {branchFilter}
+                    </span>
+                  )}
+                  {officerFilter !== 'all' && (
+                    <span className="text-brand-green-600 font-medium">
+                      {' '}• Officer: {officerFilter}
                     </span>
                   )}
                   {dateRange.from && dateRange.to && (
@@ -419,6 +414,26 @@ const LoansPage: React.FC = () => {
                     <SelectItem value="pending">Pending</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              
+              {/* Branch and Loan Officer Filters */}
+              <div className="flex flex-col sm:flex-row gap-3 flex-1">
+                <div className="relative flex-1 min-w-0">
+                  <Input 
+                    placeholder="Filter by branch..." 
+                    value={branchFilter === 'all' ? '' : branchFilter} 
+                    onChange={e => setBranchFilter(e.target.value || 'all')} 
+                    className="w-full" 
+                  />
+                </div>
+                <div className="relative flex-1 min-w-0">
+                  <Input 
+                    placeholder="Filter by loan officer..." 
+                    value={officerFilter === 'all' ? '' : officerFilter} 
+                    onChange={e => setOfficerFilter(e.target.value || 'all')} 
+                    className="w-full" 
+                  />
+                </div>
               </div>
             </div>
           </div>

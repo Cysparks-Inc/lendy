@@ -121,25 +121,19 @@ const MemberProfilePage: React.FC = () => {
             .select(loanColumns)
             .or(`member_id.eq.${id},customer_id.eq.${id}`);
           
-          console.log('Loans query result:', loansRes);
-          
           if (loansRes.error) {
-            console.warn('Loans fetch error:', loansRes.error);
             // Try alternative approach - search by member name
             const memberName = memberRes.data.full_name || memberRes.data.first_name + ' ' + memberRes.data.last_name;
             if (memberName) {
-              console.log('Trying to fetch loans by member name:', memberName);
               // This is a fallback - in a real system you'd want to use proper foreign keys
               loansRes = { data: [], error: null };
             }
           }
         } catch (error: any) {
-          console.warn('Could not fetch loans:', error);
           loansRes = { data: [], error: null };
         }
-        
+
         if (loansRes.error) {
-          console.warn('Loans fetch error:', loansRes.error);
           loansRes.data = [];
         }
         
@@ -173,12 +167,6 @@ const MemberProfilePage: React.FC = () => {
           };
         }
         
-        // Debug logging to see what we actually got
-        console.log('Original member data:', memberRes.data);
-        console.log('Adapted member data:', adaptedMember);
-        console.log('Photo URL:', adaptedMember.photo_url);
-        console.log('Profile Picture URL:', memberRes.data.profile_picture_url);
-        console.log('Original Photo URL:', memberRes.data.photo_url);
         
         setMember(adaptedMember);
         setLoans(loansRes.data || []);
@@ -186,7 +174,6 @@ const MemberProfilePage: React.FC = () => {
         // Fetch additional member information
         await fetchAdditionalMemberInfo(adaptedMember);
     } catch (error: any) {
-        console.error('Error fetching member data:', error);
         toast.error('Failed to load member data', { description: error.message });
     } finally {
         setLoading(false);
@@ -235,7 +222,7 @@ const MemberProfilePage: React.FC = () => {
         }
       }
     } catch (error) {
-      console.warn('Error fetching additional member info:', error);
+      // Silently handle additional member info error
     }
   };
   
@@ -252,9 +239,9 @@ const MemberProfilePage: React.FC = () => {
   const getStatusVariant = (status: MemberLoan['status']) => {
     switch (status) { 
       case 'active': return 'default'; 
-      case 'repaid': return 'success'; 
+      case 'repaid': return 'secondary'; 
       case 'defaulted': return 'destructive'; 
-      case 'pending': return 'warning'; 
+      case 'pending': return 'outline'; 
       default: return 'secondary'; 
     }
   };
@@ -365,11 +352,7 @@ const MemberProfilePage: React.FC = () => {
                                 src={member.photo_url} 
                                 alt={`${member.first_name} ${member.last_name}`}
                                 onError={(e) => {
-                                  console.error('Image failed to load:', member.photo_url);
                                   e.currentTarget.style.display = 'none';
-                                }}
-                                onLoad={() => {
-                                  console.log('Image loaded successfully:', member.photo_url);
                                 }}
                               />
                             ) : null}
@@ -424,7 +407,7 @@ const MemberProfilePage: React.FC = () => {
                                          {/* Stats Cards - Responsive grid */}
                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6">
                          <StatCard icon={Banknote} title="Total Loans" value={loans.length} />
-                         <StatCard icon={DollarSign} title="Active Loans" value={loans.filter(l => l.status === 'active').length} />
+                         <StatCard icon={DollarSign} title="Active Loans" value={loans.filter(l => l.status === 'active' || l.status === 'pending').length} />
                          <StatCard icon={DollarSign} title="Repaid Loans" value={loans.filter(l => l.status === 'repaid').length} />
                          <StatCard icon={Landmark} title="Total Outstanding" value={formatCurrency(totalOutstanding)} />
                          <StatCard icon={Users} title="Member No." value={member.member_no} />

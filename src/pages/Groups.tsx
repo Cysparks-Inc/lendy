@@ -1,12 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { 
   Plus,
   Search,
@@ -15,136 +20,370 @@ import {
   Users,
   Eye,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  CheckCircle,
+  XCircle,
+  Phone,
+  Mail,
+  MapPin
 } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-// Types
-interface Group {
-  id: number;
-  name: string;
-  description: string;
-  branch_id: number;
-  meeting_day: number;
-  created_at: string;
+interface Member {
+  id: string;
+  full_name: string;
+  phone_number: string;
+  email?: string;
+  address?: string;
+  group_id?: string | number;
+  group_name?: string;
+  branch_id?: string | number;
   branch_name?: string;
-  member_count?: number;
+  status: string;
+  created_at: string;
+  total_loans_disbursed?: number;
+  current_loan_balance?: number;
+  loan_officer_name?: string;
+}
+
+interface Group {
+  id: string | number;
+  name: string;
+  code?: string;
+  meeting_day: number;
+  meeting_time?: string;
+  location?: string;
+  branch_id: string | number;
+  branch_name?: string;
+  member_count: number;
+  status: string;
+  created_at: string;
+  loan_officer_id?: string;
+  loan_officer_name?: string;
+  contact_person_id?: string;
+  contact_person_name?: string;
+  contact_person_phone?: string;
 }
 
 interface Branch {
-  id: number;
+  id: string | number;
   name: string;
-  location: string;
+  location?: string;
+}
+
+interface LoanOfficer {
+  id: string;
+  full_name: string;
 }
 
 const Groups: React.FC = () => {
   const navigate = useNavigate();
-  const { user, profile } = useAuth();
+  const { user, userRole } = useAuth();
   
   // State
+  const [loading, setLoading] = useState(true);
+  const [members, setMembers] = useState<Member[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [dayFilter, setDayFilter] = useState('');
-  const [branchFilter, setBranchFilter] = useState('');
+  const [loanOfficers, setLoanOfficers] = useState<LoanOfficer[]>([]);
+  const [filteredMembers, setFilteredMembers] = useState<Member[]>([]);
+  const [filteredGroups, setFilteredGroups] = useState<Group[]>([]);
+  
+  // Filters
+  const [filters, setFilters] = useState({
+    group: 'all',
+    branch: 'all',
+    loanOfficer: 'all',
+    status: 'all',
+    searchTerm: ''
+  });
 
-  // Fetch data on component mount
+  // Active tab
+  const [activeTab, setActiveTab] = useState('members');
+  
+  // Contact person management
+  const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  const [contactPersonId, setContactPersonId] = useState('');
+
   useEffect(() => {
-    const initializeData = async () => {
-      if (!user || !profile) return;
+    fetchData();
+  }, []);
+
+  useEffect(() => {
+    filterData();
+  }, [members, groups, filters]);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
       
-      try {
-        setLoading(true);
-        
-        // Fetch branches
-        const { data: branchesData, error: branchesError } = await supabase
-          .from('branches')
+      // Fetch all members
+      const { data: membersData, error: membersError } = await supabase
+        .from('members')
+        .select('*')
+        .limit(100);
+
+      if (membersError) throw membersError;
+
+      // Fetch all groups
+      const { data: groupsData, error: groupsError } = await supabase
+        .from('groups')
+        .select('*')
+        .limit(100);
+
+      if (groupsError) throw groupsError;
+
+      // Fetch branches
+      const { data: branchesData, error: branchesError } = await supabase
+        .from('branches')
+        .select('*')
+        .order('name');
+
+      if (branchesError) throw branchesError;
+
+      // Fetch loan officers
+      const { data: officersData, error: officersError } = await (supabase as any)
+        .from('profiles')
+        .select('*')
+        .eq('role', 'loan_officer');
+
+      if (officersError) throw officersError;
+
+      // Fetch financial data for members
+      const memberIds = membersData?.map(m => m.id) || [];
+      let loansData: any[] = [];
+      
+      if (memberIds.length > 0) {
+        const { data: customerLoans, error: customerError } = await (supabase as any)
+          .from('loans')
           .select('*')
-          .order('name');
+          .in('customer_id', memberIds);
         
-        if (branchesError) throw branchesError;
-        setBranches(branchesData || []);
+        const { data: memberLoans, error: memberError } = await (supabase as any)
+          .from('loans')
+          .select('*')
+          .in('member_id', memberIds);
         
-        // Fetch groups with branch information
-        const { data: groupsData, error: groupsError } = await supabase
-          .from('groups')
-          .select(`
-            *,
-            branches!inner(name)
-          `)
-          .order('name');
+        if (customerError) console.error('Error fetching customer loans:', customerError);
+        if (memberError) console.error('Error fetching member loans:', memberError);
         
-        if (groupsError) throw groupsError;
-        
-        // Transform the data to match our interface
-        const transformedGroups = (groupsData || []).map(group => ({
-          ...group,
-          branch_name: group.branches?.name || 'Unknown Branch'
-        }));
-        
-        setGroups(transformedGroups);
-        
-      } catch (error: any) {
-        console.error('Failed to initialize data:', error);
-        toast.error('Failed to load data');
-      } finally {
-        setLoading(false);
+        loansData = [...(customerLoans || []), ...(memberLoans || [])];
       }
-    };
 
-    initializeData();
-  }, [user, profile]);
+      // Calculate financial data for each member
+      const memberFinancialData = new Map();
+      loansData?.forEach(loan => {
+        const memberId = loan.customer_id || (loan as any).member_id;
+        if (!memberFinancialData.has(memberId)) {
+          memberFinancialData.set(memberId, {
+            total_loans_disbursed: 0,
+            current_loan_balance: 0
+          });
+        }
+        
+        const data = memberFinancialData.get(memberId);
+        data.total_loans_disbursed += loan.principal_amount || 0;
+        data.current_loan_balance += loan.current_balance || 0;
+      });
 
-  // Filtered data - Improved filtering with cascading logic
-  const filteredGroups = groups.filter(group => {
-    const searchMatch = (group.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                       (group.description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                       (group.branch_name || '').toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const branchMatch = branchFilter === 'all' || !branchFilter || group.branch_id?.toString() === branchFilter;
-    const dayMatch = dayFilter === 'all' || !dayFilter || group.meeting_day?.toString() === dayFilter;
-    
-    return searchMatch && branchMatch && dayMatch;
-  });
+      // Format members data
+      const formattedMembers = membersData?.map(member => {
+        const group = groupsData?.find(g => g.id === member.group_id);
+        const branch = branchesData?.find(b => b.id === member.branch_id);
+        const officer = officersData?.find(o => o.id === group?.loan_officer_id);
+        const financialData = memberFinancialData.get(member.id) || {
+          total_loans_disbursed: 0,
+          current_loan_balance: 0
+        };
 
-  // Get available groups based on current filters
-  const availableGroups = filteredGroups.filter(group => {
-    // If day filter is set, only show groups for that day
-    if (dayFilter && dayFilter !== 'all') {
-      return group.meeting_day?.toString() === dayFilter;
+        return {
+          ...member,
+          group_name: group?.name || 'No Group',
+          branch_name: branch?.name || 'Unknown',
+          loan_officer_name: officer?.full_name || 'Unassigned',
+          total_loans_disbursed: financialData.total_loans_disbursed,
+          current_loan_balance: financialData.current_loan_balance
+        };
+      }) || [];
+
+      // Format groups data
+      const formattedGroups: Group[] = groupsData?.map(group => {
+        const branch = branchesData?.find(b => b.id === group.branch_id);
+        const officer = officersData?.find(o => o.id === group.loan_officer_id);
+        const groupMembers = membersData?.filter(m => m.group_id === group.id) || [];
+        const contactPerson = membersData?.find(m => m.id === (group as any).contact_person_id);
+
+        return {
+          id: group.id.toString(),
+          name: group.name,
+          code: (group as any).code,
+          meeting_day: (group as any).meeting_day || 1,
+          meeting_time: (group as any).meeting_time,
+          location: (group as any).location,
+          branch_id: group.branch_id.toString(),
+          branch_name: branch?.name || 'Unknown',
+          member_count: groupMembers.length,
+          status: (group as any).status || 'active',
+          created_at: group.created_at,
+          loan_officer_id: group.loan_officer_id,
+          loan_officer_name: officer?.full_name || 'Unassigned',
+          contact_person_id: (group as any).contact_person_id,
+          contact_person_name: contactPerson?.full_name || 'Not Assigned',
+          contact_person_phone: contactPerson?.phone_number || ''
+        };
+      }) || [];
+
+      setMembers(formattedMembers);
+      setGroups(formattedGroups);
+      setBranches((branchesData || []).map(branch => ({
+        ...branch,
+        id: branch.id.toString()
+      })));
+      setLoanOfficers(officersData || []);
+
+    } catch (error: any) {
+      toast.error('Failed to fetch data', { description: error.message });
+    } finally {
+      setLoading(false);
     }
-    return true;
-  });
-
-  // Get groups to display based on current filters
-  const displayGroups = (() => {
-    if (dayFilter && dayFilter !== 'all') {
-      // If day is selected, show groups for that day
-      if (branchFilter && branchFilter !== 'all') {
-        // If both day and branch are selected, show groups for that day and branch
-        return availableGroups.filter(group => group.branch_id?.toString() === branchFilter);
-      } else {
-        // If only day is selected, show all groups for that day
-        return availableGroups;
-      }
-    } else {
-      // If no day is selected, show all groups
-      return filteredGroups;
-    }
-  })();
-
-  // Helper function for currency formatting
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-KE', { 
-      style: 'currency', 
-      currency: 'KES' 
-    }).format(amount || 0);
   };
 
-  // Helper function to get day name from meeting day number
+  const filterData = () => {
+    let filteredMembersData = members;
+    let filteredGroupsData = groups;
+
+    // Apply search filter
+    if (filters.searchTerm) {
+      filteredMembersData = filteredMembersData.filter(member =>
+        member.full_name.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
+        member.phone_number.includes(filters.searchTerm) ||
+        member.email?.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
+        member.group_name?.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
+        member.branch_name?.toLowerCase().includes(filters.searchTerm.toLowerCase())
+      );
+
+      filteredGroupsData = filteredGroupsData.filter(group =>
+        group.name.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
+        group.code?.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
+        group.branch_name?.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
+        group.loan_officer_name?.toLowerCase().includes(filters.searchTerm.toLowerCase())
+      );
+    }
+
+    // Apply group filter
+    if (filters.group !== 'all') {
+      filteredMembersData = filteredMembersData.filter(member => 
+        member.group_id?.toString() === filters.group
+      );
+      filteredGroupsData = filteredGroupsData.filter(group => 
+        group.id.toString() === filters.group
+      );
+    }
+
+    // Apply branch filter
+    if (filters.branch !== 'all') {
+      filteredMembersData = filteredMembersData.filter(member => 
+        member.branch_id?.toString() === filters.branch
+      );
+      filteredGroupsData = filteredGroupsData.filter(group => 
+        group.branch_id.toString() === filters.branch
+      );
+    }
+
+    // Apply status filter
+    if (filters.status !== 'all') {
+      filteredMembersData = filteredMembersData.filter(member => 
+        member.status === filters.status
+      );
+      filteredGroupsData = filteredGroupsData.filter(group => 
+        group.status === filters.status
+      );
+    }
+
+    // Apply loan officer filter
+    if (filters.loanOfficer !== 'all') {
+      const selectedOfficer = loanOfficers.find(o => o.id === filters.loanOfficer);
+      if (selectedOfficer) {
+        filteredMembersData = filteredMembersData.filter(member => 
+          member.loan_officer_name === selectedOfficer.full_name
+        );
+        filteredGroupsData = filteredGroupsData.filter(group => 
+          group.loan_officer_id === filters.loanOfficer
+        );
+      }
+    }
+
+    setFilteredMembers(filteredMembersData);
+    setFilteredGroups(filteredGroupsData);
+  };
+
+  const handleFilterChange = (key: string, value: string) => {
+    setFilters(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
+  const handleSetContactPerson = (group: Group) => {
+    setSelectedGroup(group);
+    setContactPersonId(group.contact_person_id || '');
+    setIsContactModalOpen(true);
+  };
+
+  const handleSaveContactPerson = async () => {
+    if (!selectedGroup || !contactPersonId) return;
+
+    try {
+      const { error } = await supabase
+        .from('groups')
+        .update({ contact_person_id: contactPersonId } as any)
+        .eq('id', selectedGroup.id as any);
+
+      if (error) throw error;
+
+      // Update the group in state
+      setGroups(prev => 
+        prev.map(group => 
+          group.id === selectedGroup.id 
+            ? { 
+                ...group, 
+                contact_person_id: contactPersonId,
+                contact_person_name: members.find(m => m.id === contactPersonId)?.full_name || 'Unknown',
+                contact_person_phone: members.find(m => m.id === contactPersonId)?.phone_number || ''
+              }
+            : group
+        )
+      );
+
+      toast.success('Contact person updated successfully');
+      setIsContactModalOpen(false);
+      setSelectedGroup(null);
+      setContactPersonId('');
+
+    } catch (error: any) {
+      toast.error('Failed to update contact person', { description: error.message });
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    const statusConfig = {
+      active: { color: 'bg-green-100 text-green-800', icon: CheckCircle },
+      inactive: { color: 'bg-gray-100 text-gray-800', icon: XCircle },
+      suspended: { color: 'bg-red-100 text-red-800', icon: AlertCircle }
+    };
+
+    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.active;
+    const Icon = config.icon;
+
+    return (
+      <Badge className={config.color}>
+        <Icon className="w-3 h-3 mr-1" />
+        {status.charAt(0).toUpperCase() + status.slice(1)}
+      </Badge>
+    );
+  };
+
   const getDayName = (dayNumber: number) => {
     const days = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     return days[dayNumber] || 'Unknown';
@@ -152,189 +391,399 @@ const Groups: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-6 space-y-6">
-      {/* Header */}
-      <div className="space-y-4">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Group Transaction Sheet</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">View and manage groups</p>
+          <h1 className="text-3xl font-bold">Groups & Members</h1>
+          <p className="text-muted-foreground">
+            View and manage groups and members
+          </p>
         </div>
-        <Button onClick={() => navigate('/groups/new')} className="w-full sm:w-auto">
+        <Button onClick={() => navigate('/groups/new')}>
           <Plus className="mr-2 h-4 w-4" />
           Create Group
         </Button>
       </div>
 
-      {/* Main Content - AMBS Style Group Transaction Sheet */}
-      <div className="space-y-6">
-        {/* Improved Filter Controls - Mobile Responsive */}
-        <div className="bg-white border rounded-lg shadow-sm p-4 sm:p-6">
-          <div className="space-y-4">
-            {/* Meeting Day Filter */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500" />
-                <h3 className="text-sm sm:text-lg font-medium text-gray-900">Meeting Day:</h3>
+      {/* Filters */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Filters</CardTitle>
+          <CardDescription>
+            Use filters to narrow down the data
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+            <div>
+              <Label htmlFor="search">Search</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="search"
+                  placeholder="Search by name, phone, or group..."
+                  value={filters.searchTerm}
+                  onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
+                  className="pl-10"
+                />
               </div>
-              <Select value={dayFilter} onValueChange={setDayFilter}>
-                <SelectTrigger className="h-10 border-gray-300 bg-white w-full sm:w-40">
-                  <SelectValue placeholder="Select day" />
+            </div>
+
+            <div>
+              <Label htmlFor="group">Group</Label>
+              <Select
+                value={filters.group}
+                onValueChange={(value) => handleFilterChange('group', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All Groups" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All days</SelectItem>
-                  <SelectItem value="1">Monday</SelectItem>
-                  <SelectItem value="2">Tuesday</SelectItem>
-                  <SelectItem value="3">Wednesday</SelectItem>
-                  <SelectItem value="4">Thursday</SelectItem>
-                  <SelectItem value="5">Friday</SelectItem>
-                  <SelectItem value="6">Saturday</SelectItem>
-                  <SelectItem value="7">Sunday</SelectItem>
+                  <SelectItem value="all">All Groups</SelectItem>
+                  {groups.map((group) => (
+                    <SelectItem key={group.id} value={group.id.toString()}>
+                      {group.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
-            
-            {/* Branch Filter - Only show when day is selected */}
-            {dayFilter && dayFilter !== 'all' && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Building2 className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500" />
-                  <h3 className="text-sm sm:text-lg font-medium text-gray-900">Branch:</h3>
+
+            <div>
+              <Label htmlFor="branch">Branch</Label>
+              <Select
+                value={filters.branch}
+                onValueChange={(value) => handleFilterChange('branch', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All Branches" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Branches</SelectItem>
+                  {branches.map((branch) => (
+                    <SelectItem key={branch.id} value={branch.id.toString()}>
+                      {branch.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="loanOfficer">Loan Officer</Label>
+              <Select
+                value={filters.loanOfficer}
+                onValueChange={(value) => handleFilterChange('loanOfficer', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All Loan Officers" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Loan Officers</SelectItem>
+                  {loanOfficers.map((officer) => (
+                    <SelectItem key={officer.id} value={officer.id}>
+                      {officer.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="status">Status</Label>
+              <Select
+                value={filters.status}
+                onValueChange={(value) => handleFilterChange('status', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All Statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="suspended">Suspended</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-end">
+              <Button
+                variant="outline"
+                onClick={() => setFilters({
+                  group: 'all',
+                  branch: 'all',
+                  loanOfficer: 'all',
+                  status: 'all',
+                  searchTerm: ''
+                })}
+                className="w-full"
+              >
+                Clear Filters
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Tabs for Members and Groups */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="members">Members ({filteredMembers.length})</TabsTrigger>
+          <TabsTrigger value="groups">Groups ({filteredGroups.length})</TabsTrigger>
+        </TabsList>
+
+        {/* Members Tab */}
+        <TabsContent value="members">
+          <Card>
+            <CardHeader>
+              <CardTitle>Members Data Sheet</CardTitle>
+              <CardDescription>
+                Showing {filteredMembers.length} members
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {filteredMembers.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No members found matching your filters
                 </div>
-                <Select value={branchFilter} onValueChange={setBranchFilter}>
-                  <SelectTrigger className="h-10 border-gray-300 bg-white w-full sm:w-40">
-                    <SelectValue placeholder="Select branch" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All branches</SelectItem>
-                    {branches.map(branch => (
-                      <SelectItem key={branch.id} value={branch.id.toString()}>
-                        {branch.name}
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Member Name</TableHead>
+                      <TableHead>Phone</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Group</TableHead>
+                      <TableHead>Branch</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Loans Disbursed</TableHead>
+                      <TableHead>Current Balance</TableHead>
+                      <TableHead>Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredMembers.map((member) => (
+                      <TableRow key={member.id}>
+                        <TableCell className="font-medium">
+                          {member.full_name}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center space-x-1">
+                            <Phone className="w-3 h-3" />
+                            <span>{member.phone_number}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {member.email ? (
+                            <div className="flex items-center space-x-1">
+                              <Mail className="w-3 h-3" />
+                              <span>{member.email}</span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">No email</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {member.group_name}
+                        </TableCell>
+                        <TableCell>
+                          {member.branch_name}
+                        </TableCell>
+                        <TableCell>
+                          {getStatusBadge(member.status)}
+                        </TableCell>
+                        <TableCell>
+                          KES {(member.total_loans_disbursed || 0).toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          KES {(member.current_loan_balance || 0).toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            size="sm"
+                            onClick={() => navigate(`/members/${member.id}`)}
+                          >
+                            <Eye className="w-3 h-3 mr-1" />
+                            View
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Groups Tab */}
+        <TabsContent value="groups">
+          <Card>
+            <CardHeader>
+              <CardTitle>Groups Data Sheet</CardTitle>
+              <CardDescription>
+                Showing {filteredGroups.length} groups
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {filteredGroups.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No groups found matching your filters
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Group Name</TableHead>
+                      <TableHead>Code</TableHead>
+                      <TableHead>Meeting Day</TableHead>
+                      <TableHead>Meeting Time</TableHead>
+                      <TableHead>Location</TableHead>
+                      <TableHead>Branch</TableHead>
+                      <TableHead>Loan Officer</TableHead>
+                      <TableHead>Contact Person</TableHead>
+                      <TableHead>Members</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead>Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredGroups.map((group) => (
+                      <TableRow key={group.id}>
+                        <TableCell className="font-medium">
+                          {group.name}
+                        </TableCell>
+                        <TableCell>
+                          {group.code || 'N/A'}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center space-x-1">
+                            <Calendar className="w-3 h-3" />
+                            <span>{getDayName(group.meeting_day)}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {group.meeting_time || 'Not set'}
+                        </TableCell>
+                        <TableCell>
+                          {group.location ? (
+                            <div className="flex items-center space-x-1">
+                              <MapPin className="w-3 h-3" />
+                              <span>{group.location}</span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">Not set</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {group.branch_name}
+                        </TableCell>
+                        <TableCell>
+                          {group.loan_officer_name}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{group.contact_person_name}</span>
+                            {group.contact_person_phone && (
+                              <span className="text-xs text-muted-foreground">{group.contact_person_phone}</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center space-x-1">
+                            <Users className="w-3 h-3" />
+                            <span>{group.member_count}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {getStatusBadge(group.status)}
+                        </TableCell>
+                        <TableCell>
+                          {new Date(group.created_at).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              size="sm"
+                              onClick={() => navigate(`/groups/${group.id}`)}
+                            >
+                              <Eye className="w-3 h-3 mr-1" />
+                              View
+                            </Button>
+                            {(userRole === 'super_admin' || userRole === 'admin' || userRole === 'loan_officer') && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleSetContactPerson(group)}
+                              >
+                                <Users className="w-3 h-3 mr-1" />
+                                Set Contact
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Contact Person Modal */}
+      <Dialog open={isContactModalOpen} onOpenChange={setIsContactModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Set Contact Person</DialogTitle>
+            <DialogDescription>
+              Select a member from {selectedGroup?.name} to be the contact person for this group.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="contact-person">Contact Person</Label>
+              <Select value={contactPersonId} onValueChange={setContactPersonId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a member" />
+                </SelectTrigger>
+                <SelectContent>
+                  {selectedGroup && members
+                    .filter(member => member.group_id?.toString() === selectedGroup.id)
+                    .map((member) => (
+                      <SelectItem key={member.id} value={member.id}>
+                        <div className="flex flex-col">
+                          <span>{member.full_name}</span>
+                          <span className="text-xs text-muted-foreground">{member.phone_number}</span>
+                        </div>
                       </SelectItem>
                     ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            
-            {/* Search Filter */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Search className="h-4 w-4 sm:h-5 sm:w-5 text-gray-500" />
-                <h3 className="text-sm sm:text-lg font-medium text-gray-900">Search:</h3>
-              </div>
-              <Input
-                placeholder="Search groups..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="h-10 border-gray-300 bg-white w-full"
-              />
+                </SelectContent>
+              </Select>
             </div>
           </div>
-        </div>
 
-        {/* Groups Display */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">
-              {dayFilter && dayFilter !== 'all' 
-                ? `${getDayName(parseInt(dayFilter))} Groups`
-                : 'All Groups'
-              }
-              {branchFilter && branchFilter !== 'all' && (
-                <span className="text-gray-600 ml-2">
-                  • {branches.find(b => b.id.toString() === branchFilter)?.name}
-                </span>
-              )}
-            </h2>
-            <Badge variant="secondary">
-              {displayGroups.length} group{displayGroups.length !== 1 ? 's' : ''}
-            </Badge>
-          </div>
-
-          {displayGroups.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {displayGroups.map(group => (
-                <Card key={group.id} className="hover:shadow-md transition-shadow">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1 flex-1 min-w-0">
-                        <CardTitle className="text-base sm:text-lg truncate">{group.name}</CardTitle>
-                        <CardDescription className="text-xs sm:text-sm line-clamp-2">
-                          {group.description || 'No description'}
-                        </CardDescription>
-                      </div>
-                      <Badge variant="outline" className="text-xs flex-shrink-0 ml-2">
-                        {getDayName(group.meeting_day)}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600">
-                      <Building2 className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                      <span className="truncate">{group.branch_name}</span>
-                    </div>
-                    
-                    <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600">
-                      <Users className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                      <span>{group.member_count || 0} members</span>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row gap-2 pt-2">
-                      <Button
-                        size="sm"
-                        onClick={() => navigate(`/groups/${group.id}`)}
-                        className="flex-1 text-xs sm:text-sm"
-                      >
-                        <Eye className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                        <span className="hidden sm:inline">View Details</span>
-                        <span className="sm:hidden">View</span>
-                      </Button>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => navigate(`/groups/${group.id}/edit`)}
-                          className="flex-1 sm:flex-none"
-                        >
-                          <Building2 className="h-3 w-3 sm:h-4 sm:w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => navigate(`/groups/${group.id}/members`)}
-                          className="flex-1 sm:flex-none"
-                        >
-                          <Users className="h-3 w-3 sm:h-4 sm:w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <div className="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                <Users className="h-12 w-12 text-gray-400" />
-              </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No groups found</h3>
-              <p className="text-gray-500">
-                {searchTerm || dayFilter !== 'all' || branchFilter !== 'all'
-                  ? 'Try adjusting your filters or search terms.'
-                  : 'No groups have been created yet.'
-                }
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsContactModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveContactPerson} disabled={!contactPersonId}>
+              Save Contact Person
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

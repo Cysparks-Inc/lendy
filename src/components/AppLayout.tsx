@@ -4,6 +4,7 @@ import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { PageLoader } from '@/components/ui/loader';
 import { ProfileDropdown } from '@/components/ProfileDropdown';
+import Notifications from '@/components/Notifications';
 import { useEffect, useRef } from 'react';
 
 const AppLayout = () => {
@@ -68,6 +69,7 @@ const AppLayout = () => {
               <span className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
                  {formatRoleDisplay(userRole)}
                </span>
+              <Notifications />
               <ProfileDropdown />
             </div>
           </header>

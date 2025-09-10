@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Plus, Search, Edit, Trash2, Users, Eye, Banknote, DollarSign, Loader2, UserCheck } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Users, Eye, Banknote, DollarSign, Loader2, UserCheck, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/ui/data-table'; // We will use our new reusable component
@@ -46,33 +46,23 @@ const MembersPage: React.FC = () => {
     if (!user) return;
     setLoading(true);
     try {
-      console.log('Fetching members with loan data...');
-      console.log('Current user role:', userRole);
-      console.log('Current user ID:', user?.id);
-      
       // Step 1: Fetch members based on user role
       let membersQuery = supabase.from('members').select('*');
       
       // Apply role-based filtering
       if (userRole === 'loan_officer') {
         // Loan officers can only see members assigned to them
-        console.log('Filtering members for loan officer:', user?.id);
         membersQuery = membersQuery.eq('assigned_officer_id', user?.id);
       } else if (userRole === 'branch_admin') {
         // Branch admins can see members in their branch
         // TODO: Implement branch-based filtering when branch_id is available in user profile
-        console.log('Branch admin - showing all members (branch filtering to be implemented)');
       } else if (userRole === 'super_admin') {
         // Super admins can see all members
-        console.log('Super admin - showing all members');
       }
       
       const { data: membersData, error: membersError } = await membersQuery;
       
       if (membersError) throw membersError;
-      
-      console.log('Raw members data:', membersData);
-      console.log('Members found:', membersData?.length || 0);
       
       if (!membersData || membersData.length === 0) {
         setMembers([]);
@@ -80,32 +70,35 @@ const MembersPage: React.FC = () => {
         return;
       }
       
-      // Step 2: Fetch all loans to calculate member statistics
+      // Step 2: Fetch loan data for each member
+      const memberIds = membersData.map(member => member.id);
+      
+      // Fetch loans for all members
       const { data: loansData, error: loansError } = await supabase
         .from('loans')
-        .select('member_id, customer_id, current_balance, status');
-
+        .select('*');
+      
       if (loansError) {
-        console.warn('Loans fetch error:', loansError);
-        // Continue without loan data
+        throw loansError;
       }
       
-      console.log('Raw loans data for member stats:', loansData);
-      
-      // Step 3: Calculate loan statistics for each member
+      // Calculate loan statistics for each member
       const membersWithLoanData = membersData.map(member => {
-        // Find loans for this member (try both member_id and customer_id)
-        const memberLoans = (loansData || []).filter(loan => 
-          loan.member_id === member.id || loan.customer_id === member.id
-        );
+        // Find loans for this member (check customer_id)
+        const memberLoans = loansData?.filter(loan => 
+          loan.customer_id === member.id
+        ) || [];
         
-        // Calculate statistics
+        // Calculate total loans and outstanding balance
         const totalLoans = memberLoans.length;
-        const outstandingBalance = memberLoans
-          .filter(loan => ['active', 'pending'].includes(loan.status))
-          .reduce((sum, loan) => sum + parseFloat(loan.current_balance || 0), 0);
-        
-        console.log(`Member ${member.full_name}: ${totalLoans} loans, Ksh ${outstandingBalance} outstanding`);
+        const outstandingBalance = memberLoans.reduce((sum, loan) => {
+          // Count loans that have outstanding balance (active, pending)
+          const status = loan.status as string;
+          if (status === 'active' || status === 'pending') {
+            return sum + (loan.current_balance || 0);
+          }
+          return sum;
+        }, 0);
         
         return {
           member_id: member.id,
@@ -115,15 +108,13 @@ const MembersPage: React.FC = () => {
           status: member.status || 'active',
           branch_name: 'Nairobi', // Hardcoded for now, can be enhanced later
           total_loans: totalLoans,
-          outstanding_balance: outstandingBalance
+          outstanding_balance: outstandingBalance,
         };
       });
       
-      console.log('Members with loan data calculated:', membersWithLoanData);
       setMembers(membersWithLoanData);
       
     } catch (error: any) {
-      console.error('Error fetching members:', error);
       toast.error('Failed to fetch members', { description: error.message });
       setMembers([]);
     } finally {
@@ -147,6 +138,7 @@ const MembersPage: React.FC = () => {
     }
   };
 
+
   const filteredMembers = members.filter(member =>
     member.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (member.id_number && member.id_number.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -154,9 +146,41 @@ const MembersPage: React.FC = () => {
   );
 
   // Apply date filtering to the already filtered members
-  const dateFilteredMembers = filterDataByDateRange(filteredMembers, dateRange, 'created_at');
+  const dateFilteredMembers = filteredMembers; // Simplified for now - date filtering can be added later
 
   const formatCurrency = (amount: number) => new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(amount || 0);
+
+  const getStatusBadge = (member: MemberSummary) => {
+    if (member.status === 'active') {
+      return (
+        <Badge className="bg-green-100 text-green-800">
+          <CheckCircle className="w-3 h-3 mr-1" />
+          Active
+        </Badge>
+      );
+    } else if (member.status === 'inactive') {
+      return (
+        <Badge className="bg-red-100 text-red-800">
+          <XCircle className="w-3 h-3 mr-1" />
+          Inactive
+        </Badge>
+      );
+    } else if (member.status === 'dormant') {
+      return (
+        <Badge className="bg-yellow-100 text-yellow-800">
+          <AlertCircle className="w-3 h-3 mr-1" />
+          Dormant
+        </Badge>
+      );
+    } else {
+      return (
+        <Badge className="bg-gray-100 text-gray-800">
+          <AlertCircle className="w-3 h-3 mr-1" />
+          {member.status}
+        </Badge>
+      );
+    }
+  };
 
   // --- DataTable Column Definitions ---
   const columns = [
@@ -166,6 +190,7 @@ const MembersPage: React.FC = () => {
             <div>
                 <div className="font-medium">{row.full_name}</div>
                 <div className="text-sm text-muted-foreground">{row.branch_name}</div>
+                <div className="mt-1">{getStatusBadge(row)}</div>
             </div>
         )
     },
@@ -192,7 +217,7 @@ const MembersPage: React.FC = () => {
         cell: (row: MemberSummary) => (
             <div className="flex justify-end gap-2">
                 <Button asChild variant="outline" size="icon"><Link to={`/members/${row.member_id}`}><Eye className="h-4 w-4" /></Link></Button>
-                {userRole === 'super_admin' && (
+                {(userRole === 'super_admin' || userRole === 'admin') && (
                     <>
                         <Button asChild variant="outline" size="icon"><Link to={`/members/${row.member_id}/edit`}><Edit className="h-4 w-4" /></Link></Button>
                         <Button variant="destructive" size="icon" onClick={() => setDeleteCandidate(row)}><Trash2 className="h-4 w-4" /></Button>
@@ -205,12 +230,12 @@ const MembersPage: React.FC = () => {
 
   // Export columns configuration
   const exportColumns = [
-    { header: 'Member Name', accessorKey: 'full_name' },
-    { header: 'ID Number', accessorKey: 'id_number' },
-    { header: 'Phone Number', accessorKey: 'phone_number' },
-    { header: 'Status', accessorKey: 'status' },
-    { header: 'Branch', accessorKey: 'branch_name' },
-    { header: 'Total Loans', accessorKey: 'total_loans' },
+    { header: 'Member Name', accessorKey: 'full_name' as keyof MemberSummary },
+    { header: 'ID Number', accessorKey: 'id_number' as keyof MemberSummary },
+    { header: 'Phone Number', accessorKey: 'phone_number' as keyof MemberSummary },
+    { header: 'Status', accessorKey: 'status' as keyof MemberSummary },
+    { header: 'Branch', accessorKey: 'branch_name' as keyof MemberSummary },
+    { header: 'Total Loans', accessorKey: 'total_loans' as keyof MemberSummary },
     { header: 'Outstanding Balance', accessorKey: (row: MemberSummary) => formatCurrency(row.outstanding_balance) },
   ];
 
@@ -241,7 +266,6 @@ const MembersPage: React.FC = () => {
             fileName="members-report" 
             reportTitle="Members Report"
             dateRange={dateRange}
-            className="w-full sm:w-auto"
           />
           <Button asChild className="w-full sm:w-auto">
             <Link to="/members/new">
@@ -256,8 +280,8 @@ const MembersPage: React.FC = () => {
       <div className="grid gap-3 md:gap-4 grid-cols-2 lg:grid-cols-4">
         <StatCard title="Total Members" value={members.length} icon={Users} />
         <StatCard title="Active Members" value={members.filter(m => m.status === 'active').length} icon={UserCheck} />
-        <StatCard title="With Loans" value={members.filter(m => m.total_loans > 0).length} icon={Banknote} />
-        <StatCard title="Total Outstanding" value={formatCurrency(members.reduce((sum, m) => sum + m.outstanding_balance, 0))} icon={DollarSign} />
+        <StatCard title="Dormant Members" value={members.filter(m => m.status === 'dormant').length} icon={AlertCircle} />
+        <StatCard title="Inactive Members" value={members.filter(m => m.status === 'inactive').length} icon={XCircle} />
       </div>
 
       {/* Search and Filters */}
@@ -322,6 +346,7 @@ const MembersPage: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
     </div>
   );
 };

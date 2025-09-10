@@ -44,6 +44,7 @@ type Branch = { id: number; name: string; };
 
 const roles = [
     { value: 'super_admin', label: 'Super Admin' },
+    { value: 'admin', label: 'Admin' },
     { value: 'branch_admin', label: 'Branch Admin' },
     { value: 'loan_officer', label: 'Loan Officer' },
     { value: 'teller', label: 'Teller' },

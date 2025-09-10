@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNotifications } from '@/contexts/NotificationContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -44,6 +45,7 @@ interface RecentLoan {
 
 const Dashboard: React.FC = () => {
   const { user, userRole, profile } = useAuth();
+  const { addNotification } = useNotifications();
   const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentLoans, setRecentLoans] = useState<RecentLoan[]>([]);
@@ -57,13 +59,6 @@ const Dashboard: React.FC = () => {
     try {
       setLoading(true);
       
-      // Debug logging
-      console.log('Dashboard Debug:', {
-        userRole,
-        userId: user?.id,
-        profileBranchId: profile?.branch_id,
-        profile: profile
-      });
       
       // Step 1: Fetch all loans and members
       const { data: loans, error: loansError } = await supabase
@@ -71,7 +66,6 @@ const Dashboard: React.FC = () => {
         .select('*');
 
       if (loansError) {
-        console.error('Loans query error:', loansError);
         throw loansError;
       }
 
@@ -80,12 +74,8 @@ const Dashboard: React.FC = () => {
         .select('*');
 
       if (membersError) {
-        console.error('Members query error:', membersError);
         throw membersError;
       }
-      
-      console.log('Raw loans data:', loans);
-      console.log('Raw members data:', members);
       
       // Step 2: Apply role-based filtering to the data
       let filteredLoans = loans || [];
@@ -102,18 +92,21 @@ const Dashboard: React.FC = () => {
         filteredMembers = filteredMembers.filter(member => 
           (member as any).assigned_officer_id === user?.id
         );
-        console.log('Loan officer filtering applied:', {
-          userId: user?.id,
-          filteredLoans: filteredLoans.length,
-          filteredMembers: filteredMembers.length
-        });
       } else if (userRole !== 'super_admin' && profile?.branch_id) {
         // Teller/Auditor
         filteredLoans = filteredLoans.filter(loan => loan.branch_id === profile.branch_id);
         filteredMembers = filteredMembers.filter(member => member.branch_id === profile.branch_id);
       }
       
-      // Step 3: Calculate stats
+      // Step 3: Get installment-based overdue count
+      const { data: overdueData, error: overdueError } = await supabase
+        .rpc('get_installment_overdue_loans_report', { requesting_user_id: user?.id });
+
+      if (overdueError) {
+        // Silently handle overdue data error
+      }
+
+      // Step 4: Calculate stats
       const stats = {
         total_members: filteredMembers.length,
         total_loans: filteredLoans.length,
@@ -124,16 +117,12 @@ const Dashboard: React.FC = () => {
         outstanding_balance: filteredLoans
           .filter((loan: any) => ['active', 'pending'].includes((loan as any).status))
           .reduce((sum: number, loan: any) => sum + parseFloat((loan as any).current_balance || 0), 0),
-        overdue_loans: filteredLoans.filter(l => 
-          ['active', 'pending'].includes((l as any).status) && 
-          (l as any).due_date && new Date((l as any).due_date) < new Date()
-        ).length
+        overdue_loans: overdueData?.length || 0 // Use installment-based overdue count
       };
       
       setStats(stats);
-      console.log('Dashboard stats calculated:', stats);
       
-      // Step 4: Get recent loans and fetch related names
+      // Step 5: Get recent loans and fetch related names
       const recentLoans = filteredLoans
         .sort((a: any, b: any) => new Date((b as any).created_at).getTime() - new Date((a as any).created_at).getTime())
         .slice(0, 5);
@@ -171,13 +160,11 @@ const Dashboard: React.FC = () => {
         });
         
         setRecentLoans(loansWithDetails);
-        console.log('Recent loans with real names:', loansWithDetails);
       } else {
         setRecentLoans([]);
       }
       
     } catch (error) {
-      console.error('Error fetching dashboard data:', error);
       // Set default stats on error
       setStats({
         total_members: 0,
@@ -223,6 +210,8 @@ const Dashboard: React.FC = () => {
     }
   };
 
+
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -250,16 +239,18 @@ const Dashboard: React.FC = () => {
               }
             </p>
           </div>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={fetchDashboardData}
-            disabled={loading}
-            className="flex items-center gap-2 w-full sm:w-auto"
-          >
-            {loading ? <QuickLoader /> : <RefreshCw className="h-4 w-4" />}
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={fetchDashboardData}
+              disabled={loading}
+              className="flex items-center gap-2 w-full sm:w-auto"
+            >
+              {loading ? <QuickLoader /> : <RefreshCw className="h-4 w-4" />}
+              Refresh
+            </Button>
+          </div>
         </div>
       </div>
 

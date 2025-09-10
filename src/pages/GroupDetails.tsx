@@ -29,6 +29,9 @@ interface Group {
   meeting_day: number;
   created_at: string;
   member_count: number;
+  contact_person_id?: string;
+  contact_person_name?: string;
+  contact_person_phone?: string;
 }
 
 interface GroupTransaction {
@@ -78,9 +81,27 @@ const GroupDetails: React.FC = () => {
       
       if (groupError) throw groupError;
       
+      // Fetch contact person details if exists
+      let contactPersonName = '';
+      let contactPersonPhone = '';
+      if (groupData.contact_person_id) {
+        const { data: contactData } = await supabase
+          .from('members')
+          .select('full_name, phone_number')
+          .eq('id', groupData.contact_person_id)
+          .single();
+        
+        if (contactData) {
+          contactPersonName = contactData.full_name;
+          contactPersonPhone = contactData.phone_number;
+        }
+      }
+      
       const groupWithData = {
         ...groupData,
-        branch_name: groupData.branches?.name || 'Unknown'
+        branch_name: groupData.branches?.name || 'Unknown',
+        contact_person_name: contactPersonName,
+        contact_person_phone: contactPersonPhone
       };
       
       setGroup(groupWithData);
@@ -243,7 +264,7 @@ const GroupDetails: React.FC = () => {
       doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, 65);
       
       // Table headers
-      const headers = ['P#', 'Member Name', 'Program', 'Disbursed Date', 'Outstanding', 'Collection', 'As On Outstanding'];
+      const headers = ['P#', 'Member Name', 'Program', 'Disbursed Date', 'Outstanding', 'Collection', 'Total Due'];
       const data = groupTransactions.map((transaction, index) => [
         index + 1,
         transaction.member_name,
@@ -334,7 +355,7 @@ const GroupDetails: React.FC = () => {
       </div>
 
       {/* Group Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
         <Card>
           <CardContent className="p-3 sm:p-4 text-center">
             <div className="text-lg sm:text-2xl font-bold text-blue-600">{groupMembersCount}</div>
@@ -356,15 +377,27 @@ const GroupDetails: React.FC = () => {
         <Card>
           <CardContent className="p-3 sm:p-4 text-center">
             <div className="text-lg sm:text-2xl font-bold text-orange-600">{formatCurrency(totalAsOnOutstanding)}</div>
-            <div className="text-xs sm:text-sm text-gray-600">As On Outstanding</div>
+            <div className="text-xs sm:text-sm text-gray-600">Total Due</div>
           </CardContent>
         </Card>
-        <Card className="col-span-2 sm:col-span-1">
+        <Card>
           <CardContent className="p-3 sm:p-4 text-center">
             <div className="text-lg sm:text-2xl font-bold text-indigo-600">{getDayName(group.meeting_day)}</div>
             <div className="text-xs sm:text-sm text-gray-600">Meeting Day</div>
           </CardContent>
         </Card>
+        {group.contact_person_name && (
+          <Card className="col-span-2 sm:col-span-1 cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={() => navigate(`/members/${group.contact_person_id}`)}>
+            <CardContent className="p-3 sm:p-4 text-center">
+              <div className="text-lg sm:text-2xl font-bold text-teal-600">{group.contact_person_name}</div>
+              <div className="text-xs sm:text-sm text-gray-600">Contact Person</div>
+              {group.contact_person_phone && (
+                <div className="text-xs text-muted-foreground mt-1">{group.contact_person_phone}</div>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Action Buttons */}
@@ -438,7 +471,7 @@ const GroupDetails: React.FC = () => {
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-700 border-r">Disbursed Date</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-700 border-r">Outstanding</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-700 border-r">Collection</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-700 border-r">As On Outstanding</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-700 border-r">Total Due</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Actions</th>
                   </tr>
                 </thead>

@@ -77,6 +77,76 @@ const getCurrentDate = (): string => {
   return today.toISOString().split('T')[0];
 };
 
+// Loan Increment Rules
+const LOAN_INCREMENT_LEVELS = [5000, 7000, 9000, 11000, 13000, 15000, 17000, 20000, 25000, 30000, 35000, 40000, 45000, 50000];
+
+const validateLoanIncrement = (requestedAmount: number, memberId: string, userRole: string): { isValid: boolean; message?: string; suggestedAmount?: number } => {
+  // Only apply rules to non-admin users
+  if (userRole === 'super_admin' || userRole === 'admin') {
+    return { isValid: true };
+  }
+
+  // For admin users, they can skip increment levels
+  if (userRole === 'admin' || userRole === 'super_admin') {
+    return { isValid: true };
+  }
+
+  // Find the appropriate increment level for the requested amount
+  const currentLevel = LOAN_INCREMENT_LEVELS.find(level => level >= requestedAmount);
+  
+  if (!currentLevel) {
+    return { 
+      isValid: false, 
+      message: `Maximum loan amount is KES ${LOAN_INCREMENT_LEVELS[LOAN_INCREMENT_LEVELS.length - 1].toLocaleString()}`,
+      suggestedAmount: LOAN_INCREMENT_LEVELS[LOAN_INCREMENT_LEVELS.length - 1]
+    };
+  }
+
+  // Check if amount is exactly at an increment level or less than previous
+  const currentLevelIndex = LOAN_INCREMENT_LEVELS.indexOf(currentLevel);
+  const previousLevel = currentLevelIndex > 0 ? LOAN_INCREMENT_LEVELS[currentLevelIndex - 1] : 0;
+  
+  // Allow borrowing less than previous amount
+  if (requestedAmount <= previousLevel) {
+    return { isValid: true };
+  }
+
+  // Must be exactly at increment level
+  if (requestedAmount !== currentLevel) {
+    return { 
+      isValid: false, 
+      message: `Loan amount must follow increment levels. Next available amount is KES ${currentLevel.toLocaleString()}`,
+      suggestedAmount: currentLevel
+    };
+  }
+
+  return { isValid: true };
+};
+
+const validatePaymentTerms = (amount: number, installmentType: string): { isValid: boolean; message?: string } => {
+  // KES 5,000-7,000: 8 weeks only
+  if (amount >= 5000 && amount <= 7000) {
+    if (installmentType !== 'weekly') {
+      return { 
+        isValid: false, 
+        message: 'Loans between KES 5,000-7,000 must be paid in 8 weeks (weekly installments only)' 
+      };
+    }
+  }
+  
+  // KES 9,000+: 8 or 12 weeks
+  if (amount >= 9000) {
+    if (installmentType !== 'weekly') {
+      return { 
+        isValid: false, 
+        message: 'Loans KES 9,000+ must be paid in 8 or 12 weeks (weekly installments only)' 
+      };
+    }
+  }
+
+  return { isValid: true };
+};
+
 const LoanFormPage: React.FC = () => {
     const { id: loanId } = useParams<{ id: string }>();
     const [searchParams] = useSearchParams();
@@ -271,13 +341,11 @@ const LoanFormPage: React.FC = () => {
                             });
                         }
                     } catch (error: any) {
-                        console.error('Error loading loan data:', error);
                         toast.error("Failed to load loan data", { description: error.message });
                     }
                 }
 
             } catch (error: any) {
-                console.error('Error loading initial data:', error);
                 toast.error("Failed to load data", { description: error.message });
             } finally {
                 setLoadingData(false);
@@ -334,7 +402,6 @@ const LoanFormPage: React.FC = () => {
                 setShowMemberResults(true);
             }
         } catch (error: any) {
-            console.error('Member search error:', error);
             toast.error('Failed to search members');
             setShowMemberResults(false);
         }
@@ -444,6 +511,52 @@ const LoanFormPage: React.FC = () => {
                 throw new Error("Please ensure loan program and principal amount are set");
             }
 
+            // Check if member has pending loans (only for new loans)
+            if (!isEditMode) {
+                const { data: pendingLoans, error: pendingError } = await supabase
+                    .rpc('member_has_pending_loans', { _member_id: data.customer_id });
+
+                if (pendingError) throw pendingError;
+
+                if (pendingLoans) {
+                    throw new Error("Member has pending loans. Cannot create a new loan.");
+                }
+            }
+
+            // Apply loan increment rules validation (only for new loans)
+            if (!isEditMode) {
+                const incrementValidation = validateLoanIncrement(data.principal_amount, data.customer_id, userRole);
+                if (!incrementValidation.isValid) {
+                    if (incrementValidation.suggestedAmount) {
+                        toast.error(incrementValidation.message!, {
+                            description: `Suggested amount: KES ${incrementValidation.suggestedAmount.toLocaleString()}`,
+                            action: {
+                                label: "Use Suggested Amount",
+                                onClick: () => setValue('principal_amount', incrementValidation.suggestedAmount!)
+                            }
+                        });
+                    } else {
+                        toast.error(incrementValidation.message!);
+                    }
+                    throw new Error(incrementValidation.message);
+                }
+
+                // Apply payment terms validation
+                const paymentTermsValidation = validatePaymentTerms(data.principal_amount, data.installment_type);
+                if (!paymentTermsValidation.isValid) {
+                    toast.error(paymentTermsValidation.message!);
+                    throw new Error(paymentTermsValidation.message);
+                }
+
+                // Show success toast for valid increment level
+                const currentLevel = LOAN_INCREMENT_LEVELS.find(level => level >= data.principal_amount);
+                if (currentLevel && data.principal_amount === currentLevel) {
+                    toast.success(`Valid loan amount: KES ${data.principal_amount.toLocaleString()}`, {
+                        description: "Amount follows the increment level rules"
+                    });
+                }
+            }
+
             // Calculate due date (8 weeks for small loan, 12 weeks for big loan)
             const weeksToAdd = data.loan_program === 'small_loan' ? 8 : 12;
             const dueDate = new Date(data.issue_date);
@@ -486,7 +599,6 @@ const LoanFormPage: React.FC = () => {
             setSuccessId(newLoan.id);
 
         } catch (error: any) {
-            console.error('Loan submission error:', error);
             setFormError(error.message);
             toast.error("Failed to create loan", { description: error.message });
         } finally {

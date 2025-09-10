@@ -64,8 +64,6 @@ const LoanDetailsPage: React.FC = () => {
 
       if (loanError) throw loanError;
       
-      console.log('Raw loan data:', loanData);
-      
       // Step 2: Fetch related data (member, branch, officer names, group)
       const memberId = loanData.member_id || loanData.customer_id;
       const [memberRes, branchRes, officerRes, groupRes] = await Promise.all([
@@ -98,19 +96,10 @@ const LoanDetailsPage: React.FC = () => {
         group_name: groupRes?.data?.name
       };
       
-      console.log('Transformed loan data:', transformedLoan);
-      
-      // Debug: Log the key values that should change after payment
-      console.log('🔍 Key loan values after refresh:', {
-        current_balance: transformedLoan.current_balance,
-        total_paid: transformedLoan.total_paid,
-        status: transformedLoan.status
-      });
       
       setLoan(transformedLoan);
     } catch (error: any) {
       toast.error('Failed to fetch loan details', { description: error.message });
-      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -126,11 +115,6 @@ const LoanDetailsPage: React.FC = () => {
     
     // 1. Optimistic UI Update: Update the local state immediately
     if (loan) {
-      console.log('🎯 Optimistic update - Before:', {
-        current_balance: loan.current_balance,
-        total_paid: loan.total_paid
-      });
-      
       setLoan(prevLoan => {
         if (!prevLoan) return null;
         const updatedLoan = {
@@ -138,11 +122,6 @@ const LoanDetailsPage: React.FC = () => {
           current_balance: prevLoan.current_balance - paymentAmount,
           total_paid: prevLoan.total_paid + paymentAmount,
         };
-        
-        console.log('🎯 Optimistic update - After:', {
-          current_balance: updatedLoan.current_balance,
-          total_paid: updatedLoan.total_paid
-        });
         
         return updatedLoan;
       });
@@ -152,7 +131,6 @@ const LoanDetailsPage: React.FC = () => {
     // This will correct any minor discrepancies and update the status if the loan becomes 'repaid'.
     // Increased delay to give the trigger more time to execute
     setTimeout(() => {
-      console.log('🔄 Refreshing loan data after payment...');
       fetchLoanDetails();
     }, 1000); // Increased from 500ms to 1000ms
   };

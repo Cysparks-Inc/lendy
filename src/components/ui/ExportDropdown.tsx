@@ -55,9 +55,6 @@ export const ExportDropdown = <T,>({
       return;
     }
 
-    // Debug: Log profile information
-    console.log('Profile object:', profile);
-    console.log('Profile full_name:', profile?.full_name);
 
     const doc = new jsPDF();
     
