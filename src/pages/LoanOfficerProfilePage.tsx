@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { useAuth } from '@/contexts/AuthContext';
 
 // --- Type Definitions ---
 interface OfficerProfile {
@@ -44,11 +45,15 @@ interface OfficerMember {
     phone_number: string;
     total_loans: number;
     outstanding_balance: number;
+    created_by?: string | null;
 }
 
 
 const LoanOfficerProfilePage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const { user, userRole } = useAuth();
+  const isAdmin = ['super_admin', 'branch_admin'].includes(userRole || '');
+  const isSelf = user?.id === id;
   const [officer, setOfficer] = useState<OfficerProfile | null>(null);
   const [loans, setLoans] = useState<OfficerLoan[]>([]);
   const [members, setMembers] = useState<OfficerMember[]>([]);
@@ -66,7 +71,6 @@ const LoanOfficerProfilePage: React.FC = () => {
       if (!id) return;
       setLoading(true);
       try {
-        console.log('Fetching officer data for ID:', id);
         
         // Step 1: Fetch officer profile data
         const { data: profileData, error: profileError } = await supabase
@@ -77,8 +81,6 @@ const LoanOfficerProfilePage: React.FC = () => {
 
         if (profileError) throw profileError;
         
-        console.log('Officer profile data:', profileData);
-        
         // Step 2: Fetch officer's loans with member names
         const { data: loansData, error: loansError } = await supabase
           .from('loans')
@@ -86,8 +88,6 @@ const LoanOfficerProfilePage: React.FC = () => {
           .eq('loan_officer_id', id);
 
         if (loansError) throw loansError;
-        
-        console.log('Officer loans data:', loansData);
         
         // Step 3: Fetch member names for the loans
         const memberIds = [...new Set(loansData.map(loan => loan.member_id || loan.customer_id).filter(Boolean))];
@@ -97,7 +97,7 @@ const LoanOfficerProfilePage: React.FC = () => {
           .in('id', memberIds);
 
         if (membersError) {
-          console.warn('Members fetch error:', membersError);
+          // Fail gracefully – member names will show as Unknown
         }
         
         // Step 4: Create lookup map for member names
@@ -120,7 +120,7 @@ const LoanOfficerProfilePage: React.FC = () => {
           };
         });
         
-        console.log('Transformed loans with member names:', transformedLoans);
+        
         
         // Step 6: Fetch members directly assigned to this officer
         const { data: assignedMembersData, error: assignedMembersError } = await supabase
@@ -135,10 +135,8 @@ const LoanOfficerProfilePage: React.FC = () => {
           .eq('assigned_officer_id', id);
 
         if (assignedMembersError) {
-          console.warn('Assigned members fetch error:', assignedMembersError);
+          // ignore – will render empty list
         }
-        
-        console.log('Assigned members data:', assignedMembersData);
         
         // Step 7: Calculate member portfolio stats
         const transformedMembers = (assignedMembersData || []).map(member => {
@@ -161,7 +159,7 @@ const LoanOfficerProfilePage: React.FC = () => {
           };
         });
         
-        console.log('Transformed members with portfolio stats:', transformedMembers);
+        
         
         // Step 8: Calculate officer performance metrics
         const totalLoans = transformedLoans.length;
@@ -185,26 +183,26 @@ const LoanOfficerProfilePage: React.FC = () => {
           total_balance: totalBalance
         };
         
-        console.log('Officer profile calculated:', officerProfile);
-        
         // Step 10: Set state
         setOfficer(officerProfile);
         setLoans(transformedLoans);
         setMembers(transformedMembers);
         
-        // Step 11: Fetch unassigned members
+        // Step 11: Fetch unassigned members (only those created by this officer)
         const { data: unassignedData, error: unassignedError } = await supabase
           .from('members')
           .select(`
             id, 
             full_name, 
             phone_number, 
-            status
+            status,
+            created_by
           `)
-          .is('assigned_officer_id', null);
+          .is('assigned_officer_id', null)
+          .eq('created_by', id);
 
         if (unassignedError) {
-          console.warn('Unassigned members fetch error:', unassignedError);
+          // ignore – will render empty list
         }
         
         // Calculate portfolio stats for unassigned members
@@ -223,14 +221,15 @@ const LoanOfficerProfilePage: React.FC = () => {
             full_name: member.full_name || 'Unknown Member',
             phone_number: member.phone_number || 'N/A',
             total_loans: totalLoans,
-            outstanding_balance: outstandingBalance
+            outstanding_balance: outstandingBalance,
+            created_by: (member as any).created_by || null
           };
         });
         
         setUnassignedMembers(transformedUnassigned);
         
       } catch (error: any) {
-        console.error('Error fetching officer data:', error);
+        // Avoid console noise in production
         toast.error('Failed to load officer data', { description: error.message });
       } finally {
         setLoading(false);
@@ -295,15 +294,17 @@ const LoanOfficerProfilePage: React.FC = () => {
               <Eye className="h-4 w-4" />
             </Link>
           </Button>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => handleAssignSpecificMember(row.id, row.full_name)}
-            className="text-brand-green-600 hover:text-brand-green-700"
-          >
-            <Users className="h-4 w-4" />
-            Assign to Me
-          </Button>
+          {(isAdmin || (isSelf && row.created_by === id)) && (
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => handleAssignSpecificMember(row.id, row.full_name)}
+              className="text-brand-green-600 hover:text-brand-green-700"
+            >
+              <Users className="h-4 w-4" />
+              Assign to Me
+            </Button>
+          )}
         </div>
       )
     },
@@ -494,10 +495,10 @@ const LoanOfficerProfilePage: React.FC = () => {
       
       {/* Tabs Section */}
       <Tabs defaultValue="loans" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="loans">Loan Portfolio ({loans.length})</TabsTrigger>
-          <TabsTrigger value="members">Member Portfolio ({members.length})</TabsTrigger>
-          <TabsTrigger value="unassigned">Unassigned Members ({unassignedMembers.length})</TabsTrigger>
+        <TabsList className="w-full flex gap-2 overflow-x-auto whitespace-nowrap no-scrollbar">
+          <TabsTrigger value="loans" className="text-xs sm:text-sm px-3 py-2 flex-shrink-0">Loan Portfolio ({loans.length})</TabsTrigger>
+          <TabsTrigger value="members" className="text-xs sm:text-sm px-3 py-2 flex-shrink-0">Member Portfolio ({members.length})</TabsTrigger>
+          <TabsTrigger value="unassigned" className="text-xs sm:text-sm px-3 py-2 flex-shrink-0">Unassigned Members ({unassignedMembers.length})</TabsTrigger>
         </TabsList>
         <TabsContent value="loans" className="mt-6">
           <Card>
@@ -518,14 +519,16 @@ const LoanOfficerProfilePage: React.FC = () => {
                   <CardTitle>Member Portfolio</CardTitle>
                   <CardDescription>All members assigned to {officer.name}.</CardDescription>
                 </div>
-                <Button 
-                  variant="outline" 
-                  onClick={handleAssignUnassignedMembers}
-                  className="text-brand-green-600 hover:text-brand-green-700"
-                >
-                  <Users className="mr-2 h-4 w-4" />
-                  Assign Unassigned Members
-                </Button>
+                {isAdmin && (
+                  <Button 
+                    variant="outline" 
+                    onClick={handleAssignUnassignedMembers}
+                    className="text-brand-green-600 hover:text-brand-green-700"
+                  >
+                    <Users className="mr-2 h-4 w-4" />
+                    Assign Unassigned Members
+                  </Button>
+                )}
               </div>
             </CardHeader>
             <CardContent>
@@ -541,14 +544,16 @@ const LoanOfficerProfilePage: React.FC = () => {
                   <CardTitle>Unassigned Members</CardTitle>
                   <CardDescription>Members not currently assigned to any loan officer.</CardDescription>
                 </div>
-                <Button 
-                  variant="outline" 
-                  onClick={handleAssignUnassignedMembers}
-                  className="text-brand-green-600 hover:text-brand-green-700"
-                >
-                  <Users className="mr-2 h-4 w-4" />
-                  Assign All to Me
-                </Button>
+                {isAdmin && (
+                  <Button 
+                    variant="outline" 
+                    onClick={handleAssignUnassignedMembers}
+                    className="text-brand-green-600 hover:text-brand-green-700"
+                  >
+                    <Users className="mr-2 h-4 w-4" />
+                    Assign All to Me
+                  </Button>
+                )}
               </div>
             </CardHeader>
             <CardContent>

@@ -214,11 +214,11 @@ const LoanDetailsPage: React.FC = () => {
         {/* Left Column - Tabs */}
         <div className="lg:col-span-2">
           <Tabs defaultValue="installment_schedule" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="installment_schedule">Installment Schedule</TabsTrigger>
-              <TabsTrigger value="payment_history">Payment History</TabsTrigger>
-              <TabsTrigger value="communication_logs">Communication Logs</TabsTrigger>
-              <TabsTrigger value="loan_details">Full Details</TabsTrigger>
+            <TabsList className="w-full flex gap-2 overflow-x-auto whitespace-nowrap no-scrollbar">
+              <TabsTrigger value="installment_schedule" className="text-xs sm:text-sm px-3 py-2 flex-shrink-0">Installment Schedule</TabsTrigger>
+              <TabsTrigger value="payment_history" className="text-xs sm:text-sm px-3 py-2 flex-shrink-0">Payment History</TabsTrigger>
+              <TabsTrigger value="communication_logs" className="text-xs sm:text-sm px-3 py-2 flex-shrink-0">Communication Logs</TabsTrigger>
+              <TabsTrigger value="loan_details" className="text-xs sm:text-sm px-3 py-2 flex-shrink-0">Full Details</TabsTrigger>
             </TabsList>
             
             <TabsContent value="installment_schedule" className="space-y-4">

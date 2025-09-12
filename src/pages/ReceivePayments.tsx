@@ -174,6 +174,7 @@ const ReceivePayments: React.FC = () => {
           group_id: member?.group_id,
           group_name: group?.name || 'No Group',
           branch_name: branch?.name || 'Unknown',
+          loan_officer_id: loan.loan_officer_id || member?.assigned_officer_id || null,
           installment_amount: installmentAmount,
           next_payment_date: nextPaymentDate.toISOString().split('T')[0],
           overdue_amount: overdueAmount,
@@ -214,14 +215,12 @@ const ReceivePayments: React.FC = () => {
     // Apply loan officer filter
     if (filters.loanOfficer !== 'all') {
       filtered = filtered.filter(loan => {
-        // Find the member for this loan and check their group's loan officer
-        const memberId = loan.customer_id || loan.member_id;
-        const member = members.find(m => m.id === memberId);
-        if (member && member.group_id) {
-          const group = groups.find(g => g.id === member.group_id);
-          return group?.loan_officer_id === filters.loanOfficer;
+        // Prefer direct loan_officer_id, fallback to member.assigned_officer_id
+        if ((loan as any).loan_officer_id) {
+          return (loan as any).loan_officer_id === filters.loanOfficer;
         }
-        return false;
+        const member = members.find(m => m.id === (loan.customer_id || loan.member_id));
+        return member?.assigned_officer_id === filters.loanOfficer;
       });
     }
 

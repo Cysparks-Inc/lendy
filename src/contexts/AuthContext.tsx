@@ -79,6 +79,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setProfile(null);
         }
         
+        // If we're signed out by any means, ensure MFA flags are cleared
+        if (event === 'SIGNED_OUT') {
+          try {
+            const keysToRemove: string[] = [];
+            for (let i = 0; i < localStorage.length; i++) {
+              const k = localStorage.key(i);
+              if (k && k.startsWith('mfa_verified_')) keysToRemove.push(k);
+            }
+            keysToRemove.forEach((k) => localStorage.removeItem(k));
+          } catch {}
+        }
+
         setLoading(false);
       }
     );
@@ -130,6 +142,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         toast.error(error.message);
         throw error;
       }
+      // Clear any MFA verified flags for this user
+      try {
+        const { data } = await supabase.auth.getSession();
+        const userId = data?.session?.user?.id;
+        if (userId) {
+          localStorage.removeItem(`mfa_verified_${userId}`);
+        }
+      } catch {}
       toast.success('Successfully signed out');
     } catch (error) {
       toast.error('Error signing out');

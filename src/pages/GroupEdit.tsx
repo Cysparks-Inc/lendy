@@ -194,7 +194,8 @@ const GroupEdit: React.FC = () => {
         description: formData.description,
         branch_id: parseInt(formData.branch_id),
         meeting_day: formData.meeting_day,
-        meeting_time: formData.meeting_time,
+        // Allow null for optional meeting_time to avoid DB errors on empty string
+        meeting_time: formData.meeting_time && formData.meeting_time.trim() !== '' ? formData.meeting_time : null,
         location: formData.location,
         contact_person_id: formData.contact_person_id === 'none' ? null : formData.contact_person_id || null
       };

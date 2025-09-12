@@ -106,16 +106,18 @@ const Dashboard: React.FC = () => {
         // Silently handle overdue data error
       }
 
-      // Step 4: Calculate stats
+      // Only count APPROVED loans across the system KPIs
+      const approvedLoans = (filteredLoans || []).filter((l: any) => (l as any).approval_status === 'approved');
+
       const stats = {
         total_members: filteredMembers.length,
-        total_loans: filteredLoans.length,
-        active_loans: filteredLoans.filter(l => ['active', 'pending'].includes((l as any).status)).length,
-        total_disbursed: filteredLoans
-          .filter((loan: any) => ['active', 'pending'].includes((loan as any).status))
+        total_loans: approvedLoans.length,
+        active_loans: approvedLoans.filter(l => ['active', 'pending'].includes((l as any).status)).length,
+        total_disbursed: approvedLoans
+          .filter((loan: any) => ['active', 'pending', 'repaid', 'defaulted'].includes((loan as any).status))
           .reduce((sum: number, loan: any) => sum + parseFloat((loan as any).principal_amount || 0), 0),
-        outstanding_balance: filteredLoans
-          .filter((loan: any) => ['active', 'pending'].includes((loan as any).status))
+        outstanding_balance: approvedLoans
+          .filter((loan: any) => ['active', 'pending', 'defaulted'].includes((loan as any).status))
           .reduce((sum: number, loan: any) => sum + parseFloat((loan as any).current_balance || 0), 0),
         overdue_loans: overdueData?.length || 0 // Use installment-based overdue count
       };
@@ -123,7 +125,7 @@ const Dashboard: React.FC = () => {
       setStats(stats);
       
       // Step 5: Get recent loans and fetch related names
-      const recentLoans = filteredLoans
+      const recentLoans = approvedLoans
         .sort((a: any, b: any) => new Date((b as any).created_at).getTime() - new Date((a as any).created_at).getTime())
         .slice(0, 5);
       
@@ -327,7 +329,12 @@ const Dashboard: React.FC = () => {
         {/* Recent System Activity */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Recent System Activity</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg">Recent System Activity</CardTitle>
+              <Button asChild variant="outline" size="sm">
+                <Link to="/loans">View All</Link>
+              </Button>
+            </div>
             <CardDescription className="text-sm">
               {userRole === 'loan_officer' 
                 ? 'Latest loans from your assigned members'
@@ -400,6 +407,26 @@ const Dashboard: React.FC = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Approvals Snapshot */}
+      <div className="grid grid-cols-1 gap-4 md:gap-6">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg">Loan Approvals</CardTitle>
+              {['super_admin','admin','branch_admin'].includes(userRole || '') && (
+                <Button asChild variant="outline" size="sm">
+                  <Link to="/loans/approvals">Go to Approvals</Link>
+                </Button>
+              )}
+            </div>
+            <CardDescription className="text-sm">Quick view of submissions and statuses</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ApprovalSnapshot userRole={userRole || ''} userId={user?.id || ''} />
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };
@@ -433,3 +460,87 @@ const StatCard: React.FC<{
 );
 
 export default Dashboard;
+
+const ApprovalSnapshot: React.FC<{ userRole: string; userId: string }> = ({ userRole, userId }) => {
+  const [rows, setRows] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState<boolean>(true);
+
+  React.useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('loans')
+          .select('id, principal_amount, approval_status, created_at, created_by, loan_officer_id, customer_id')
+          .order('created_at', { ascending: false })
+          .limit(6);
+        if (error) throw error;
+
+        const filtered = (data || []).filter(l =>
+          ['super_admin','admin','branch_admin'].includes(userRole) ? true : (l.created_by === userId || l.loan_officer_id === userId)
+        );
+
+        // Batch fetch member and officer names
+        const memberIds = [...new Set(filtered.map(l => l.customer_id).filter(Boolean))];
+        const officerIds = [...new Set(filtered.map(l => l.loan_officer_id).filter(Boolean))];
+        const [membersRes, officersRes] = await Promise.all([
+          memberIds.length > 0 ? supabase.from('members').select('id, full_name').in('id', memberIds) : { data: [], error: null },
+          officerIds.length > 0 ? supabase.from('profiles').select('id, full_name').in('id', officerIds) : { data: [], error: null }
+        ]);
+
+        const membersMap = new Map((membersRes.data || []).map((m: any) => [m.id, m.full_name]));
+        const officersMap = new Map((officersRes.data || []).map((o: any) => [o.id, o.full_name]));
+
+        const enriched = filtered.map(l => ({
+          ...l,
+          member_name: l.customer_id ? (membersMap.get(l.customer_id) || 'Unknown Member') : 'Unknown Member',
+          officer_name: l.loan_officer_id ? (officersMap.get(l.loan_officer_id) || 'Unassigned Officer') : 'Unassigned Officer'
+        }));
+
+        setRows(enriched);
+      } catch {
+        setRows([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [userRole, userId]);
+
+  if (loading) return <div className="text-sm text-muted-foreground">Loading...</div>;
+  if (rows.length === 0) return <div className="text-sm text-muted-foreground">No recent submissions</div>;
+
+  return (
+    <div className="space-y-2">
+      {rows.map(row => (
+        <div key={row.id} className="flex items-center justify-between border rounded-md p-2">
+          <div className="flex items-center gap-3">
+            <div className="font-mono text-xs">{row.id.slice(0,8)}...</div>
+            <div className="text-sm">KES {Number(row.principal_amount || 0).toLocaleString()}</div>
+            <Badge className="capitalize" variant={row.approval_status === 'approved' ? 'secondary' : row.approval_status === 'rejected' ? 'destructive' : 'outline'}>
+              {row.approval_status || 'pending'}
+            </Badge>
+            <div className="text-xs text-muted-foreground">{row.member_name}</div>
+            <div className="text-xs text-muted-foreground hidden sm:block">• Officer: {row.officer_name}</div>
+            <div className="text-xs text-muted-foreground hidden md:block">• {new Date(row.created_at).toLocaleString()}</div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button asChild size="sm" variant="outline">
+              <Link to={`/loans/${row.id}`}>Open</Link>
+            </Button>
+            {['super_admin','admin','branch_admin'].includes(userRole) && (
+              <Button asChild size="sm">
+                <Link to="/loans/approvals">Manage</Link>
+              </Button>
+            )}
+          </div>
+        </div>
+      ))}
+      <div className="flex justify-end">
+        <Button asChild variant="outline" size="sm">
+          <Link to={['super_admin','admin','branch_admin'].includes(userRole) ? '/loans/approvals' : '/loans'}>View All</Link>
+        </Button>
+      </div>
+    </div>
+  );
+};

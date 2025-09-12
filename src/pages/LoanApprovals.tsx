@@ -242,14 +242,12 @@ const LoanApprovals: React.FC = () => {
     try {
       setSubmitting(true);
 
-      const { error } = await supabase
-        .from('loans')
-        .update({
-          approval_status: 'approved',
-          approved_by: user?.id,
-          approved_at: new Date().toISOString()
-        })
-        .eq('id', loanId);
+      // Use RPC to set status and post fee
+      const { error } = await supabase.rpc('set_loan_approval_status', {
+        p_loan_id: loanId,
+        p_status: 'approved',
+        p_set_by: user?.id
+      });
 
       if (error) throw error;
 
@@ -275,15 +273,11 @@ const LoanApprovals: React.FC = () => {
     try {
       setSubmitting(true);
 
-      const { error } = await supabase
-        .from('loans')
-        .update({
-          approval_status: 'rejected',
-          approved_by: user?.id,
-          approved_at: new Date().toISOString(),
-          rejection_reason: rejectionReason
-        })
-        .eq('id', loanId);
+      const { error } = await supabase.rpc('set_loan_approval_status', {
+        p_loan_id: loanId,
+        p_status: 'rejected',
+        p_set_by: user?.id
+      });
 
       if (error) throw error;
 

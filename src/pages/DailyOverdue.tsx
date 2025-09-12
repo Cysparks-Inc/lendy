@@ -33,9 +33,6 @@ interface OverdueItem {
   due_date: string;
   total_installments: number;
   paid_installments: number;
-  overdue_installments: number;
-  next_due_date: string;
-  installment_amount: number;
 }
 
 const DailyOverdue: React.FC = () => {
@@ -48,7 +45,7 @@ const DailyOverdue: React.FC = () => {
   const fetchOverdueLoans = async () => {
     if (!user) return;
     try {
-      const { data, error } = await supabase.rpc('get_installment_overdue_loans_report', { requesting_user_id: user.id });
+      const { data, error } = await supabase.rpc('get_overdue_loans_report', { requesting_user_id: user.id });
       if (error) throw error;
       setOverdueItems(data || []);
     } catch (error: any) {

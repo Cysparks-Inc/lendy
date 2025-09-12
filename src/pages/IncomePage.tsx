@@ -113,7 +113,8 @@ const IncomePage: React.FC = () => {
         // Processing fees from loans (direct)
         supabase
           .from('loans')
-          .select('id, processing_fee, created_at, customer_id')
+          .select('id, processing_fee, created_at, customer_id, approval_status')
+          .eq('approval_status', 'approved')
           .not('processing_fee', 'is', null)
           .gt('processing_fee', 0),
         

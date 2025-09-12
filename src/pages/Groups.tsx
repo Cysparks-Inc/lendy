@@ -117,22 +117,51 @@ const Groups: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      
-      // Fetch all members
-      const { data: membersData, error: membersError } = await supabase
-        .from('members')
-        .select('*')
-        .limit(100);
+      const isLoanOfficer = userRole === 'loan_officer';
+      const currentOfficerId = user?.id || '';
 
-      if (membersError) throw membersError;
+      // Fetch groups (restrict for loan officers)
+      let groupsData: any[] | null = null;
+      if (isLoanOfficer) {
+        const { data, error } = await supabase
+          .from('groups')
+          .select('*')
+          .or(`loan_officer_id.eq.${currentOfficerId},assigned_officer_id.eq.${currentOfficerId}`)
+          .limit(100);
+        if (error) throw error;
+        groupsData = data || [];
+      } else {
+        const { data, error } = await supabase
+          .from('groups')
+          .select('*')
+          .limit(100);
+        if (error) throw error;
+        groupsData = data || [];
+      }
 
-      // Fetch all groups
-      const { data: groupsData, error: groupsError } = await supabase
-        .from('groups')
-        .select('*')
-        .limit(100);
-
-      if (groupsError) throw groupsError;
+      // Fetch members (restrict to groups for loan officers)
+      let membersData: any[] | null = null;
+      if (isLoanOfficer) {
+        const groupIds = (groupsData || []).map(g => g.id);
+        if (groupIds.length > 0) {
+          const { data, error } = await supabase
+            .from('members')
+            .select('*')
+            .in('group_id', groupIds)
+            .limit(1000);
+          if (error) throw error;
+          membersData = data || [];
+        } else {
+          membersData = [];
+        }
+      } else {
+        const { data, error } = await supabase
+          .from('members')
+          .select('*')
+          .limit(1000);
+        if (error) throw error;
+        membersData = data || [];
+      }
 
       // Fetch branches
       const { data: branchesData, error: branchesError } = await supabase
@@ -142,13 +171,23 @@ const Groups: React.FC = () => {
 
       if (branchesError) throw branchesError;
 
-      // Fetch loan officers
-      const { data: officersData, error: officersError } = await (supabase as any)
-        .from('profiles')
-        .select('*')
-        .eq('role', 'loan_officer');
-
-      if (officersError) throw officersError;
+      // Fetch loan officers (for display/filter). Loan officers can still see their own name.
+      let officersData: any[] = [];
+      if (isLoanOfficer) {
+        const { data } = await (supabase as any)
+          .from('profiles')
+          .select('*')
+          .eq('id', currentOfficerId)
+          .limit(1);
+        officersData = data || [];
+      } else {
+        const { data, error } = await (supabase as any)
+          .from('profiles')
+          .select('*')
+          .eq('role', 'loan_officer');
+        if (error) throw error;
+        officersData = data || [];
+      }
 
       // Fetch financial data for members
       const memberIds = membersData?.map(m => m.id) || [];
@@ -191,7 +230,8 @@ const Groups: React.FC = () => {
       const formattedMembers = membersData?.map(member => {
         const group = groupsData?.find(g => g.id === member.group_id);
         const branch = branchesData?.find(b => b.id === member.branch_id);
-        const officer = officersData?.find(o => o.id === group?.loan_officer_id);
+        const officerId = (group as any)?.loan_officer_id || (group as any)?.assigned_officer_id || null;
+        const officer = officersData?.find(o => o.id === officerId);
         const financialData = memberFinancialData.get(member.id) || {
           total_loans_disbursed: 0,
           current_loan_balance: 0
@@ -210,7 +250,8 @@ const Groups: React.FC = () => {
       // Format groups data
       const formattedGroups: Group[] = groupsData?.map(group => {
         const branch = branchesData?.find(b => b.id === group.branch_id);
-        const officer = officersData?.find(o => o.id === group.loan_officer_id);
+        const officerId = (group as any).loan_officer_id || (group as any).assigned_officer_id || null;
+        const officer = officersData?.find(o => o.id === officerId);
         const groupMembers = membersData?.filter(m => m.group_id === group.id) || [];
         const contactPerson = membersData?.find(m => m.id === (group as any).contact_person_id);
 
@@ -226,7 +267,7 @@ const Groups: React.FC = () => {
           member_count: groupMembers.length,
           status: (group as any).status || 'active',
           created_at: group.created_at,
-          loan_officer_id: group.loan_officer_id,
+          loan_officer_id: officerId || undefined,
           loan_officer_name: officer?.full_name || 'Unassigned',
           contact_person_id: (group as any).contact_person_id,
           contact_person_name: contactPerson?.full_name || 'Not Assigned',
@@ -250,8 +291,17 @@ const Groups: React.FC = () => {
   };
 
   const filterData = () => {
+    const isLoanOfficer = userRole === 'loan_officer';
+    const currentOfficerId = user?.id || '';
     let filteredMembersData = members;
     let filteredGroupsData = groups;
+
+    // Enforce visibility restriction for loan officers
+    if (isLoanOfficer) {
+      filteredGroupsData = filteredGroupsData.filter(g => g.loan_officer_id === currentOfficerId);
+      const allowedGroupIds = new Set(filteredGroupsData.map(g => g.id.toString()));
+      filteredMembersData = filteredMembersData.filter(m => m.group_id && allowedGroupIds.has(m.group_id.toString()));
+    }
 
     // Apply search filter
     if (filters.searchTerm) {

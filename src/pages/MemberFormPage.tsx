@@ -32,12 +32,20 @@ const memberSchema = z.object({
   address_1: z.string().optional().default(''),
   location: z.string().optional().default(''),
   profession: z.string().optional().default(''),
+  profession_other: z.string().optional().default(''),
   monthly_income: z.preprocess(val => (val === '' || val === null) ? 0 : Number(val), z.number().min(0).optional().default(0)),
   branch_id: z.string().min(1, "Branch is required"),
   group_id: z.string().min(1, "Group assignment is required"),
   // Officer assignment is now mandatory
   assigned_officer_id: z.string().min(1, "Assigning an officer is required"),
-  registration_fee_paid: z.boolean().optional().default(false),
+  registration_fee_paid: z.boolean().optional().default(true),
+}).superRefine((data, ctx) => {
+  if (data.registration_fee_paid !== true) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['registration_fee_paid'], message: 'Registration fee must be paid to add a member' });
+  }
+  if ((data.profession || '') === 'Other' && !(data.profession_other || '').trim()) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['profession_other'], message: 'Please specify the profession' });
+  }
 });
 
 type MemberFormData = z.infer<typeof memberSchema>;
@@ -91,7 +99,7 @@ const MemberFormPage: React.FC = () => {
 
     const { register, handleSubmit, control, reset, watch, setValue, formState: { errors } } = useForm<MemberFormData>({
         resolver: zodResolver(memberSchema),
-        defaultValues: { registration_fee_paid: false }
+        defaultValues: { registration_fee_paid: true }
     });
 
     useEffect(() => {
@@ -154,6 +162,11 @@ const MemberFormPage: React.FC = () => {
         setIsSubmitting(true);
         setFormError(null);
         try {
+            if (!data.registration_fee_paid) {
+                toast.error('Registration fee is required', { description: 'Please confirm the KES 500 registration fee before submitting.' });
+                setIsSubmitting(false);
+                return;
+            }
             let pictureUrl = data.photo_url;
 
             if (profilePictureFile) {
@@ -219,7 +232,7 @@ const MemberFormPage: React.FC = () => {
     };
     
     const handleAddAnother = () => {
-        reset({ registration_fee_paid: false });
+        reset({ registration_fee_paid: true });
         setSuccessData(null);
         setProfilePictureFile(null);
     };
@@ -250,7 +263,11 @@ const MemberFormPage: React.FC = () => {
     return (
         <div className="p-2 sm:p-4 md:p-6 max-w-5xl mx-auto">
             <Button asChild variant="outline" size="sm" className="mb-4"><Link to="/members"><ArrowLeft className="mr-2 h-4 w-4" />Back to Members</Link></Button>
-            <form onSubmit={handleSubmit(onSubmit)}>
+            <form onSubmit={handleSubmit(onSubmit, (err) => {
+                if (err?.registration_fee_paid) {
+                    toast.error('Registration fee is required', { description: 'Please confirm the KES 500 registration fee before submitting.' });
+                }
+            })}>
                 <Card className="bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
                     <CardHeader>
                         <CardTitle className="text-2xl font-bold text-brand-green-800">
@@ -290,7 +307,38 @@ const MemberFormPage: React.FC = () => {
                                 </p>
                             </FormField>
                             <FormField label="KRA PIN (Optional)" error={errors.kra_pin}><Input {...register("kra_pin")} /></FormField>
-                            <FormField label="Profession" error={errors.profession}><Input {...register("profession")} /></FormField>
+                            <FormField label="Profession" error={errors.profession}>
+                                <Controller
+                                    name="profession"
+                                    control={control}
+                                    render={({ field }) => (
+                                        <Select onValueChange={field.onChange} value={field.value || ''}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select profession..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {[
+                                                    'Farmer', 'Trader/Business Owner', 'Teacher', 'Student', 'Civil Servant', 'Healthcare Worker',
+                                                    'Driver', 'Mechanic', 'Tailor/Fashion Designer', 'Mason/Construction Worker', 'Fisherman',
+                                                    'Security Guard', 'Housewife/Homemaker', 'Casual Laborer', 'Accountant/Clerk', 'Engineer/Technician',
+                                                    'IT/Software', 'Sales/Marketing', 'Tourism/Hospitality', 'Artist/Musician', 'Religious Leader',
+                                                    'Unemployed', 'Retired', 'Other'
+                                                ].map(p => (
+                                                    <SelectItem key={p} value={p}>{p}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                />
+                                {(watch('profession') === 'Other') && (
+                                    <div className="mt-2">
+                                        <Input placeholder="Specify profession" {...register('profession_other')} />
+                                        {errors.profession_other && (
+                                            <p className="text-sm text-red-500 mt-1">{errors.profession_other.message}</p>
+                                        )}
+                                    </div>
+                                )}
+                            </FormField>
                             <FormField label="Monthly Income (KES, Optional)" error={errors.monthly_income}><Input type="number" {...register("monthly_income")} /></FormField>
                         </FormSection>
 
@@ -322,12 +370,11 @@ const MemberFormPage: React.FC = () => {
                             <FormField label="Branch" error={errors.branch_id} required><Controller name="branch_id" control={control} render={({ field }) => <Select onValueChange={field.onChange} value={String(field.value || '')}><SelectTrigger><SelectValue placeholder="Assign a branch..." /></SelectTrigger><SelectContent>{branches.map(b => <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>)}</SelectContent></Select>} /></FormField>
                             <FormField label="Group" error={errors.group_id} required>
                                 <Controller name="group_id" control={control} render={({ field }) => (
-                                    <Select onValueChange={field.onChange} value={field.value || ""} disabled={!selectedBranchId}>
+                                    <Select onValueChange={field.onChange} value={String(field.value || '')} disabled={!selectedBranchId}>
                                         <SelectTrigger><SelectValue placeholder={selectedBranchId ? "Select a group..." : "Select branch first"} /></SelectTrigger>
                                         <SelectContent>
-                                            {console.log('🎯 Rendering group dropdown:', { selectedBranchId, filteredGroups, totalGroups: groups.length, fieldValue: field.value })}
                                             {filteredGroups.length > 0 ? (
-                                                filteredGroups.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)
+                                                filteredGroups.map(g => <SelectItem key={g.id} value={String(g.id)}>{g.name}</SelectItem>)
                                             ) : (
                                                 <div className="px-2 py-1.5 text-sm text-muted-foreground">
                                                     {selectedBranchId ? `No groups available for branch ${selectedBranchId}` : 'Select a branch first'}

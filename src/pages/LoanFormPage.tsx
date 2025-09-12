@@ -174,7 +174,7 @@ const LoanFormPage: React.FC = () => {
     const prefilledMemberId = searchParams.get('memberId');
     const prefilledMemberName = searchParams.get('memberName');
 
-    const { register, handleSubmit, control, reset, setValue, watch, getValues, formState: { errors } } = useForm<LoanFormData>({
+    const { register, handleSubmit, control, reset, setValue, watch, getValues, setError, clearErrors, formState: { errors } } = useForm<any>({
         resolver: zodResolver(loanSchema),
         defaultValues: {
             branch_id: null,
@@ -189,6 +189,17 @@ const LoanFormPage: React.FC = () => {
     const watchedIssueDate = watch('issue_date');
     const watchedInstallmentType = watch('installment_type');
     const watchedCustomerId = watch('customer_id');
+
+    // Immediate rule enforcement: 5k and 7k only on 8-week (small_loan)
+    useEffect(() => {
+        const amount = Number(watchedPrincipal || 0);
+        if ((amount === 5000 || amount === 7000) && watchedLoanProgram === 'big_loan') {
+            setError('loan_program', { type: 'manual', message: 'KES 5,000 and 7,000 are allowed only in Small Loan (8 weeks).' });
+            toast.error('Invalid combination', { description: 'KES 5,000 and 7,000 are allowed only in Small Loan (8 weeks).' });
+        } else {
+            clearErrors('loan_program');
+        }
+    }, [watchedPrincipal, watchedLoanProgram, setError, clearErrors]);
 
     // Memoized selected member to prevent unnecessary recalculations
     const selectedMember = useMemo(() => {
@@ -300,8 +311,8 @@ const LoanFormPage: React.FC = () => {
                 if (isEditMode && loanId) {
                     try {
                         const { data: loanData, error: loanError } = await supabase
-                            .from('loans')
-                            .select('*')
+                            .from('loans' as any)
+                            .select('*' as any)
                             .eq('id', loanId)
                             .single();
 
@@ -309,7 +320,7 @@ const LoanFormPage: React.FC = () => {
 
                         if (loanData) {
                             // Get the member ID (could be either member_id or customer_id)
-                            const memberId = loanData.customer_id;
+                            const memberId = (loanData as any).customer_id;
                             
                             if (memberId) {
                                 // Load the member data for this loan
@@ -331,13 +342,13 @@ const LoanFormPage: React.FC = () => {
                             // Populate the form with existing loan data using correct column names
                             reset({
                                 customer_id: memberId || '',
-                                loan_program: loanData.loan_program || 'small_loan',
-                                principal_amount: loanData.principal_amount || 0,
-                                issue_date: loanData.issue_date || getCurrentDate(),
-                                installment_type: (loanData.repayment_schedule as 'weekly' | 'monthly') || 'weekly',
-                                loan_officer_id: loanData.loan_officer_id || '',
-                                branch_id: loanData.branch_id,
-                                group_id: loanData.group_id
+                                loan_program: (loanData as any).loan_program || 'small_loan',
+                                principal_amount: (loanData as any).principal_amount || 0,
+                                issue_date: (loanData as any).issue_date || getCurrentDate(),
+                                installment_type: ((loanData as any).repayment_schedule as 'weekly' | 'monthly') || 'weekly',
+                                loan_officer_id: (loanData as any).loan_officer_id || '',
+                                branch_id: (loanData as any).branch_id,
+                                group_id: (loanData as any).group_id
                             });
                         }
                     } catch (error: any) {
@@ -511,15 +522,18 @@ const LoanFormPage: React.FC = () => {
                 throw new Error("Please ensure loan program and principal amount are set");
             }
 
-            // Check if member has pending loans (only for new loans)
+            // Check if member has any active or pending-repayment loans (only for new loans)
             if (!isEditMode) {
-                const { data: pendingLoans, error: pendingError } = await supabase
-                    .rpc('member_has_pending_loans', { _member_id: data.customer_id });
+                const { data: existingLoans, error: pendingError } = await supabase
+                    .from('loans' as any)
+                    .select('id, status, approval_status, customer_id')
+                    .eq('customer_id', data.customer_id);
 
                 if (pendingError) throw pendingError;
 
-                if (pendingLoans) {
-                    throw new Error("Member has pending loans. Cannot create a new loan.");
+                const hasOpenLoan = (existingLoans || []).some((l: any) => ['active','pending'].includes(l.status));
+                if (hasOpenLoan) {
+                    throw new Error("Member has an existing loan in progress. Cannot create a new loan.");
                 }
             }
 
@@ -569,7 +583,7 @@ const LoanFormPage: React.FC = () => {
                 principal_amount: data.principal_amount,
                 interest_rate: loanCalculation.interest_rate,
                 interest_type: 'simple' as const,
-                repayment_schedule: 'weekly', // Fixed: use 'weekly' (lowercase) to match database enum
+                repayment_schedule: 'weekly' as const,
                 issue_date: data.issue_date,
                 due_date: dueDate.toISOString().split('T')[0],
                 installment_type: data.installment_type,
@@ -586,9 +600,9 @@ const LoanFormPage: React.FC = () => {
             };
 
             const { data: newLoan, error } = await supabase
-                .from('loans')
-                .insert(loanData)
-                .select('id')
+                .from('loans' as any)
+                .insert(loanData as any)
+                .select('id' as any)
                 .single();
                 
             if (error) throw error;
@@ -596,7 +610,7 @@ const LoanFormPage: React.FC = () => {
             toast.success("Loan created successfully!", { 
                 description: "The loan is now pending approval." 
             });
-            setSuccessId(newLoan.id);
+            setSuccessId((newLoan as any).id);
 
         } catch (error: any) {
             setFormError(error.message);
@@ -928,7 +942,7 @@ const LoanFormPage: React.FC = () => {
                         {user?.role === 'loan_officer' && (
                             <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                                 <div className="text-sm text-blue-600 font-medium">Assigned Officer</div>
-                                <div className="text-blue-900">{user?.full_name || 'You'}</div>
+                                <div className="text-blue-900">You</div>
                                 <div className="text-xs text-blue-600 mt-1">
                                     This field is automatically filled for loan officers
                                 </div>

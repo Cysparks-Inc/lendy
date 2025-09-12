@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import AppLayout from "@/components/AppLayout"; // Using your original path
@@ -43,8 +43,42 @@ import IncomePage from "@/pages/IncomePage";
 import ReceivePayments from "@/pages/ReceivePayments";
 import Notifications from "@/pages/Notifications";
 import LoanApprovals from "@/pages/LoanApprovals";
+import MfaEnroll from "@/pages/MfaEnroll";
+import MfaPrompt from "@/pages/MfaPrompt";
+import SecurityMfa from "@/pages/SecurityMfa";
+import { useAuth } from "@/contexts/AuthContext";
 
 const queryClient = new QueryClient();
+
+const RequireMfa: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
+  const location = useLocation();
+  const inMfa = location.pathname.startsWith('/mfa');
+  // Check a short-lived local flag indicating MFA verification for this user
+  const isMfaVerified = (() => {
+    try {
+      if (!user) return false;
+      const key = `mfa_verified_${user.id}`;
+      const raw = localStorage.getItem(key);
+      if (!raw) return false;
+      const parsed = JSON.parse(raw || '{}');
+      const expiresAt = typeof parsed.expiresAt === 'number' ? parsed.expiresAt : 0;
+      if (Date.now() > expiresAt) {
+        localStorage.removeItem(key);
+        return false;
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+
+  // Require MFA for any authenticated user
+  if (user && !inMfa && !isMfaVerified) {
+    return <Navigate to="/mfa" replace state={{ from: location.pathname }} />;
+  }
+  return <>{children}</>;
+};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -57,7 +91,10 @@ const App = () => (
           <div className="overflow-x-hidden">
             <Routes>
               <Route path="/auth" element={<Auth />} />
-              <Route path="/" element={<AppLayout />}>
+              <Route path="/mfa/enroll" element={<MfaEnroll />} />
+              <Route path="/security/mfa" element={<SecurityMfa />} />
+              <Route path="/mfa" element={<MfaPrompt />} />
+              <Route path="/" element={<RequireMfa><AppLayout /></RequireMfa>}>
                 <Route index element={<Dashboard />} />
                 <Route path="loan-officer" element={<LoanOfficer />} />
                 <Route path="loan-officer/:id" element={<LoanOfficerProfilePage />} />

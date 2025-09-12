@@ -6,28 +6,17 @@ import { Separator } from '@/components/ui/separator';
 import { Shield, Key, Lock, ShieldAlert, UserCog } from 'lucide-react';
 import { toast } from 'sonner';
 import { ResetPasswordDialog } from '@/components/security/ResetPasswordDialog'; // Import our new component
+import { Link } from 'react-router-dom';
 
 const Security: React.FC = () => {
-  const { userRole } = useAuth();
+  const { userRole, user, profile } = useAuth();
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
 
   // Note: These settings are UI representations. True enforcement happens in Supabase Auth settings.
   const passwordPolicy = { minLength: 8, requireUppercase: true, requireNumbers: true };
   const sessionPolicy = { timeout: 30, maxAttempts: 5, lockout: 15 };
 
-  if (userRole !== 'super_admin') {
-    return (
-      <div className="p-2 sm:p-4 md:p-6">
-        <Card className="max-w-md mx-auto bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
-          <CardHeader className="text-center">
-            <ShieldAlert className="mx-auto h-12 w-12 text-brand-green-600" />
-            <CardTitle className="mt-4 text-brand-green-800">Access Denied</CardTitle>
-            <CardDescription className="text-brand-green-600">You do not have permission to view this page.</CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-    );
-  }
+  // Page is now accessible to all authenticated users
 
   return (
     <>
@@ -45,17 +34,37 @@ const Security: React.FC = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-brand-green-800 text-lg sm:text-xl">
                 <UserCog className="h-4 w-4 sm:h-5 sm:w-5 text-brand-green-600" />
-                User Security Actions
+                {userRole === 'super_admin' ? 'Admin Security Actions' : 'Your Security'}
               </CardTitle>
-              <CardDescription className="text-sm sm:text-base">Perform administrative security actions on user accounts.</CardDescription>
+              <CardDescription className="text-sm sm:text-base">
+                {userRole === 'super_admin' ? 'Perform administrative security actions on user accounts.' : 'Manage your personal security settings.'}
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 border rounded-lg">
-                <div className="space-y-2">
-                  <p className="font-medium text-sm sm:text-base">Reset a User's Password</p>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Force a password change for any user account.</p>
+              {userRole === 'super_admin' ? (
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 border rounded-lg">
+                  <div className="space-y-2">
+                    <p className="font-medium text-sm sm:text-base">Reset a User's Password</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">Force a password change for any user account.</p>
+                  </div>
+                  <Button onClick={() => setIsResetDialogOpen(true)} className="w-full sm:w-auto">Reset Password</Button>
                 </div>
-                <Button onClick={() => setIsResetDialogOpen(true)} className="w-full sm:w-auto">Reset Password</Button>
+              ) : (
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 border rounded-lg">
+                  <div className="space-y-2">
+                    <p className="font-medium text-sm sm:text-base">Change Your Password</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">Update the password for your account.</p>
+                  </div>
+                  <Button onClick={() => setIsResetDialogOpen(true)} className="w-full sm:w-auto">Change Password</Button>
+                </div>
+              )}
+
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 border rounded-lg mt-4">
+                <div className="space-y-2">
+                  <p className="font-medium text-sm sm:text-base">MFA Security</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Enroll or manage authenticator app settings.</p>
+                </div>
+                <Link to="/security/mfa"><Button variant="secondary" className="w-full sm:w-auto">Open MFA Settings</Button></Link>
               </div>
             </CardContent>
           </Card>
@@ -67,7 +76,7 @@ const Security: React.FC = () => {
                 <Lock className="h-4 w-4 sm:h-5 sm:w-5 text-brand-green-600" />
                 Password Policy
               </CardTitle>
-              <CardDescription className="text-sm sm:text-base">These settings are enforced by Supabase Auth.</CardDescription>
+             
             </CardHeader>
             <CardContent className="space-y-3 sm:space-y-2">
               <InfoItem label="Minimum Length" value={`${passwordPolicy.minLength} characters`} />
@@ -78,7 +87,12 @@ const Security: React.FC = () => {
         </div>
       </div>
 
-      <ResetPasswordDialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen} />
+      <ResetPasswordDialog 
+        open={isResetDialogOpen} 
+        onOpenChange={setIsResetDialogOpen} 
+        mode={userRole === 'super_admin' ? 'admin' : 'self'}
+        selfUser={{ id: user?.id || '', full_name: profile?.full_name || user?.user_metadata?.full_name || null, email: user?.email || null }}
+      />
     </>
   );
 };

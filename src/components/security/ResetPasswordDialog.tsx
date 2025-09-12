@@ -12,10 +12,12 @@ import { Loader2, Check, ChevronsUpDown, Eye, EyeOff } from 'lucide-react';
 interface ResetPasswordDialogProps {
   open: boolean;
   onOpenChange: (isOpen: boolean) => void;
+  mode?: 'admin' | 'self';
+  selfUser?: { id: string; full_name?: string | null; email?: string | null } | null;
 }
 type UserSearchResult = { id: string; full_name: string; email: string; };
 
-export const ResetPasswordDialog: React.FC<ResetPasswordDialogProps> = ({ open, onOpenChange }) => {
+export const ResetPasswordDialog: React.FC<ResetPasswordDialogProps> = ({ open, onOpenChange, mode = 'admin', selfUser = null }) => {
     const [popoverOpen, setPopoverOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [users, setUsers] = useState<UserSearchResult[]>([]);
@@ -25,7 +27,15 @@ export const ResetPasswordDialog: React.FC<ResetPasswordDialogProps> = ({ open, 
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
+        // Preselect current user in self mode
+        if (mode === 'self' && selfUser?.id) {
+            setSelectedUser({ id: selfUser.id, full_name: selfUser.full_name || 'You', email: selfUser.email || '' });
+        }
+    }, [mode, selfUser]);
+
+    useEffect(() => {
         if (!popoverOpen) return;
+        if (mode === 'self') return; // no search in self mode
         const searchUsers = async () => {
             const { data } = await supabase.from('profiles').select('id, full_name, email').ilike('full_name', `%${searchTerm}%`).limit(5);
             setUsers(data || []);
@@ -45,13 +55,18 @@ export const ResetPasswordDialog: React.FC<ResetPasswordDialogProps> = ({ open, 
         }
         setIsSubmitting(true);
         try {
-            const response = await supabase.functions.invoke('reset-user-password', {
-                body: { userId: selectedUser.id, newPassword: newPassword }
-            });
-            if (response.error) throw new Error(response.error.message);
-            if (!response.data.success) throw new Error(response.data.error);
-            
-            toast.success("Password Reset Successful", { description: `The password for ${selectedUser.full_name} has been changed.` });
+            if (mode === 'self') {
+                const { error } = await supabase.auth.updateUser({ password: newPassword });
+                if (error) throw error;
+                toast.success("Password changed", { description: "Your password has been updated." });
+            } else {
+                const response = await supabase.functions.invoke('reset-user-password', {
+                    body: { userId: selectedUser.id, newPassword: newPassword }
+                });
+                if (response.error) throw new Error(response.error.message);
+                if (!response.data.success) throw new Error(response.data.error);
+                toast.success("Password Reset Successful", { description: `The password for ${selectedUser.full_name} has been changed.` });
+            }
             resetState();
             onOpenChange(false);
         } catch (error: any) {
@@ -71,33 +86,44 @@ export const ResetPasswordDialog: React.FC<ResetPasswordDialogProps> = ({ open, 
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Reset User Password</DialogTitle>
-                    <DialogDescription>Search for a user and provide a new temporary password for their account.</DialogDescription>
+                    <DialogTitle>{mode === 'self' ? 'Change Your Password' : 'Reset User Password'}</DialogTitle>
+                    <DialogDescription>
+                        {mode === 'self' ? 'Set a new password for your account.' : 'Search for a user and provide a new temporary password for their account.'}
+                    </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
-                    <Label>Search User</Label>
-                    <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-                        <PopoverTrigger asChild>
-                            <Button variant="outline" role="combobox" className="w-full justify-between">
-                                {selectedUser ? `${selectedUser.full_name} (${selectedUser.email})` : "Select a user..."}
-                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                            <Command>
-                                <CommandInput placeholder="Search user by name..." onValueChange={setSearchTerm} />
-                                <CommandEmpty>No users found.</CommandEmpty>
-                                <CommandGroup>
-                                    {users.map((user) => (
-                                        <CommandItem key={user.id} onSelect={() => { setSelectedUser(user); setPopoverOpen(false); }}>
-                                            <Check className={`mr-2 h-4 w-4 ${selectedUser?.id === user.id ? "opacity-100" : "opacity-0"}`} />
-                                            {user.full_name}
-                                        </CommandItem>
-                                    ))}
-                                </CommandGroup>
-                            </Command>
-                        </PopoverContent>
-                    </Popover>
+                    {mode === 'admin' ? (
+                        <>
+                            <Label>Search User</Label>
+                            <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" role="combobox" className="w-full justify-between">
+                                        {selectedUser ? `${selectedUser.full_name} (${selectedUser.email})` : "Select a user..."}
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                    <Command>
+                                        <CommandInput placeholder="Search user by name..." onValueChange={setSearchTerm} />
+                                        <CommandEmpty>No users found.</CommandEmpty>
+                                        <CommandGroup>
+                                            {users.map((user) => (
+                                                <CommandItem key={user.id} onSelect={() => { setSelectedUser(user); setPopoverOpen(false); }}>
+                                                    <Check className={`mr-2 h-4 w-4 ${selectedUser?.id === user.id ? "opacity-100" : "opacity-0"}`} />
+                                                    {user.full_name}
+                                                </CommandItem>
+                                            ))}
+                                        </CommandGroup>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
+                        </>
+                    ) : (
+                        <div>
+                            <Label>User</Label>
+                            <div className="p-2 border rounded text-sm">{selfUser?.full_name || 'You'} ({selfUser?.email || ''})</div>
+                        </div>
+                    )}
                     <div>
                         <Label>New Password</Label>
                         <div className="relative">
@@ -128,7 +154,7 @@ export const ResetPasswordDialog: React.FC<ResetPasswordDialogProps> = ({ open, 
                     <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
                     <Button onClick={handleSubmit} disabled={isSubmitting || !selectedUser}>
                         {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Set New Password
+                        {mode === 'self' ? 'Change Password' : 'Set New Password'}
                     </Button>
                 </DialogFooter>
             </DialogContent>

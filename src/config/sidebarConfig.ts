@@ -89,7 +89,6 @@ export const sidebarConfig: NavGroup[] = [
     items: [
       { title: 'Users Management', url: '/users', icon: Users },
       { title: 'Branches', url: '/branches', icon: Building },
-      { title: 'Security', url: '/security', icon: Shield },
     ],
   },
   {
@@ -98,6 +97,7 @@ export const sidebarConfig: NavGroup[] = [
       { title: 'Profile', url: '/profile', icon: User }, // All roles
       { title: 'Loan Officer', url: '/loan-officer', icon: UserCheck }, // All roles
       { title: 'Notifications', url: '/notifications', icon: Bell }, // All roles
+      { title: 'Security', url: '/security', icon: Shield }, // All roles
       { 
         title: 'Settings', 
         url: '/settings', 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,10 +30,12 @@ interface LoanSummary {
   status: LoanStatus;
   interest_disbursed?: number;
   processing_fee?: number;
+  approval_status?: 'pending' | 'approved' | 'rejected';
 }
 
 const LoansPage: React.FC = () => {
   const { user, userRole } = useAuth();
+  const navigate = useNavigate();
   const [loans, setLoans] = useState<LoanSummary[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -80,7 +82,7 @@ const LoansPage: React.FC = () => {
       const officersMap = new Map((officersRes.data || []).map(o => [o.id, o.full_name]));
       
       // Step 5: Transform loans with real names
-      const transformedLoans = loansData.map(loan => {
+      const transformedLoansAll = loansData.map(loan => {
         const memberId = loan.member_id || loan.customer_id;
         const memberName = memberId ? (membersMap.get(memberId) || `Unknown Member (${memberId.slice(0, 8)})`) : 'Unassigned Member';
         const branchName = loan.branch_id ? (branchesMap.get(loan.branch_id) || `Unknown Branch (${loan.branch_id})`) : 'Unknown Branch';
@@ -100,11 +102,15 @@ const LoansPage: React.FC = () => {
           branch_id: loan.branch_id,
           loan_officer_id: loan.loan_officer_id,
           interest_disbursed: loan.interest_disbursed || 0,
-          processing_fee: loan.processing_fee || 0
+          processing_fee: loan.processing_fee || 0,
+          approval_status: loan.approval_status || 'pending'
         };
       });
-      
-      setLoans(transformedLoans);
+
+      // Step 6: Hide pending (unapproved) loans for non-admin users
+      // Show all repayment statuses (including 'pending' = not fully repaid)
+      // Approval state is shown separately via approval_status badge
+      setLoans(transformedLoansAll);
     } catch (error: any) {
       toast.error('Failed to fetch loans', { description: error.message });
       setLoans([]); // Set empty array on error
@@ -197,7 +203,14 @@ const LoansPage: React.FC = () => {
         );
     }},
     { header: 'Due Date', cell: (row: LoanSummary) => new Date(row.due_date).toLocaleDateString() },
-    { header: 'Status', cell: (row: LoanSummary) => <Badge variant={getStatusVariant(row.status)} className="capitalize">{row.status}</Badge> },
+    { header: 'Status', cell: (row: LoanSummary) => (
+      <div className="flex items-center gap-2">
+        <Badge variant={getStatusVariant(row.status)} className="capitalize">{row.status}</Badge>
+        <Badge variant={row.approval_status === 'approved' ? 'success' as any : row.approval_status === 'rejected' ? 'destructive' : 'secondary'} className="capitalize">
+          {row.approval_status}
+        </Badge>
+      </div>
+    ) },
     { 
       header: (
         <div className="flex items-center gap-2">
@@ -260,10 +273,8 @@ const LoansPage: React.FC = () => {
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction asChild>
-                            <Link to={`/loans/${row.id}/edit`}>
-                              Continue to Edit
-                            </Link>
+                          <AlertDialogAction onClick={() => navigate(`/loans/${row.id}/edit`)}>
+                            Continue to Edit
                           </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>

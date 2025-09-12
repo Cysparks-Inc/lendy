@@ -34,6 +34,7 @@ interface MemberLoan {
   total_paid?: number;
   interest_disbursed?: number;
   processing_fee?: number;
+  approval_status?: 'pending' | 'approved' | 'rejected';
 }
 interface MemberProfileData {
   id: string;
@@ -112,7 +113,7 @@ const MemberProfilePage: React.FC = () => {
 
         // Fetch loans - try both member_id and customer_id to handle different schema versions
         let loansRes;
-        const loanColumns = 'id, principal_amount, current_balance, status, due_date, member_id, customer_id, total_paid, interest_disbursed, processing_fee';
+        const loanColumns = 'id, principal_amount, current_balance, status, due_date, member_id, customer_id, total_paid, interest_disbursed, processing_fee, approval_status';
         
         try {
           // First try member_id with the current member's ID
@@ -322,21 +323,7 @@ const MemberProfilePage: React.FC = () => {
             </div>
 
             {/* Role-based Access Information */}
-            {userRole !== 'super_admin' && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <div className="flex items-start gap-3">
-                        <div className="text-blue-600 mt-0.5">
-                            <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                            </svg>
-                        </div>
-                        <div className="text-sm text-blue-800">
-                            <p className="font-medium">Member Management Restrictions</p>
-                            <p className="mt-1">As a {userRole === 'loan_officer' ? 'Loan Officer' : 'Branch Admin'}, you can view member profiles and add new members, but only Super Admins can edit or delete existing members.</p>
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* Restriction banner removed per request */}
 
             {/* Modern Responsive Layout */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -462,6 +449,11 @@ const MemberProfilePage: React.FC = () => {
                                             { header: 'Loan ID', cell: (row) => <span className="font-mono text-xs">{row.id.slice(0, 8)}...</span> },
                                             { header: 'Principal', cell: (row) => formatCurrency(row.principal_amount) },
                                             { header: 'Outstanding', cell: (row) => formatCurrency(row.current_balance) },
+                                            { header: 'Approval', cell: (row) => (
+                                                <Badge variant={row.approval_status === 'approved' ? 'secondary' : row.approval_status === 'rejected' ? 'destructive' : 'outline'} className="capitalize">
+                                                    {row.approval_status || 'pending'}
+                                                </Badge>
+                                            ) },
                                             { header: 'Progress', cell: (row) => {
                                                 // Calculate progress based on total paid vs total amount due
                                                 const totalAmountDue = row.principal_amount + (row.interest_disbursed || 0) + (row.processing_fee || 0);
@@ -494,11 +486,20 @@ const MemberProfilePage: React.FC = () => {
                                             { header: 'Due Date', cell: (row) => new Date(row.due_date).toLocaleDateString() },
                                             { header: 'Actions', cell: (row) => (
                                                 <div className="text-right">
-                                                    <Button asChild variant="outline" size="icon">
-                                                        <Link to={`/loans/${row.id}`}>
-                                                            <Eye className="h-4 w-4" />
-                                                        </Link>
-                                                    </Button>
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <Button asChild variant="outline" size="icon">
+                                                            <Link to={`/loans/${row.id}`}>
+                                                                <Eye className="h-4 w-4" />
+                                                            </Link>
+                                                        </Button>
+                                                        {row.approval_status === 'rejected' && (
+                                                            <Button asChild size="sm">
+                                                                <Link to={`/loans/new?memberId=${member.id}&memberName=${encodeURIComponent(member.first_name + ' ' + member.last_name)}`}>
+                                                                    Re-apply
+                                                                </Link>
+                                                            </Button>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             ) }
                                         ]} 
