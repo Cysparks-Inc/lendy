@@ -6,11 +6,13 @@ import { Separator } from '@/components/ui/separator';
 import { Shield, Key, Lock, ShieldAlert, UserCog } from 'lucide-react';
 import { toast } from 'sonner';
 import { ResetPasswordDialog } from '@/components/security/ResetPasswordDialog'; // Import our new component
+import { DisableMfaDialog } from '@/components/security/DisableMfaDialog'; // Import MFA disable component
 import { Link } from 'react-router-dom';
 
 const Security: React.FC = () => {
   const { userRole, user, profile } = useAuth();
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
+  const [isDisableMfaDialogOpen, setIsDisableMfaDialogOpen] = useState(false);
 
   // Note: These settings are UI representations. True enforcement happens in Supabase Auth settings.
   const passwordPolicy = { minLength: 8, requireUppercase: true, requireNumbers: true };
@@ -42,13 +44,23 @@ const Security: React.FC = () => {
             </CardHeader>
             <CardContent>
               {userRole === 'super_admin' ? (
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 border rounded-lg">
-                  <div className="space-y-2">
-                    <p className="font-medium text-sm sm:text-base">Reset a User's Password</p>
-                    <p className="text-xs sm:text-sm text-muted-foreground">Force a password change for any user account.</p>
+                <>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 border rounded-lg">
+                    <div className="space-y-2">
+                      <p className="font-medium text-sm sm:text-base">Reset a User's Password</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground">Force a password change for any user account.</p>
+                    </div>
+                    <Button onClick={() => setIsResetDialogOpen(true)} className="w-full sm:w-auto">Reset Password</Button>
                   </div>
-                  <Button onClick={() => setIsResetDialogOpen(true)} className="w-full sm:w-auto">Reset Password</Button>
-                </div>
+
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 border rounded-lg">
+                    <div className="space-y-2">
+                      <p className="font-medium text-sm sm:text-base">Disable User MFA</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground">Remove MFA enrollment for a user so they can re-enroll.</p>
+                    </div>
+                    <Button onClick={() => setIsDisableMfaDialogOpen(true)} variant="destructive" className="w-full sm:w-auto">Disable MFA</Button>
+                  </div>
+                </>
               ) : (
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 border rounded-lg">
                   <div className="space-y-2">
@@ -92,6 +104,11 @@ const Security: React.FC = () => {
         onOpenChange={setIsResetDialogOpen} 
         mode={userRole === 'super_admin' ? 'admin' : 'self'}
         selfUser={{ id: user?.id || '', full_name: profile?.full_name || user?.user_metadata?.full_name || null, email: user?.email || null }}
+      />
+
+      <DisableMfaDialog 
+        open={isDisableMfaDialogOpen} 
+        onOpenChange={setIsDisableMfaDialogOpen} 
       />
     </>
   );
