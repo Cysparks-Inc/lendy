@@ -8,6 +8,8 @@ import { toast } from 'sonner';
 
 const MfaEnroll: React.FC = () => {
   const [qr, setQr] = useState<string>('');
+  const [totpSecret, setTotpSecret] = useState<string>('');
+  const [otpauthUri, setOtpauthUri] = useState<string>('');
   const [verifyCode, setVerifyCode] = useState('');
   const [factorId, setFactorId] = useState<string>('');
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
@@ -20,9 +22,11 @@ const MfaEnroll: React.FC = () => {
         // Create a TOTP factor
         const { data, error } = await (supabase as any).auth.mfa.enroll({ factorType: 'totp' });
         if (error) throw error;
-        // data: { id, type, totp: { qr_code, secret, uri } }
+        // data: { id, type, totp: { qr_code, secret, uri, recovery_codes } }
         setFactorId(data.id);
         setQr(data.totp.qr_code || data.totp.qr_code_url || data.totp.uri || '');
+        setTotpSecret(data.totp.secret || '');
+        setOtpauthUri(data.totp.uri || '');
         setRecoveryCodes(data.totp.recovery_codes || []);
       } catch (e: any) {
         toast.error('Failed to start TOTP enrollment', { description: e.message });
@@ -53,6 +57,15 @@ const MfaEnroll: React.FC = () => {
     }
   };
 
+  const copyToClipboard = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(`${label} copied to clipboard`);
+    } catch (e: any) {
+      toast.error('Copy failed', { description: e?.message || 'Unable to copy to clipboard' });
+    }
+  };
+
   return (
     <div className="p-6 max-w-xl mx-auto">
       <Card>
@@ -65,6 +78,37 @@ const MfaEnroll: React.FC = () => {
             <img src={qr} alt="TOTP QR" className="mx-auto w-56 h-56" />
           ) : (
             <div className="text-center text-sm text-muted-foreground">Generating QR...</div>
+          )}
+
+          {(totpSecret || otpauthUri) && (
+            <div className="space-y-3">
+              <div className="text-sm text-muted-foreground">Can't scan the QR? On the same device, tap the button below or enter the secret manually.</div>
+
+              {otpauthUri && (
+                <div className="flex items-center gap-2">
+                  <a href={otpauthUri} className="inline-flex items-center justify-center px-3 py-2 rounded-md bg-primary text-primary-foreground hover:opacity-90 text-sm">
+                    Add to Authenticator
+                  </a>
+                  <Button type="button" variant="outline" size="sm" onClick={() => copyToClipboard(otpauthUri, 'Setup link')}>
+                    Copy setup link
+                  </Button>
+                </div>
+              )}
+
+              {totpSecret && (
+                <div>
+                  <Label>Manual entry key</Label>
+                  <div className="mt-1 flex items-center gap-2">
+                    <code className="text-sm font-mono px-2 py-1 rounded border break-all">
+                      {totpSecret}
+                    </code>
+                    <Button type="button" variant="outline" size="sm" onClick={() => copyToClipboard(totpSecret, 'Secret key')}>
+                      Copy
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
 
           <div className="space-y-2">
