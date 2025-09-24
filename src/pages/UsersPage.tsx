@@ -54,11 +54,20 @@ const UsersPage: React.FC = () => {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      // Fetch profiles and join with the branches table to get the branch name.
-      const { data, error } = await supabase.from('profiles').select('*, branch:branches(name)');
+      // Fetch profiles with user roles
+      const { data, error } = await supabase
+        .from('profiles')
+        .select(`
+          *,
+          user_roles(role)
+        `);
       if (error) throw error;
       
-      const formattedUsers = data.map(u => ({ ...u, branch_name: u.branch?.name }));
+      const formattedUsers = data.map(u => ({ 
+        ...u, 
+        role: u.user_roles?.[0]?.role || 'staff',
+        is_active: true // Default to active for now
+      }));
       setUsers(formattedUsers);
     } catch (error: any) {
       toast.error('Failed to fetch users', { description: error.message });

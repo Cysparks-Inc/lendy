@@ -34,8 +34,6 @@ export type PaymentMethod =
   | 'debit_card'
   | 'other';
 
--- Approval level type removed - not needed for simplified expense system
-
 export type Priority = 'low' | 'medium' | 'high' | 'urgent';
 export type ReportType = 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly';
 
@@ -69,7 +67,6 @@ export interface ExpenseData {
   priority: Priority;
   payment_method?: PaymentMethod;
   payment_date?: string;
-  -- Approval fields removed - not needed for simplified expense system
   branch_id?: string;
   department?: string;
   tags?: string[];
@@ -79,8 +76,6 @@ export interface ExpenseData {
   created_at: string;
   updated_at: string;
 }
-
--- Expense approval interface removed - not needed for simplified expense system
 
 export interface ExpenseBudgetData {
   id: string;
