@@ -39,7 +39,7 @@ const AssetFormPage: React.FC = () => {
     const { id: assetId } = useParams<{ id: string }>();
     const navigate = useNavigate();
     // --- THE CRITICAL FIX: Destructure `isLoading` from the auth context ---
-    const { user, profile, isLoading: isAuthLoading } = useAuth();
+    const { user, profile, loading } = useAuth();
     const isEditMode = Boolean(assetId);
 
     const [branches, setBranches] = useState<Branch[]>([]);
@@ -56,7 +56,7 @@ const AssetFormPage: React.FC = () => {
 
     useEffect(() => {
         // Don't fetch data until the user's profile is loaded
-        if (isAuthLoading) return;
+        if (loading) return;
 
         const fetchData = async () => {
             setLoadingData(true);
@@ -86,13 +86,13 @@ const AssetFormPage: React.FC = () => {
             }
         };
         fetchData();
-    }, [assetId, isEditMode, reset, isAuthLoading, profile, setValue]);
+    }, [assetId, isEditMode, reset, loading, profile, setValue]);
 
     useEffect(() => {
         if (watchedMemberId) {
             const fetchMemberLoans = async () => {
                 const { data } = await supabase.from('loans').select('id, account_number').eq('customer_id', watchedMemberId);
-                setLoans(data || []);
+                setLoans((data as any) || []);
             };
             fetchMemberLoans();
         } else {
@@ -116,7 +116,7 @@ const AssetFormPage: React.FC = () => {
                 if (error) throw error;
                 toast.success("Asset updated successfully!");
             } else {
-                const { error } = await supabase.from('realizable_assets').insert(submissionData);
+                const { error } = await supabase.from('realizable_assets').insert(submissionData as any);
                 if (error) throw error;
                 toast.success("New asset added successfully!");
             }
@@ -129,7 +129,7 @@ const AssetFormPage: React.FC = () => {
     };
     
     // --- THE CRITICAL FIX: Show a loader while auth or data is loading ---
-    if (loadingData || isAuthLoading) {
+    if (loadingData || loading) {
         return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>;
     }
 

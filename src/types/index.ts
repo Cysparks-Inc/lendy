@@ -19,3 +19,13 @@ export type NavGroup = {
   items: NavItem[];
   requiredRoles?: UserRole[]; // Optional array of roles
 };
+
+// Additional types to fix build errors
+export interface BadDebtStats {
+  totalWrittenOff: number;
+  totalValue: number;
+  recovery_rate?: number;
+}
+
+// Re-export types from the expenses module
+export * from './expenses';

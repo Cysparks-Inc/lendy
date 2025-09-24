@@ -90,17 +90,17 @@ const BadDebt: React.FC = () => {
       
       // Use the new bad debt function that identifies loans not repaid for more than a year
       const { data: badDebtData, error: badDebtError } = await supabase
-        .rpc('get_bad_debt_loans', { requesting_user_id: user.id });
+        .rpc('get_bad_debt_report' as any, { requesting_user_id: user.id });
 
       if (badDebtError) {
         console.error('Error fetching bad debt loans:', badDebtError);
         throw badDebtError;
       }
 
-      console.log('Bad debt loans fetched:', badDebtData?.length || 0);
+      console.log('Bad debt loans fetched:', (badDebtData as any)?.length || 0);
 
       // Transform the data to match the expected interface
-      const enrichedRecords: BadDebtRecord[] = (badDebtData || []).map((loan: any) => ({
+      const enrichedRecords: BadDebtRecord[] = ((badDebtData as any) || []).map((loan: any) => ({
         id: loan.id,
         account_number: loan.account_number,
         member_name: loan.member_name,

@@ -54,20 +54,33 @@ const UsersPage: React.FC = () => {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      // Fetch profiles with user roles
-      const { data, error } = await supabase
+      // Fetch profiles first
+      const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select(`
-          *,
-          user_roles(role)
-        `);
-      if (error) throw error;
+        .select('*');
       
-      const formattedUsers = data.map(u => ({ 
-        ...u, 
-        role: u.user_roles?.[0]?.role || 'staff',
+      if (profilesError) throw profilesError;
+
+      // Fetch user roles separately
+      const { data: rolesData, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('user_id, role');
+      
+      if (rolesError) throw rolesError;
+
+      // Create a map of user roles
+      const roleMap = new Map();
+      (rolesData || []).forEach((roleRecord: any) => {
+        roleMap.set(roleRecord.user_id, roleRecord.role);
+      });
+
+      // Combine the data
+      const formattedUsers = (profilesData || []).map((profile: any) => ({
+        ...profile,
+        role: roleMap.get(profile.id) || 'staff',
         is_active: true // Default to active for now
       }));
+      
       setUsers(formattedUsers);
     } catch (error: any) {
       toast.error('Failed to fetch users', { description: error.message });
