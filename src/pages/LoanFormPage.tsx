@@ -891,7 +891,15 @@ const LoanFormPage: React.FC = () => {
                         {/* Issue Date and Installment Type */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <FormField label="Issue Date" error={errors.issue_date} required>
-                                <Input type="date" {...register('issue_date')} />
+                                <Input 
+                                    type="date" 
+                                    {...register('issue_date')} 
+                                    disabled 
+                                    className="bg-gray-50 cursor-not-allowed"
+                                />
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    Issue date is automatically set to today's date
+                                </p>
                             </FormField>
 
                             <FormField label="Installment Type" error={errors.installment_type} required>

@@ -26,6 +26,8 @@ interface IncomeRecord {
   transaction_date: string;
   created_at: string;
   loan_officer_name?: string;
+  group_id?: string;
+  group_name?: string;
 }
 
 interface IncomeSummary {
@@ -40,6 +42,7 @@ interface FilterState {
   incomeType: 'all' | 'processing_fee' | 'interest' | 'registration_fee' | 'activation_fee';
   memberName: string;
   loanOfficer: string;
+  group: string;
 }
 
 const IncomePage: React.FC = () => {
@@ -54,12 +57,15 @@ const IncomePage: React.FC = () => {
   });
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
+  const [groups, setGroups] = useState<{ id: string; name: string }[]>([]);
+  const [loanOfficers, setLoanOfficers] = useState<{ id: string; full_name: string }[]>([]);
   
      // Filter state
    const [filters, setFilters] = useState<FilterState>({
      incomeType: 'all',
      memberName: '',
-     loanOfficer: 'all'
+     loanOfficer: 'all',
+     group: 'all'
    });
    const [dateRange, setDateRange] = useState<DateRange>({ from: undefined, to: undefined });
   
@@ -79,9 +85,19 @@ const IncomePage: React.FC = () => {
       }
       
       // Loan officer filter
-      if (filters.loanOfficer && filters.loanOfficer !== 'all' && record.loan_officer_name && 
-          !record.loan_officer_name.toLowerCase().includes(filters.loanOfficer.toLowerCase())) {
-        return false;
+      if (filters.loanOfficer && filters.loanOfficer !== 'all') {
+        // Get the loan officer name for the selected ID
+        const selectedOfficer = loanOfficers.find(o => o.id === filters.loanOfficer);
+        if (selectedOfficer && record.loan_officer_name !== selectedOfficer.full_name) {
+          return false;
+        }
+      }
+      
+      // Group filter
+      if (filters.group && filters.group !== 'all') {
+        if (!record.group_id || String(record.group_id) !== String(filters.group)) {
+          return false;
+        }
       }
       
       return true;
@@ -109,11 +125,11 @@ const IncomePage: React.FC = () => {
     setLoading(true);
     try {
       // Fetch income data from multiple sources
-      const [processingFees, processingFeeTransactions, interestPayments, registrationFees, activationFees, allMembers] = await Promise.all([
+      const [processingFees, processingFeeTransactions, interestPayments, registrationFees, activationFees, allMembers, groupsData, loanOfficersData] = await Promise.all([
         // Processing fees from loans (direct)
         supabase
           .from('loans')
-          .select('id, processing_fee, created_at, customer_id, approval_status')
+          .select('id, processing_fee, created_at, customer_id, approval_status, loan_officer_id')
           .eq('approval_status', 'approved')
           .not('processing_fee', 'is', null)
           .gt('processing_fee', 0),
@@ -134,19 +150,30 @@ const IncomePage: React.FC = () => {
         // Registration fees from members
         supabase
           .from('members')
-          .select('id, full_name, created_at')
+          .select('id, full_name, created_at, group_id, assigned_officer_id')
           .eq('registration_fee_paid', true),
         
         // Activation fees (to be implemented)
         supabase
           .from('members')
-          .select('id, full_name, created_at')
+          .select('id, full_name, created_at, group_id, assigned_officer_id')
           .eq('activation_fee_paid', true),
         
         // All members for lookup
         supabase
           .from('members')
+          .select('id, full_name, group_id'),
+        
+        // Groups for filtering
+        supabase
+          .from('groups')
+          .select('id, name'),
+        
+        // Loan officers for filtering
+        supabase
+          .from('profiles')
           .select('id, full_name')
+          .eq('role', 'loan_officer')
       ]);
 
       // Process and combine all income data
@@ -159,10 +186,30 @@ const IncomePage: React.FC = () => {
         return member?.full_name || null;
       };
 
+      // Helper function to get group info by member ID
+      const getGroupInfo = (memberId: string | null): { group_id?: string; group_name?: string } => {
+        if (!memberId || !allMembers.data || !groupsData.data) return {};
+        const member = allMembers.data.find(m => m.id === memberId);
+        if (!member?.group_id) return {};
+        const group = groupsData.data.find(g => String(g.id) === String(member.group_id));
+        return {
+          group_id: String(member.group_id),
+          group_name: group?.name || null
+        };
+      };
+
+      // Helper function to get loan officer name by ID
+      const getLoanOfficerName = (officerId: string | null): string | null => {
+        if (!officerId || !loanOfficersData.data) return null;
+        const officer = loanOfficersData.data.find(o => o.id === officerId);
+        return officer?.full_name || null;
+      };
+
       // Add processing fees from loans table (direct)
       if (processingFees.data) {
         processingFees.data.forEach(loan => {
           if (loan.processing_fee && loan.processing_fee > 0) {
+            const groupInfo = getGroupInfo(loan.customer_id);
             allIncome.push({
               id: `pf-loan-${loan.id}`,
               source: 'processing_fee',
@@ -171,7 +218,10 @@ const IncomePage: React.FC = () => {
               member_name: getMemberName(loan.customer_id),
               loan_id: loan.id,
               transaction_date: loan.created_at,
-              created_at: loan.created_at
+              created_at: loan.created_at,
+              group_id: groupInfo.group_id,
+              group_name: groupInfo.group_name,
+              loan_officer_name: getLoanOfficerName(loan.loan_officer_id)
             });
           }
         });
@@ -180,15 +230,18 @@ const IncomePage: React.FC = () => {
       // Add processing fees from transactions table (recorded by trigger function)
       if (processingFeeTransactions.data) {
         processingFeeTransactions.data.forEach(transaction => {
+          const groupInfo = getGroupInfo(transaction.member_id);
           allIncome.push({
             id: `pf-txn-${transaction.id}`,
             source: 'processing_fee',
             amount: transaction.amount,
             description: transaction.description,
-                         member_name: getMemberName(transaction.member_id),
+            member_name: getMemberName(transaction.member_id),
             loan_id: transaction.loan_id,
             transaction_date: transaction.transaction_date,
-            created_at: transaction.created_at
+            created_at: transaction.created_at,
+            group_id: groupInfo.group_id,
+            group_name: groupInfo.group_name
           });
         });
       }
@@ -202,13 +255,14 @@ const IncomePage: React.FC = () => {
         if (loanIds.length > 0) {
           const { data: loansData } = await supabase
             .from('loans')
-            .select('id, customer_id')
+            .select('id, customer_id, loan_officer_id')
             .in('id', loanIds);
           loanDetails = loansData || [];
         }
         
         interestPayments.data.forEach(payment => {
           const loan = loanDetails.find(l => l.id === payment.loan_id);
+          const groupInfo = getGroupInfo(loan?.customer_id);
           allIncome.push({
             id: `int-${payment.id}`,
             source: 'interest',
@@ -217,7 +271,10 @@ const IncomePage: React.FC = () => {
             member_name: getMemberName(loan?.customer_id),
             loan_id: payment.loan_id,
             transaction_date: payment.payment_date,
-            created_at: payment.created_at
+            created_at: payment.created_at,
+            group_id: groupInfo.group_id,
+            group_name: groupInfo.group_name,
+            loan_officer_name: getLoanOfficerName(loan?.loan_officer_id)
           });
         });
       }
@@ -225,6 +282,7 @@ const IncomePage: React.FC = () => {
       // Add registration fees
       if (registrationFees.data) {
         registrationFees.data.forEach(member => {
+          const groupInfo = getGroupInfo(member.id);
           allIncome.push({
             id: `reg-${member.id}`,
             source: 'registration_fee',
@@ -232,7 +290,10 @@ const IncomePage: React.FC = () => {
             description: 'Member Registration Fee',
             member_name: member.full_name,
             transaction_date: member.created_at,
-            created_at: member.created_at
+            created_at: member.created_at,
+            group_id: groupInfo.group_id,
+            group_name: groupInfo.group_name,
+            loan_officer_name: getLoanOfficerName(member.assigned_officer_id)
           });
         });
       }
@@ -240,6 +301,7 @@ const IncomePage: React.FC = () => {
       // Add activation fees
       if (activationFees.data) {
         activationFees.data.forEach(member => {
+          const groupInfo = getGroupInfo(member.id);
           allIncome.push({
             id: `act-${member.id}`,
             source: 'activation_fee',
@@ -247,7 +309,10 @@ const IncomePage: React.FC = () => {
             description: 'Member Activation Fee',
             member_name: member.full_name,
             transaction_date: member.created_at,
-            created_at: member.created_at
+            created_at: member.created_at,
+            group_id: groupInfo.group_id,
+            group_name: groupInfo.group_name,
+            loan_officer_name: getLoanOfficerName(member.assigned_officer_id)
           });
         });
       }
@@ -285,6 +350,13 @@ const IncomePage: React.FC = () => {
       });
 
       setIncomeSummary(summary);
+      setGroups(groupsData.data || []);
+      setLoanOfficers(loanOfficersData.data || []);
+
+      // Debug logging to verify data
+      console.log('Income Records with Group and Officer Info:', allIncome.slice(0, 3));
+      console.log('Groups Data:', groupsData.data);
+      console.log('Loan Officers Data:', loanOfficersData.data);
 
     } catch (error: any) {
       toast.error('Failed to fetch income data', { description: error.message });
@@ -311,7 +383,8 @@ const IncomePage: React.FC = () => {
     setFilters({
       incomeType: 'all',
       memberName: '',
-      loanOfficer: 'all'
+      loanOfficer: 'all',
+      group: 'all'
     });
     setDateRange({ from: undefined, to: undefined });
   };
@@ -397,11 +470,11 @@ const IncomePage: React.FC = () => {
              Filter Income Data
            </CardTitle>
            <CardDescription>
-             Filter income records by date range, income type, member name, and loan officer
+             Filter income records by date range, income type, member name, loan officer, and group
            </CardDescription>
          </CardHeader>
          <CardContent>
-           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
              {/* Date Range */}
              <div className="space-y-2">
                <Label>Date Range</Label>
@@ -446,12 +519,43 @@ const IncomePage: React.FC = () => {
              {/* Loan Officer */}
              <div className="space-y-2">
                <Label htmlFor="loanOfficer">Loan Officer</Label>
-               <Input
-                 id="loanOfficer"
-                 placeholder="Search by loan officer..."
-                 value={filters.loanOfficer === 'all' ? '' : filters.loanOfficer}
-                 onChange={(e) => setFilters(prev => ({ ...prev, loanOfficer: e.target.value || 'all' }))}
-               />
+               <Select
+                 value={filters.loanOfficer}
+                 onValueChange={(value) => setFilters(prev => ({ ...prev, loanOfficer: value }))}
+               >
+                 <SelectTrigger>
+                   <SelectValue placeholder="All Loan Officers" />
+                 </SelectTrigger>
+                 <SelectContent>
+                   <SelectItem value="all">All Loan Officers</SelectItem>
+                   {loanOfficers.map((officer) => (
+                     <SelectItem key={officer.id} value={officer.id}>
+                       {officer.full_name}
+                     </SelectItem>
+                   ))}
+                 </SelectContent>
+               </Select>
+             </div>
+             
+             {/* Group Filter */}
+             <div className="space-y-2">
+               <Label htmlFor="group">Group</Label>
+               <Select
+                 value={filters.group}
+                 onValueChange={(value) => setFilters(prev => ({ ...prev, group: value }))}
+               >
+                 <SelectTrigger>
+                   <SelectValue placeholder="All Groups" />
+                 </SelectTrigger>
+                 <SelectContent>
+                   <SelectItem value="all">All Groups</SelectItem>
+                   {groups.map((group) => (
+                     <SelectItem key={group.id} value={group.id}>
+                       {group.name}
+                     </SelectItem>
+                   ))}
+                 </SelectContent>
+               </Select>
              </div>
            </div>
            

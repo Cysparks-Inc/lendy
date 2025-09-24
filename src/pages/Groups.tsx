@@ -25,9 +25,11 @@ import {
   XCircle,
   Phone,
   Mail,
-  MapPin
+  MapPin,
+  Settings
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { GroupStatusDialog } from '@/components/groups/GroupStatusDialog';
 
 interface Member {
   id: string;
@@ -63,6 +65,9 @@ interface Group {
   contact_person_id?: string;
   contact_person_name?: string;
   contact_person_phone?: string;
+  is_active: boolean;
+  deactivated_at?: string;
+  deactivated_by?: string;
 }
 
 interface Branch {
@@ -105,6 +110,10 @@ const Groups: React.FC = () => {
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [contactPersonId, setContactPersonId] = useState('');
+  
+  // Group status management
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [groupForStatusChange, setGroupForStatusChange] = useState<Group | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -755,7 +764,12 @@ const Groups: React.FC = () => {
                           </div>
                         </TableCell>
                         <TableCell>
-                          {getStatusBadge(group.status)}
+                          <div className="flex items-center gap-2">
+                            {getStatusBadge(group.status)}
+                            <Badge variant={group.is_active ? 'default' : 'secondary'}>
+                              {group.is_active ? 'Active' : 'Inactive'}
+                            </Badge>
+                          </div>
                         </TableCell>
                         <TableCell>
                           {new Date(group.created_at).toLocaleDateString()}
@@ -777,6 +791,20 @@ const Groups: React.FC = () => {
                               >
                                 <Users className="w-3 h-3 mr-1" />
                                 Set Contact
+                              </Button>
+                            )}
+                            {(userRole === 'super_admin' || userRole === 'branch_admin') && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setGroupForStatusChange(group);
+                                  setStatusDialogOpen(true);
+                                }}
+                                className={group.is_active ? 'text-orange-600 hover:text-orange-700' : 'text-green-600 hover:text-green-700'}
+                              >
+                                <Settings className="w-3 h-3 mr-1" />
+                                {group.is_active ? 'Deactivate' : 'Activate'}
                               </Button>
                             )}
                           </div>
@@ -834,6 +862,21 @@ const Groups: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Group Status Dialog */}
+      {groupForStatusChange && (
+        <GroupStatusDialog
+          isOpen={statusDialogOpen}
+          onClose={() => {
+            setStatusDialogOpen(false);
+            setGroupForStatusChange(null);
+          }}
+          group={groupForStatusChange}
+          onStatusChanged={() => {
+            fetchData(); // Refresh the groups list
+          }}
+        />
+      )}
     </div>
   );
 };

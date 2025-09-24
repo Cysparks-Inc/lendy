@@ -31,12 +31,14 @@ import {
   Activity,
   RefreshCw,
   Filter,
-  Download
+  Download,
+  Settings
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/ui/data-table';
 import { ExportDropdown } from '@/components/ui/ExportDropdown';
+import { BranchStatusDialog } from '@/components/branches/BranchStatusDialog';
 
 // --- Type Definitions ---
 interface Branch {
@@ -52,6 +54,9 @@ interface Branch {
   avg_loan_size?: number;
   recovery_rate?: number;
   last_activity?: string;
+  is_active: boolean;
+  deactivated_at?: string;
+  deactivated_by?: string;
 }
 
 interface BranchPerformance {
@@ -86,6 +91,10 @@ const Branches: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [sortBy, setSortBy] = useState<string>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  
+  // Branch status management
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [branchForStatusChange, setBranchForStatusChange] = useState<Branch | null>(null);
 
   useEffect(() => {
     if (userRole === 'super_admin') {
@@ -357,11 +366,32 @@ const Branches: React.FC = () => {
       ) 
     },
     { 
+      header: 'Status', 
+      cell: (row: Branch) => (
+        <div className="flex items-center gap-2">
+          <Badge variant={row.is_active ? 'default' : 'secondary'}>
+            {row.is_active ? 'Active' : 'Inactive'}
+          </Badge>
+        </div>
+      ) 
+    },
+    { 
       header: 'Actions', 
       cell: (row: Branch) => (
         <div className="flex justify-end gap-2">
           <Button variant="outline" size="icon" onClick={() => openDialog(row)}>
             <Edit className="h-4 w-4" />
+          </Button>
+          <Button 
+            variant="outline" 
+            size="icon" 
+            onClick={() => {
+              setBranchForStatusChange(row);
+              setStatusDialogOpen(true);
+            }}
+            className={row.is_active ? 'text-orange-600 hover:text-orange-700' : 'text-green-600 hover:text-green-700'}
+          >
+            <Settings className="h-4 w-4" />
           </Button>
           <Button variant="destructive" size="icon" onClick={() => setDeleteCandidate(row)}>
             <Trash2 className="h-4 w-4" />
@@ -729,6 +759,21 @@ const Branches: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Branch Status Dialog */}
+      {branchForStatusChange && (
+        <BranchStatusDialog
+          isOpen={statusDialogOpen}
+          onClose={() => {
+            setStatusDialogOpen(false);
+            setBranchForStatusChange(null);
+          }}
+          branch={branchForStatusChange}
+          onStatusChanged={() => {
+            fetchBranches(); // Refresh the branches list
+          }}
+        />
+      )}
     </>
   );
 };

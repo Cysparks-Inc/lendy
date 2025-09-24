@@ -5,10 +5,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { Plus, Edit, Trash2, Users as UsersIcon, Loader2, AlertTriangle } from 'lucide-react';
+import { Plus, Edit, Trash2, Users as UsersIcon, Loader2, AlertTriangle, Settings } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/ui/data-table'; // Reusable component
+import { UserStatusDialog } from '@/components/users/UserStatusDialog';
 
 // --- Type Definitions ---
 interface UserSummary {
@@ -18,6 +19,9 @@ interface UserSummary {
   phone_number?: string;
   role?: string;
   branch_name?: string;
+  is_active: boolean;
+  deactivated_at?: string;
+  deactivated_by?: string;
 }
 
 const StatCard: React.FC<{ title: string; value: string | number; icon: React.ElementType }> = ({ title, value, icon: Icon }) => (
@@ -38,6 +42,10 @@ const UsersPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [deleteCandidate, setDeleteCandidate] = useState<UserSummary | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // User status management
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [userForStatusChange, setUserForStatusChange] = useState<UserSummary | null>(null);
 
   useEffect(() => {
     fetchUsers();
@@ -97,9 +105,28 @@ const UsersPage: React.FC = () => {
     { header: 'Phone', cell: (row: UserSummary) => row.phone_number || <span className="text-muted-foreground">N/A</span> },
     { header: 'Role', cell: (row: UserSummary) => <Badge variant="outline" className="capitalize">{row.role?.replace('_', ' ') || 'Not Set'}</Badge> },
     { header: 'Branch', cell: (row: UserSummary) => row.branch_name || <span className="text-muted-foreground">N/A</span> },
+    { header: 'Status', cell: (row: UserSummary) => (
+        <div className="flex items-center gap-2">
+          <Badge variant={row.is_active ? 'default' : 'secondary'}>
+            {row.is_active ? 'Active' : 'Inactive'}
+          </Badge>
+        </div>
+      ) 
+    },
     { header: 'Actions', cell: (row: UserSummary) => (
         <div className="flex justify-end gap-2">
             <Button asChild variant="outline" size="icon"><Link to={`/users/${row.id}/edit`}><Edit className="h-4 w-4" /></Link></Button>
+            <Button 
+              variant="outline" 
+              size="icon" 
+              onClick={() => {
+                setUserForStatusChange(row);
+                setStatusDialogOpen(true);
+              }}
+              className={row.is_active ? 'text-orange-600 hover:text-orange-700' : 'text-green-600 hover:text-green-700'}
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
             <Button variant="destructive" size="icon" onClick={() => setDeleteCandidate(row)}><Trash2 className="h-4 w-4" /></Button>
         </div>
     )}
@@ -155,6 +182,21 @@ const UsersPage: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* User Status Dialog */}
+      {userForStatusChange && (
+        <UserStatusDialog
+          isOpen={statusDialogOpen}
+          onClose={() => {
+            setStatusDialogOpen(false);
+            setUserForStatusChange(null);
+          }}
+          user={userForStatusChange}
+          onStatusChanged={() => {
+            fetchUsers(); // Refresh the users list
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -8,13 +8,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Search, Plus, Eye, Edit, CreditCard, Landmark, Banknote, Loader2, DollarSign, AlertTriangle } from 'lucide-react';
+import { Search, Plus, Eye, Edit, CreditCard, Landmark, Banknote, Loader2, DollarSign, AlertTriangle, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/ui/data-table'; // Reusable component
 import { ExportDropdown } from '@/components/ui/ExportDropdown';
 import { DateRangeFilter, DateRange, filterDataByDateRange } from '@/components/ui/DateRangeFilter';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { DeleteLoanDialog } from '@/components/loans/DeleteLoanDialog';
 
 // --- Type Definitions ---
 type LoanStatus = 'active' | 'repaid' | 'defaulted' | 'pending';
@@ -43,6 +44,8 @@ const LoansPage: React.FC = () => {
   const [branchFilter, setBranchFilter] = useState<string>('all');
   const [officerFilter, setOfficerFilter] = useState<string>('all');
   const [dateRange, setDateRange] = useState<DateRange>({ from: undefined, to: undefined });
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [loanToDelete, setLoanToDelete] = useState<LoanSummary | null>(null);
 
   // --- THE PROPER FIX: Fetch Names Without Relationship Conflicts ---
   const fetchLoans = async () => {
@@ -292,6 +295,29 @@ const LoansPage: React.FC = () => {
               </Tooltip>
             </TooltipProvider>
           )}
+
+          {hasEditPermissions() && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    onClick={() => {
+                      setLoanToDelete(row);
+                      setDeleteDialogOpen(true);
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Delete Loan (Super Admin Only)</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
       )
     },
@@ -453,6 +479,21 @@ const LoansPage: React.FC = () => {
           <DataTable columns={columns} data={dateFilteredLoans} emptyStateMessage="No loans found matching your criteria." />
         </CardContent>
       </Card>
+
+      {/* Delete Loan Dialog */}
+      {loanToDelete && (
+        <DeleteLoanDialog
+          isOpen={deleteDialogOpen}
+          onClose={() => {
+            setDeleteDialogOpen(false);
+            setLoanToDelete(null);
+          }}
+          loan={loanToDelete}
+          onDeleted={() => {
+            fetchLoans(); // Refresh the loans list
+          }}
+        />
+      )}
     </div>
   );
 };

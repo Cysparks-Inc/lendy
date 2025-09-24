@@ -44,6 +44,8 @@ interface BadDebtRecord {
   status: string;
   issue_date: string;
   is_problem: boolean;
+  last_payment_date?: string;
+  days_since_last_payment?: number;
 }
 
 interface BadDebtStats {
@@ -86,173 +88,57 @@ const BadDebt: React.FC = () => {
     try {
       setLoading(true);
       
-      let query = supabase
-        .from('loans')
-        .select(`
-          id,
-          account_number,
-          principal_amount,
-          current_balance,
-          status,
-          due_date,
-          issue_date,
-          member_id,
-          branch_id,
-          loan_officer_id,
-          created_by
-        `)
-        .or('status.eq.defaulted')
-        .order('due_date', { ascending: false });
+      // Use the new bad debt function that identifies loans not repaid for more than a year
+      const { data: badDebtData, error: badDebtError } = await supabase
+        .rpc('get_bad_debt_loans', { requesting_user_id: user.id });
 
-      // Apply role-based filtering
-      if (userRole === 'branch_manager' && profile?.branch_id) {
-        query = query.eq('branch_id', profile.branch_id);
-      } else if (userRole === 'loan_officer') {
-        query = query.or(`created_by.eq.${user.id},loan_officer_id.eq.${user.id}`);
+      if (badDebtError) {
+        console.error('Error fetching bad debt loans:', badDebtError);
+        throw badDebtError;
       }
 
-      const { data: loans, error: loansError } = await query;
-      if (loansError) {
-        console.error('Error fetching defaulted loans:', loansError);
-        throw loansError;
-      }
-      console.log('Defaulted loans fetched:', loans?.length || 0);
+      console.log('Bad debt loans fetched:', badDebtData?.length || 0);
 
-      // Also fetch loans that are overdue (past due date but still active)
-      let overdueQuery = supabase
-        .from('loans')
-        .select(`
-          id,
-          account_number,
-          principal_amount,
-          current_balance,
-          status,
-          due_date,
-          issue_date,
-          member_id,
-          branch_id,
-          loan_officer_id,
-          created_by
-        `)
-        .eq('status', 'active')
-        .lt('due_date', new Date().toISOString().split('T')[0]) // Due date is in the past
-        .order('due_date', { ascending: false });
-
-      // Apply role-based filtering to overdue query
-      if (userRole === 'branch_manager' && profile?.branch_id) {
-        overdueQuery = overdueQuery.eq('branch_id', profile.branch_id);
-      } else if (userRole === 'loan_officer') {
-        overdueQuery = overdueQuery.or(`created_by.eq.${user.id},loan_officer_id.eq.${user.id}`);
-      }
-
-      const { data: overdueLoans, error: overdueError } = await overdueQuery;
-      if (overdueError) {
-        console.warn('Could not fetch overdue loans:', overdueError);
-        console.warn('This might be due to date format issues or missing data');
-      } else {
-        console.log('Overdue loans fetched:', overdueLoans?.length || 0);
-      }
-
-      // Combine both sets of loans
-      const allLoans = [...(loans || []), ...(overdueLoans || [])];
-      console.log('Fetched loans:', { defaulted: loans?.length || 0, overdue: overdueLoans?.length || 0, total: allLoans.length });
-
-      // Fetch additional details for each loan
-      const enrichedRecords = await Promise.all(
-        (allLoans || []).map(async (loan) => {
-          // Get member details
-          const { data: member } = await supabase
-            .from('members')
-            .select('full_name')
-            .eq('id', loan.member_id)
-            .single();
-
-          // Get branch details
-          const { data: branch } = await supabase
-            .from('branches')
-            .select('name')
-            .eq('id', loan.branch_id)
-            .single();
-
-          // Get loan officer details
-          let loanOfficerName = 'Unassigned';
-          if (loan.loan_officer_id) {
-            const { data: officer } = await supabase
-              .from('profiles')
-              .select('full_name')
-              .eq('id', loan.loan_officer_id)
-              .single();
-            if (officer) loanOfficerName = officer.full_name;
-          }
-
-                     // Calculate days overdue
-           const dueDate = new Date(loan.due_date);
-           const today = new Date();
-           const daysOverdue = Math.max(0, Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)));
-
-           // Determine if this is actually a problem account
-           const isProblemAccount = loan.status === 'defaulted' || (loan.status === 'active' && daysOverdue > 0);
-
-           return {
-             id: loan.id,
-             account_number: loan.account_number,
-             member_name: member?.full_name || 'Unknown Member',
-             member_id: loan.member_id,
-             principal_amount: parseFloat(loan.principal_amount || 0),
-             current_balance: parseFloat(loan.current_balance || 0),
-             loan_officer_name: loanOfficerName,
-             branch_name: branch?.name || 'Unknown Branch',
-             due_date: loan.due_date,
-             days_overdue: daysOverdue,
-             status: loan.status,
-             issue_date: loan.issue_date,
-             is_problem: isProblemAccount
-           };
-        })
-      );
+      // Transform the data to match the expected interface
+      const enrichedRecords: BadDebtRecord[] = (badDebtData || []).map((loan: any) => ({
+        id: loan.id,
+        account_number: loan.account_number,
+        member_name: loan.member_name,
+        member_id: loan.member_id,
+        principal_amount: loan.principal_amount,
+        current_balance: loan.current_balance,
+        loan_officer_name: loan.loan_officer_name,
+        branch_name: loan.branch_name,
+        due_date: loan.due_date,
+        days_overdue: loan.days_overdue,
+        status: loan.status,
+        issue_date: loan.issue_date,
+        is_problem: loan.is_problem,
+        last_payment_date: loan.last_payment_date,
+        days_since_last_payment: loan.days_since_last_payment,
+      }));
 
       setRecords(enrichedRecords);
-      calculateStats(enrichedRecords);
-      
-    } catch (error: any) {
+      console.log('Bad debt records set:', enrichedRecords.length);
+
+      // Calculate stats
+      const totalPrincipal = enrichedRecords.reduce((sum, record) => sum + record.principal_amount, 0);
+      const totalOutstanding = enrichedRecords.reduce((sum, record) => sum + record.current_balance, 0);
+      const totalRecords = enrichedRecords.length;
+
+      setStats({
+        total_records: totalRecords,
+        total_principal: totalPrincipal,
+        total_outstanding: totalOutstanding,
+        recovery_rate: totalPrincipal > 0 ? ((totalPrincipal - totalOutstanding) / totalPrincipal) * 100 : 0,
+      });
+
+    } catch (error) {
       console.error('Error fetching bad debt data:', error);
-      toast.error('Failed to fetch bad debt data', { description: error.message });
+      toast.error('Failed to fetch bad debt data');
     } finally {
       setLoading(false);
     }
-  };
-
-  const calculateStats = (data: BadDebtRecord[]) => {
-    const totalPrincipal = data.reduce((sum, record) => sum + record.principal_amount, 0);
-    const totalOutstanding = data.reduce((sum, record) => sum + record.current_balance, 0);
-    const totalDaysOverdue = data.reduce((sum, record) => sum + record.days_overdue, 0);
-    const averageDaysOverdue = data.length > 0 ? Math.round(totalDaysOverdue / data.length) : 0;
-    const highestOverdue = Math.max(...data.map(record => record.days_overdue), 0);
-
-    // Branch breakdown
-    const branchMap = new Map<string, { count: number; amount: number }>();
-    data.forEach(record => {
-      const existing = branchMap.get(record.branch_name) || { count: 0, amount: 0 };
-      branchMap.set(record.branch_name, {
-        count: existing.count + 1,
-        amount: existing.amount + record.current_balance
-      });
-    });
-
-    const branchBreakdown = Array.from(branchMap.entries()).map(([branch, data]) => ({
-      branch,
-      count: data.count,
-      amount: data.amount
-    }));
-
-         setStats({
-       total_records: data.length,
-       total_principal: totalPrincipal,
-       total_outstanding: totalOutstanding,
-       average_days_overdue: averageDaysOverdue,
-       highest_overdue: highestOverdue,
-       branch_breakdown: branchBreakdown
-     });
   };
 
   const applyFilters = () => {

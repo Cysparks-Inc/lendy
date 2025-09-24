@@ -98,9 +98,9 @@ const Dashboard: React.FC = () => {
         filteredMembers = filteredMembers.filter(member => member.branch_id === profile.branch_id);
       }
       
-      // Step 3: Get installment-based overdue count
+      // Step 3: Get unified overdue count
       const { data: overdueData, error: overdueError } = await supabase
-        .rpc('get_installment_overdue_loans_report', { requesting_user_id: user?.id });
+        .rpc('get_unified_overdue_loans_report', { requesting_user_id: user?.id });
 
       if (overdueError) {
         // Silently handle overdue data error

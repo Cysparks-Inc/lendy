@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Search, Calendar, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Loader2, Search, Calendar, CheckCircle, XCircle, AlertCircle, DollarSign } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 
@@ -138,6 +138,14 @@ const ReceivePayments: React.FC = () => {
 
       if (officersError) throw officersError;
 
+      // Get unified overdue data
+      const { data: overdueData, error: overdueError } = await supabase
+        .rpc('get_unified_overdue_loans_report', { requesting_user_id: user?.id });
+
+      if (overdueError) {
+        console.warn('Could not fetch overdue data:', overdueError);
+      }
+
       // Format loans data
       const formattedLoans = loansData?.map(loan => {
         const memberId = loan.customer_id || loan.member_id;
@@ -145,19 +153,23 @@ const ReceivePayments: React.FC = () => {
         const group = groupsData?.find(g => g.id === member?.group_id);
         const branch = branchesData?.find(b => b.id === member?.branch_id);
 
-        const installmentAmount = (loan.principal_amount || 0) * 0.1; // 10% of principal as example
-        const nextPaymentDate = new Date(loan.issue_date || loan.disbursed_at || loan.created_at || new Date());
-        nextPaymentDate.setDate(nextPaymentDate.getDate() + 7); // Weekly installments
-        const today = new Date();
+        // Get overdue information from unified function
+        const overdueInfo = overdueData?.find(overdue => overdue.id === loan.id);
+        const isOverdue = !!overdueInfo;
+        const overdueAmount = overdueInfo?.overdue_amount || 0;
+        
+        // Calculate installment amount (use from overdue info if available, otherwise calculate)
+        const installmentAmount = overdueInfo?.installment_amount || (loan.principal_amount || 0) * 0.1;
+        
+        // Calculate next payment date
+        const nextPaymentDate = overdueInfo?.next_due_date ? 
+          new Date(overdueInfo.next_due_date) : 
+          new Date(loan.issue_date || loan.disbursed_at || loan.created_at || new Date());
         
         // Calculate total loan amount for validation
         const totalLoanAmount = (loan.principal_amount || 0) + (loan.interest_disbursed || 0) + (loan.processing_fee || 0);
         const validatedBalance = Math.max(0, Math.min(loan.current_balance || 0, totalLoanAmount));
         const correctStatus = validatedBalance <= 0 ? 'repaid' : (loan.status || 'active');
-        
-        // Only show overdue for non-repaid loans
-        const isOverdue = nextPaymentDate < today && correctStatus !== 'repaid';
-        const overdueAmount = isOverdue ? installmentAmount : 0;
 
         return {
           id: loan.id,
@@ -395,6 +407,69 @@ const ReceivePayments: React.FC = () => {
             Filter and view loan payments
           </p>
         </div>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Principal</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              KES {filteredLoans.reduce((sum, loan) => sum + loan.principal_amount, 0).toLocaleString()}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {filteredLoans.length} loans
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Balance</CardTitle>
+            <AlertCircle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              KES {filteredLoans.reduce((sum, loan) => sum + loan.current_balance, 0).toLocaleString()}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Outstanding amount
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Installments</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              KES {filteredLoans.reduce((sum, loan) => sum + loan.installment_amount, 0).toLocaleString()}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Weekly installments
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Overdues</CardTitle>
+            <XCircle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              KES {filteredLoans.reduce((sum, loan) => sum + loan.overdue_amount, 0).toLocaleString()}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {filteredLoans.filter(loan => loan.is_overdue).length} overdue loans
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Filters */}

@@ -23,7 +23,10 @@ const memberSchema = z.object({
   full_name: z.string().min(3, "Full name must be at least 3 characters"),
   dob: z.string().optional().default(''),
   sex: z.string().optional().default(''),
-  phone_number: z.string().min(10, "A valid phone number is required"),
+  phone_number: z.string()
+    .min(10, "Phone number must be at least 10 digits")
+    .max(13, "Phone number must not exceed 13 digits")
+    .regex(/^\d+$/, "Phone number must contain only digits"),
   marital_status: z.string().optional().default(''),
   spouse_dob: z.string().optional().default(''),
   kyc_id_type: z.string().min(1, "KYC ID type is required"),
@@ -293,7 +296,16 @@ const MemberFormPage: React.FC = () => {
                             <FormField label="Full Name" error={errors.full_name} required><Input {...register("full_name")} /></FormField>
                             <FormField label="Date of Birth" error={errors.dob}><Input type="date" {...register("dob")} /></FormField>
                             <FormField label="Sex" error={errors.sex}><Controller name="sex" control={control} render={({ field }) => <Select onValueChange={field.onChange} value={field.value || ""}><SelectTrigger><SelectValue placeholder="Select sex..." /></SelectTrigger><SelectContent><SelectItem value="Male">Male</SelectItem><SelectItem value="Female">Female</SelectItem></SelectContent></Select>} /></FormField>
-                            <FormField label="Phone Number" error={errors.phone_number} required><Input {...register("phone_number")} /></FormField>
+                            <FormField label="Phone Number" error={errors.phone_number} required>
+                                <Input 
+                                    {...register("phone_number")} 
+                                    placeholder="e.g., 254712345678"
+                                    maxLength={13}
+                                />
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    Enter 10-13 digits only (e.g., 254712345678)
+                                </p>
+                            </FormField>
                             <FormField label="Marital Status" error={errors.marital_status}><Controller name="marital_status" control={control} render={({ field }) => <Select onValueChange={field.onChange} value={field.value || ""}><SelectTrigger><SelectValue placeholder="Select status..." /></SelectTrigger><SelectContent><SelectItem value="Single">Single</SelectItem><SelectItem value="Married">Married</SelectItem><SelectItem value="Divorced">Divorced</SelectItem><SelectItem value="Widowed">Widowed</SelectItem></SelectContent></Select>} /></FormField>
                             {watch("marital_status") === "Married" && <FormField label="Spouse Date of Birth" error={errors.spouse_dob}><Input type="date" {...register("spouse_dob")} /></FormField>}
                         </FormSection>
