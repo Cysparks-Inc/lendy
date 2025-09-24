@@ -59,11 +59,15 @@ export const UserStatusDialog: React.FC<UserStatusDialogProps> = ({
     try {
       setIsUpdating(true);
 
-      const functionName = user.is_active ? 'deactivate_user' : 'activate_user';
-      const { error } = await supabase.rpc(functionName as any, {
-        user_id: user.id,
-        admin_user_id: currentUser.id,
-      });
+      // For now, we'll simulate the status change by updating the profiles table directly
+      // In a production system, you'd want proper user management functions
+      const { error } = await supabase
+        .from('profiles')
+        .update({ 
+          is_active: !user.is_active,
+          updated_at: new Date().toISOString()
+        } as any)
+        .eq('id', user.id);
 
       if (error) {
         throw error;
