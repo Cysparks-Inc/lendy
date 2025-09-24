@@ -184,7 +184,7 @@ const Branches: React.FC = () => {
 
   const fetchPerformanceData = async () => {
     try {
-      const { data, error } = await supabase.rpc('get_branch_performance_comparison');
+      const { data, error } = await supabase.rpc('get_branch_performance_comparison' as any);
       if (!error && data) {
         setPerformanceData(data);
       }

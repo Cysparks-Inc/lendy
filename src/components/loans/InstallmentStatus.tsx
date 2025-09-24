@@ -29,13 +29,13 @@ export const InstallmentStatus: React.FC<InstallmentStatusProps> = ({ loanId }) 
     const fetchInstallments = async () => {
       try {
         const { data, error } = await supabase
-          .from('loan_installments')
+          .from('loan_installments' as any)
           .select('*')
           .eq('loan_id', loanId)
           .order('installment_number');
 
         if (error) throw error;
-        setInstallments(data || []);
+        setInstallments((data as any) || []);
       } catch (err: any) {
         setError(err.message);
       } finally {

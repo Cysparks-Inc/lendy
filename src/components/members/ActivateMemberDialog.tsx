@@ -59,13 +59,13 @@ export const ActivateMemberDialog: React.FC<ActivateMemberDialogProps> = ({
     try {
       // Update member to mark activation fee as paid using the database function
       const { error: updateError } = await supabase
-        .rpc('activate_dormant_member', { member_uuid: member.id });
+        .rpc('activate_dormant_member' as any, { member_uuid: member.id });
 
       if (updateError) throw updateError;
 
       // Create a transaction record for the activation fee
       const { error: transactionError } = await supabase
-        .from('transactions')
+        .from('transactions' as any)
         .insert({
           transaction_type: 'fee',
           amount: 500,

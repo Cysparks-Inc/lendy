@@ -140,7 +140,7 @@ export const InstallmentScheduleTab: React.FC<InstallmentScheduleTabProps> = ({ 
     setRecordingPayment(true);
     try {
       // Record the payment
-      const { error } = await supabase.from('loan_payments').insert({
+      const { error } = await supabase.from('loan_payments' as any).insert({
         loan_id: loan.id,
         amount: amount,
         payment_date: new Date().toISOString().split('T')[0],

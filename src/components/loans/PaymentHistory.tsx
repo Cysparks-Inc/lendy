@@ -50,7 +50,7 @@ export const PaymentHistory: React.FC<PaymentHistoryProps> = ({ loanId }) => {
 
       try {
         const { data, error, count } = await supabase
-          .from('loan_payments')
+          .from('loan_payments' as any)
           .select('*', { count: 'exact' })
           .eq('loan_id', loanId)
           .order('payment_date', { ascending: false })
@@ -58,7 +58,7 @@ export const PaymentHistory: React.FC<PaymentHistoryProps> = ({ loanId }) => {
 
         if (error) throw error;
 
-        setPayments(data as Payment[] || []);
+        setPayments((data as any) || []);
         setCount(count || 0);
       } catch (error: any) {
         console.error("Failed to fetch payment history:", error.message);

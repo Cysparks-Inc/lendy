@@ -60,7 +60,7 @@ export const UserStatusDialog: React.FC<UserStatusDialogProps> = ({
       setIsUpdating(true);
 
       const functionName = user.is_active ? 'deactivate_user' : 'activate_user';
-      const { error } = await supabase.rpc(functionName, {
+      const { error } = await supabase.rpc(functionName as any, {
         user_id: user.id,
         admin_user_id: currentUser.id,
       });

@@ -51,7 +51,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       // Check if user is active
-      if (profileData && !profileData.is_active) {
+      if (profileData && !(profileData as any).is_active) {
         console.log('User is inactive, signing out...');
         await supabase.auth.signOut();
         toast.error('Account Deactivated', {
@@ -61,7 +61,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       return {
-        role: profileData?.role || null,
+        role: (profileData as any)?.role || null,
         profile: profileData || null
       };
     } catch (error) {

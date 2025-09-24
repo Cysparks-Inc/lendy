@@ -45,7 +45,7 @@ export const DeleteLoanDialog: React.FC<DeleteLoanDialogProps> = ({
     try {
       setIsDeleting(true);
 
-      const { error } = await supabase.rpc('delete_loan', {
+      const { error } = await supabase.rpc('delete_loan' as any, {
         loan_id: loan.id,
         admin_user_id: user.id,
       });

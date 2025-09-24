@@ -37,7 +37,7 @@ const Notifications: React.FC = () => {
     try {
       // Fetch pending loans count for all users who can see loan approvals
       if (userRole === 'super_admin' || userRole === 'admin' || userRole === 'loan_officer') {
-        const { count, error } = await supabase
+        const { count, error } = await (supabase as any)
           .from('loans')
           .select('*', { count: 'exact', head: true })
           .eq('approval_status', 'pending');

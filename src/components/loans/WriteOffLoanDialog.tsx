@@ -33,12 +33,12 @@ export const WriteOffLoanDialog: React.FC<WriteOffLoanDialogProps> = ({ open, on
 
         const searchLoans = async () => {
             const { data } = await supabase
-                .from('loans_with_details')
+                .from('loans_with_details' as any)
                 .select('id, member_name, account_number, current_balance')
                 .eq('status', 'defaulted')
                 .ilike('member_name', `%${searchTerm}%`)
                 .limit(10);
-            setDefaultedLoans(data || []);
+            setDefaultedLoans((data as any) || []);
         };
         
         const timeoutId = setTimeout(() => searchLoans(), 300);
@@ -53,7 +53,7 @@ export const WriteOffLoanDialog: React.FC<WriteOffLoanDialogProps> = ({ open, on
         setIsSubmitting(true);
         try {
             // --- THE CRITICAL FIX: Use the new, unambiguous parameter names ---
-            const { error } = await supabase.rpc('write_off_loan', {
+            const { error } = await supabase.rpc('write_off_loan' as any, {
                 loan_uuid: selectedLoan.id,
                 requesting_user_uuid: user?.id,
                 write_off_notes: notes

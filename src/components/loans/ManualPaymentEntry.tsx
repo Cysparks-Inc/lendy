@@ -55,7 +55,7 @@ export const ManualPaymentEntry: React.FC<ManualPaymentEntryProps> = ({ loan, on
       return;
     }
 
-    const outstandingBalance = Math.max(0, ((loan.principal_amount || 0) + (loan.interest_disbursed || 0) + (loan.processing_fee || 0)) - (loan.total_paid || 0));
+    const outstandingBalance = Math.max(0, ((loan.principal_amount || 0) + (loan.interest_disbursed || 0) + ((loan as any).processing_fee || 0)) - ((loan as any).total_paid || 0));
     if (paymentAmount > outstandingBalance) {
       setError(`Payment amount cannot exceed the outstanding balance of KES ${outstandingBalance.toLocaleString()}`);
       return;
@@ -75,7 +75,7 @@ export const ManualPaymentEntry: React.FC<ManualPaymentEntryProps> = ({ loan, on
       
       // Insert payment record
       const { error: insertError } = await supabase
-        .from('loan_payments')
+        .from('loan_payments' as any)
         .insert({
           loan_id: loan.id,
           installment_number: 0, // 0 indicates manual payment not tied to specific installment
@@ -122,8 +122,8 @@ export const ManualPaymentEntry: React.FC<ManualPaymentEntryProps> = ({ loan, on
 
   // Conditionally render a message if the loan is already paid off
   // Check if the loan is actually fully paid by comparing total paid vs total amount due
-  const totalAmountDue = (loan.principal_amount || 0) + (loan.interest_disbursed || 0) + (loan.processing_fee || 0);
-  const isFullyPaid = loan.total_paid >= totalAmountDue;
+  const totalAmountDue = (loan.principal_amount || 0) + (loan.interest_disbursed || 0) + ((loan as any).processing_fee || 0);
+  const isFullyPaid = ((loan as any).total_paid || 0) >= totalAmountDue;
   
   if (loan.status === 'repaid' || isFullyPaid) {
     return (
@@ -156,7 +156,7 @@ export const ManualPaymentEntry: React.FC<ManualPaymentEntryProps> = ({ loan, on
           <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <div className="text-sm text-blue-600 font-medium">Outstanding Balance</div>
             <div className="text-lg font-semibold text-blue-900">
-              KES {Math.max(0, ((loan.principal_amount || 0) + (loan.interest_disbursed || 0) + (loan.processing_fee || 0)) - (loan.total_paid || 0)).toLocaleString()}
+              KES {Math.max(0, ((loan.principal_amount || 0) + (loan.interest_disbursed || 0) + ((loan as any).processing_fee || 0)) - ((loan as any).total_paid || 0)).toLocaleString()}
             </div>
           </div>
           
@@ -165,8 +165,8 @@ export const ManualPaymentEntry: React.FC<ManualPaymentEntryProps> = ({ loan, on
             <div className="text-xs text-gray-700 space-y-1 mt-1">
               <div>Principal: KES {(loan.principal_amount || 0).toLocaleString()}</div>
               <div>Interest: KES {(loan.interest_disbursed || 0).toLocaleString()}</div>
-              <div>Processing Fee: KES {(loan.processing_fee || 0).toLocaleString()}</div>
-              <div className="font-semibold border-t pt-1">Total Due: KES {((loan.principal_amount || 0) + (loan.interest_disbursed || 0) + (loan.processing_fee || 0)).toLocaleString()}</div>
+              <div>Processing Fee: KES {((loan as any).processing_fee || 0).toLocaleString()}</div>
+              <div className="font-semibold border-t pt-1">Total Due: KES {((loan.principal_amount || 0) + (loan.interest_disbursed || 0) + ((loan as any).processing_fee || 0)).toLocaleString()}</div>
             </div>
           </div>
           
@@ -191,7 +191,7 @@ export const ManualPaymentEntry: React.FC<ManualPaymentEntryProps> = ({ loan, on
               disabled={isSubmitting}
             />
             <p className="text-xs text-muted-foreground mt-1">
-              Maximum payment: KES {(loan.principal_amount + (loan.interest_disbursed || 0) + (loan.processing_fee || 0)).toLocaleString()}
+              Maximum payment: KES {(loan.principal_amount + (loan.interest_disbursed || 0) + ((loan as any).processing_fee || 0)).toLocaleString()}
             </p>
           </div>
           <div>

@@ -23,19 +23,19 @@ export function SecureTable<TData>({
       <div 
         className="border rounded-md table-container"
         style={{
-          overflowX: 'auto !important',
-          overflowY: 'hidden !important',
+          overflowX: 'auto' as any,
+          overflowY: 'hidden' as any,
           maxWidth: '100% !important',
           width: '100% !important',
-          WebkitOverflowScrolling: 'touch !important'
+          WebkitOverflowScrolling: 'touch' as any
         }}
       >
         <table 
           className="w-full min-w-full"
           style={{
             minWidth: '100% !important',
-            tableLayout: 'auto !important',
-            borderCollapse: 'collapse !important'
+            tableLayout: 'auto' as any,
+            borderCollapse: 'collapse' as any
           }}
         >
           <thead>
