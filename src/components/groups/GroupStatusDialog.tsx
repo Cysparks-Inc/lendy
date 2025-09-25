@@ -50,7 +50,7 @@ export const GroupStatusDialog: React.FC<GroupStatusDialogProps> = ({
       setIsUpdating(true);
 
       const functionName = group.is_active ? 'deactivate_group' : 'activate_group';
-      const { error } = await supabase.rpc(functionName as any, {
+      const { error } = await (supabase as any).rpc(functionName, {
         group_id: group.id,
         admin_user_id: user.id,
       });

@@ -108,7 +108,7 @@ const Branches: React.FC = () => {
     setLoading(true);
     try {
       // Try RPC function first
-      let { data, error } = await supabase.rpc('get_branch_stats');
+      let { data, error } = await (supabase as any).rpc('get_branch_stats');
       
       if (error) {
         console.warn('RPC function not available, falling back to direct queries:', error);
@@ -117,7 +117,7 @@ const Branches: React.FC = () => {
       }
       
       if (data) {
-        setBranches(data);
+        setBranches(data as Branch[]);
         await fetchPerformanceData();
       }
     } catch (error: any) {
@@ -158,8 +158,8 @@ const Branches: React.FC = () => {
         const memberCount = (memberStats || []).filter(m => m.branch_id === branch.id).length;
         const branchLoans = (loanStats || []).filter(l => l.branch_id === branch.id);
         const activeLoans = branchLoans.filter(l => l.status === 'active');
-        const totalOutstanding = activeLoans.reduce((sum, l) => sum + parseFloat(l.current_balance || '0'), 0);
-        const totalPortfolio = branchLoans.reduce((sum, l) => sum + parseFloat(l.principal_amount || '0'), 0);
+        const totalOutstanding = activeLoans.reduce((sum, l) => sum + parseFloat(String(l.current_balance || '0')), 0);
+        const totalPortfolio = branchLoans.reduce((sum, l) => sum + parseFloat(String(l.principal_amount || '0')), 0);
         const avgLoanSize = branchLoans.length > 0 ? totalPortfolio / branchLoans.length : 0;
 
         return {
@@ -173,7 +173,10 @@ const Branches: React.FC = () => {
           total_loans: branchLoans.length,
           total_portfolio: totalPortfolio,
           avg_loan_size: avgLoanSize,
-          recovery_rate: totalPortfolio > 0 ? ((totalPortfolio - totalOutstanding) / totalPortfolio) * 100 : 0
+          recovery_rate: totalPortfolio > 0 ? ((totalPortfolio - totalOutstanding) / totalPortfolio) * 100 : 0,
+          is_active: true, // Default to active since column doesn't exist yet
+          deactivated_at: undefined,
+          deactivated_by: undefined
         };
       });
     } catch (error) {
@@ -402,13 +405,13 @@ const Branches: React.FC = () => {
   ];
 
   const exportColumns = [
-    { header: 'Branch Name', accessorKey: 'name' },
-    { header: 'Location', accessorKey: 'location' },
-    { header: 'Member Count', accessorKey: 'member_count' },
-    { header: 'Active Loans', accessorKey: 'loan_count' },
-    { header: 'Total Outstanding', accessorKey: 'total_outstanding' },
-    { header: 'Total Portfolio', accessorKey: 'total_portfolio' },
-    { header: 'Created Date', accessorKey: 'created_at' }
+    { header: 'Branch Name', accessorKey: (row: Branch) => row.name },
+    { header: 'Location', accessorKey: (row: Branch) => row.location },
+    { header: 'Member Count', accessorKey: (row: Branch) => row.member_count?.toString() || '0' },
+    { header: 'Active Loans', accessorKey: (row: Branch) => row.loan_count?.toString() || '0' },
+    { header: 'Total Outstanding', accessorKey: (row: Branch) => row.total_outstanding?.toString() || '0' },
+    { header: 'Total Portfolio', accessorKey: (row: Branch) => row.total_portfolio?.toString() || '0' },
+    { header: 'Created Date', accessorKey: (row: Branch) => row.created_at }
   ];
 
   if (loading) {

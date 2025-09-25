@@ -49,7 +49,7 @@ export const BranchStatusDialog: React.FC<BranchStatusDialogProps> = ({
       setIsUpdating(true);
 
       const functionName = branch.is_active ? 'deactivate_branch' : 'activate_branch';
-      const { error } = await supabase.rpc(functionName as any, {
+      const { error } = await (supabase as any).rpc(functionName, {
         branch_id: branch.id,
         admin_user_id: user.id,
       });

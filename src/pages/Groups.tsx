@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { GroupStatusDialog } from '@/components/groups/GroupStatusDialog';
+import { GroupDeleteDialog } from '@/components/groups/GroupDeleteDialog';
 
 interface Member {
   id: string;
@@ -114,6 +115,10 @@ const Groups: React.FC = () => {
   // Group status management
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [groupForStatusChange, setGroupForStatusChange] = useState<Group | null>(null);
+  
+  // Group deletion management
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [groupForDeletion, setGroupForDeletion] = useState<Group | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -280,7 +285,10 @@ const Groups: React.FC = () => {
           loan_officer_name: officer?.full_name || 'Unassigned',
           contact_person_id: (group as any).contact_person_id,
           contact_person_name: contactPerson?.full_name || 'Not Assigned',
-          contact_person_phone: contactPerson?.phone_number || ''
+          contact_person_phone: contactPerson?.phone_number || '',
+          is_active: (group as any).is_active ?? true,
+          deactivated_at: (group as any).deactivated_at,
+          deactivated_by: (group as any).deactivated_by
         };
       }) || [];
 
@@ -804,10 +812,23 @@ const Groups: React.FC = () => {
                                 className={group.is_active ? 'text-orange-600 hover:text-orange-700' : 'text-green-600 hover:text-green-700'}
                               >
                                 <Settings className="w-3 h-3 mr-1" />
-                                {group.is_active ? 'Deactivate' : 'Activate'}
-                              </Button>
-                            )}
-                          </div>
+                                 {group.is_active ? 'Deactivate' : 'Activate'}
+                               </Button>
+                             )}
+                             {userRole === 'super_admin' && (
+                               <Button
+                                 size="sm"
+                                 variant="destructive"
+                                 onClick={() => {
+                                   setGroupForDeletion(group);
+                                   setDeleteDialogOpen(true);
+                                 }}
+                               >
+                                 <XCircle className="w-3 h-3 mr-1" />
+                                 Delete
+                               </Button>
+                             )}
+                           </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -873,6 +894,21 @@ const Groups: React.FC = () => {
           }}
           group={groupForStatusChange}
           onStatusChanged={() => {
+            fetchData(); // Refresh the groups list
+          }}
+        />
+      )}
+
+      {/* Group Delete Dialog */}
+      {groupForDeletion && (
+        <GroupDeleteDialog
+          isOpen={deleteDialogOpen}
+          onClose={() => {
+            setDeleteDialogOpen(false);
+            setGroupForDeletion(null);
+          }}
+          group={groupForDeletion}
+          onGroupDeleted={() => {
             fetchData(); // Refresh the groups list
           }}
         />

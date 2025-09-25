@@ -42,9 +42,9 @@ const DormantMembers: React.FC = () => {
   const fetchDormantMembers = async () => {
     if (!user) return;
     try {
-      const { data, error } = await supabase.rpc('get_dormant_members');
-      if (error) throw error;
-      setDormantMembers(data || []);
+    const { data, error } = await (supabase as any).rpc('get_dormant_members');
+    if (error) throw error;
+    setDormantMembers((data as any[]) || []);
     } catch (error: any) {
       toast.error('Failed to fetch dormant members', { description: error.message });
     } finally {
