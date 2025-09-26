@@ -5,12 +5,13 @@
 export type UserRole = 'super_admin' | 'admin' | 'branch_admin' | 'loan_officer' | 'teller' | 'auditor';
 
 // The new, more robust structure for a navigation item.
-// It can now have its own list of required roles.
+// It can now have its own list of required roles or permissions.
 export type NavItem = {
   title: string;
   url: string;
   icon: React.ElementType;
-  requiredRoles?: UserRole[]; // Optional array of roles
+  requiredRoles?: UserRole[]; // Optional array of roles (legacy)
+  requiredPermission?: string; // New permission-based access
 };
 
 // The new structure for a navigation group.

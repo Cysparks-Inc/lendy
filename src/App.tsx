@@ -34,6 +34,7 @@ import Profile from "@/pages/Profile";
 import Settings from "@/pages/Settings";
 import Users from "@/pages/UsersPage"; // Kept your original name
 import UserFormPage from './pages/UserFormPage';
+import UserPermissionsPage from './pages/UserPermissionsPage';
 import Security from "@/pages/Security";
 import Branches from "@/pages/Branches";
 import Transactions from "@/pages/Transactions";
@@ -132,6 +133,7 @@ const App = () => (
                 <Route path="users" element={<Users />} />
                 <Route path="users/new" element={<UserFormPage />} />
                 <Route path="users/:id/edit" element={<UserFormPage />} />
+                <Route path="users/:id/permissions" element={<UserPermissionsPage />} />
                 
                 <Route path="security" element={<Security />} />
                 <Route path="branches" element={<Branches />} />

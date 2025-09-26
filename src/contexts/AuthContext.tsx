@@ -2,18 +2,22 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Permission } from '@/config/permissions';
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   userRole: string | null;
   profile: any | null;
+  permissions: Permission[];
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error?: any }>;
   signOut: () => Promise<void>;
   isSuperAdmin: boolean;
   isBranchAdmin: boolean;
   isStaff: boolean;
+  hasPermission: (permission: Permission) => boolean;
+  refreshPermissions: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,6 +35,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [profile, setProfile] = useState<any | null>(null);
+  const [permissions, setPermissions] = useState<Permission[]>([]);
   const [loading, setLoading] = useState(true);
 
   const isSuperAdmin = userRole === 'super_admin';
@@ -70,6 +75,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const fetchUserPermissions = async (userId: string): Promise<Permission[]> => {
+    try {
+      const { data, error } = await (supabase as any)
+        .from('user_permissions')
+        .select('permission')
+        .eq('user_id', userId);
+      
+      if (error) {
+        console.error('Error fetching user permissions:', error);
+        return [];
+      }
+      
+      return data?.map((p: any) => p.permission as Permission) || [];
+    } catch (error) {
+      console.error('Error fetching user permissions:', error);
+      return [];
+    }
+  };
+
+  const refreshPermissions = async () => {
+    if (user?.id) {
+      const userPermissions = await fetchUserPermissions(user.id);
+      setPermissions(userPermissions);
+    }
+  };
+
   useEffect(() => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -78,15 +109,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Fetch user role and profile after setting user
+          // Fetch user role, profile, and permissions after setting user
           setTimeout(async () => {
             const { role, profile: userProfile } = await fetchUserRoleAndProfile(session.user.id);
+            const userPermissions = await fetchUserPermissions(session.user.id);
             setUserRole(role);
             setProfile(userProfile);
+            setPermissions(userPermissions);
           }, 0);
         } else {
           setUserRole(null);
           setProfile(null);
+          setPermissions([]);
         }
         
         // If we're signed out by any means, ensure MFA flags are cleared
@@ -111,9 +145,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        fetchUserRoleAndProfile(session.user.id).then(({ role, profile: userProfile }) => {
+        Promise.all([
+          fetchUserRoleAndProfile(session.user.id),
+          fetchUserPermissions(session.user.id)
+        ]).then(([{ role, profile: userProfile }, userPermissions]) => {
           setUserRole(role);
           setProfile(userProfile);
+          setPermissions(userPermissions);
           setLoading(false);
         });
       } else {
@@ -167,17 +205,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const hasPermission = (permission: Permission): boolean => {
+    // Super admin always has all permissions
+    if (isSuperAdmin) return true;
+    // Check if user has the specific permission
+    return permissions.includes(permission);
+  };
+
   const value: AuthContextType = {
     user,
     session,
     userRole,
     profile,
+    permissions,
     loading,
     signIn,
     signOut,
     isSuperAdmin,
     isBranchAdmin,
     isStaff,
+    hasPermission,
+    refreshPermissions,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

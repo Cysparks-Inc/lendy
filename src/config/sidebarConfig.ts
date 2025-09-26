@@ -3,106 +3,181 @@ import {
   UsersRound, Clock, AlertTriangle, Trash2, Building, Banknote, Receipt, DollarSign,
   Bell, HandCoins, TrendingUp, BarChart3
 } from 'lucide-react';
-import { NavGroup, UserRole } from '@/types'; // Import our new, robust types
+import { NavGroup, UserRole } from '@/types';
+import { Permission } from '@/config/permissions';
 
-// This is the single source of truth for your application's navigation and security.
+// Permission-based navigation configuration
 export const sidebarConfig: NavGroup[] = [
   {
     label: 'Overview',
     items: [
-      { title: 'Dashboard', url: '/', icon: LayoutDashboard }, // All roles
+      { 
+        title: 'Dashboard', 
+        url: '/', 
+        icon: LayoutDashboard,
+        requiredPermission: 'dashboard.view' as Permission
+      },
     ],
   },
   {
     label: 'Member Management',
     items: [
-      { title: 'Members', url: '/members', icon: Users }, // All roles
-      { title: 'Search Member', url: '/search-member', icon: Search }, // All roles
+      { 
+        title: 'Members', 
+        url: '/members', 
+        icon: Users,
+        requiredPermission: 'members.view' as Permission
+      },
+      { 
+        title: 'Search Member', 
+        url: '/search-member', 
+        icon: Search,
+        requiredPermission: 'members.search' as Permission
+      },
       { 
         title: 'Groups', 
         url: '/groups', 
         icon: UsersRound,
-        requiredRoles: ['super_admin', 'admin'] // Super admin and admin can manage groups
+        requiredPermission: 'groups.view' as Permission
       },
     ],
   },
   {
     label: 'Loan Operations',
     items: [
-      { title: 'Loans', url: '/loans', icon: Banknote }, // All roles
-      { title: 'New Loan Application', url: '/loans/new', icon: CreditCard }, // All roles
-      { title: 'Receive Payments', url: '/receive-payments', icon: HandCoins }, // All roles
-      { title: 'Loans Overdue', url: '/daily-overdue', icon: AlertTriangle }, // All roles
+      { 
+        title: 'Loans', 
+        url: '/loans', 
+        icon: Banknote,
+        requiredPermission: 'loans.view' as Permission
+      },
+      { 
+        title: 'New Loan Application', 
+        url: '/loans/new', 
+        icon: CreditCard,
+        requiredPermission: 'loans.create' as Permission
+      },
+      { 
+        title: 'Receive Payments', 
+        url: '/receive-payments', 
+        icon: HandCoins,
+        requiredPermission: 'loans.receive_payments' as Permission
+      },
+      { 
+        title: 'Loans Overdue', 
+        url: '/daily-overdue', 
+        icon: AlertTriangle,
+        requiredPermission: 'loans.view_overdue' as Permission
+      },
       { 
         title: 'Loan Approvals', 
         url: '/loans/approvals', 
         icon: Shield,
-        requiredRoles: ['super_admin', 'admin'] // Admin roles only
+        requiredPermission: 'loans.approve' as Permission
+      },
+      { 
+        title: 'Bulk Payment', 
+        url: '/bulk-payment', 
+        icon: HandCoins,
+        requiredPermission: 'loans.bulk_payment' as Permission
       },
     ],
   },
   {
     label: 'Financial Management',
     items: [
-      { title: 'Transactions', url: '/transactions', icon: Receipt }, // All roles
+      { 
+        title: 'Transactions', 
+        url: '/transactions', 
+        icon: Receipt,
+        requiredPermission: 'transactions.view' as Permission
+      },
       { 
         title: 'Expenses', 
         url: '/expenses', 
         icon: DollarSign,
-        requiredRoles: ['super_admin'] // Super admin only
+        requiredPermission: 'expenses.view' as Permission
       },
       { 
         title: 'Income', 
         url: '/income', 
         icon: TrendingUp,
-        requiredRoles: ['super_admin'] // Super admin only
+        requiredPermission: 'income.view' as Permission
       },
     ],
   },
   {
     label: 'Reports & Analytics',
-    requiredRoles: ['super_admin', 'admin', 'branch_admin', 'loan_officer', 'auditor'],
     items: [
       { 
         title: 'Realizable Report', 
         url: '/realizable-report', 
         icon: BarChart3,
-        requiredRoles: ['super_admin', 'admin'] // Super admin and admin
+        requiredPermission: 'reports.view.realizable' as Permission
       },
       { 
         title: 'Dormant Members', 
         url: '/dormant-members', 
         icon: AlertTriangle,
-        requiredRoles: ['super_admin', 'admin', 'branch_admin']
+        requiredPermission: 'reports.view.dormant' as Permission
       },
       { 
         title: 'Bad Debt Accounts', 
         url: '/bad-debt', 
         icon: Trash2,
-        requiredRoles: ['super_admin', 'admin', 'branch_admin']
+        requiredPermission: 'reports.view.bad_debt' as Permission
       },
     ],
   },
   {
     label: 'System Administration',
-    requiredRoles: ['super_admin'],
     items: [
-      { title: 'Users Management', url: '/users', icon: Users },
-      { title: 'Branches', url: '/branches', icon: Building },
+      { 
+        title: 'Users Management', 
+        url: '/users', 
+        icon: Users,
+        requiredPermission: 'users.view' as Permission
+      },
+      { 
+        title: 'Branches', 
+        url: '/branches', 
+        icon: Building,
+        requiredPermission: 'branches.view' as Permission
+      },
     ],
   },
   {
     label: 'User & Settings',
     items: [
-      { title: 'Profile', url: '/profile', icon: User }, // All roles
-      { title: 'Loan Officer', url: '/loan-officer', icon: UserCheck }, // All roles
-      { title: 'Notifications', url: '/notifications', icon: Bell }, // All roles
-      { title: 'Security', url: '/security', icon: Shield }, // All roles
+      { 
+        title: 'Profile', 
+        url: '/profile', 
+        icon: User,
+        requiredPermission: 'profile.view' as Permission
+      },
+      { 
+        title: 'Loan Officer', 
+        url: '/loan-officer', 
+        icon: UserCheck,
+        requiredPermission: 'loan_officer.view' as Permission
+      },
+      { 
+        title: 'Notifications', 
+        url: '/notifications', 
+        icon: Bell,
+        requiredPermission: 'notifications.view' as Permission
+      },
+      { 
+        title: 'Security', 
+        url: '/security', 
+        icon: Shield,
+        requiredPermission: 'security.view' as Permission
+      },
       { 
         title: 'Settings', 
         url: '/settings', 
         icon: Settings,
-        requiredRoles: ['super_admin', 'admin', 'branch_admin'] // Admin roles only
+        requiredPermission: 'settings.view' as Permission
       },
     ],
   },

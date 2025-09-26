@@ -43,7 +43,7 @@ const NavigationGroup: React.FC<NavigationGroupProps> = ({ group, isCollapsed, i
 
 export function AppSidebar() {
   const { state, setOpenMobile } = useSidebar();
-  const { user, signOut, userRole } = useAuth();
+  const { user, signOut, userRole, hasPermission } = useAuth();
   const location = useLocation();
   const currentPath = location.pathname;
   const isCollapsed = state === "collapsed";
@@ -73,11 +73,22 @@ export function AppSidebar() {
     }
   };
 
-  // Filter the navigation groups based on the user's role
-  const visibleNavGroups = sidebarConfig.filter(group => {
-    if (!group.requiredRoles) return true; // If no role is required, always show the group
-    return group.requiredRoles.includes(userRole as UserRole); // Cast userRole to UserRole type
-  });
+  // Filter the navigation groups based on permissions or roles
+  const visibleNavGroups = sidebarConfig.map(group => ({
+    ...group,
+    items: group.items.filter(item => {
+      // Check permission-based access first
+      if (item.requiredPermission) {
+        return hasPermission(item.requiredPermission as any);
+      }
+      // Fallback to role-based access
+      if (item.requiredRoles) {
+        return item.requiredRoles.includes(userRole as UserRole);
+      }
+      // Default: allow access for authenticated users
+      return true;
+    })
+  })).filter(group => group.items.length > 0); // Only show groups with visible items
 
   return (
     <Sidebar className={`${isCollapsed ? "w-14" : "w-56"} collapsible="icon"`} style={{ top: '64px', height: 'calc(100vh - 64px)' }}>

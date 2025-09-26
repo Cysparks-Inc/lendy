@@ -138,6 +138,7 @@ const UsersPage: React.FC = () => {
     { header: 'Actions', cell: (row: UserSummary) => (
         <div className="flex justify-end gap-2">
             <Button asChild variant="outline" size="icon"><Link to={`/users/${row.id}/edit`}><Edit className="h-4 w-4" /></Link></Button>
+            <Button asChild variant="outline" size="icon"><Link to={`/users/${row.id}/permissions`}><Shield className="h-4 w-4" /></Link></Button>
             <Button 
               variant="outline" 
               size="icon" 
@@ -175,9 +176,11 @@ const UsersPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">User Management</h1>
-          <p className="text-muted-foreground">A centralized hub for all system users.</p>
+          <p className="text-muted-foreground">A centralized hub for all system users with granular permission control.</p>
         </div>
-        <Button asChild><Link to="/users/new"><Plus className="h-4 w-4 mr-2" />Add User</Link></Button>
+        <div className="flex gap-2">
+          <Button asChild><Link to="/users/new"><Plus className="h-4 w-4 mr-2" />Add User</Link></Button>
+        </div>
       </div>
 
       <Card>
