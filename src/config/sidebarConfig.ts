@@ -75,12 +75,7 @@ export const sidebarConfig: NavGroup[] = [
         icon: Shield,
         requiredPermission: 'loans.approve' as Permission
       },
-      { 
-        title: 'Bulk Payment', 
-        url: '/bulk-payment', 
-        icon: HandCoins,
-        requiredPermission: 'loans.bulk_payment' as Permission
-      },
+     
     ],
   },
   {
