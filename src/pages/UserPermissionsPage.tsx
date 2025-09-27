@@ -27,25 +27,18 @@ const UserPermissionsPage: React.FC = () => {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [selectedPermissions, setSelectedPermissions] = useState<Permission[]>([]);
 
-  // Check if current user has permission to manage permissions
-  if (!hasPermission('users.manage_permissions')) {
-    return (
-      <div className="p-6">
-        <Card className="max-w-md mx-auto">
-          <CardHeader className="text-center">
-            <CardTitle>Access Denied</CardTitle>
-            <CardDescription>You don't have permission to manage user permissions.</CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-    );
-  }
+  // **FIX:** All hooks are now at the top, before any returns.
+  const canManagePermissions = hasPermission('users.manage_permissions');
 
   useEffect(() => {
-    if (userId) {
+    // Only fetch data if the user has permission
+    if (userId && canManagePermissions) {
       fetchUserAndPermissions();
+    } else {
+      // If no permission, stop the loading state
+      setLoading(false);
     }
-  }, [userId]);
+  }, [userId, canManagePermissions]); // Added canManagePermissions as a dependency
 
   const fetchUserAndPermissions = async () => {
     if (!userId) return;
@@ -96,6 +89,9 @@ const UserPermissionsPage: React.FC = () => {
     
     setSaving(true);
     try {
+      // Get current user data first
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      
       // Delete existing permissions
       const { error: deleteError } = await (supabase as any)
         .from('user_permissions')
@@ -111,7 +107,7 @@ const UserPermissionsPage: React.FC = () => {
         const newPermissions = selectedPermissions.map(permission => ({
           user_id: userId,
           permission,
-          created_by: (await supabase.auth.getUser()).data.user?.id
+          created_by: currentUser?.id
         }));
 
         const { error: insertError } = await (supabase as any)
@@ -131,6 +127,20 @@ const UserPermissionsPage: React.FC = () => {
       setSaving(false);
     }
   };
+  
+  // **FIX:** Perform conditional rendering based on the `canManagePermissions` variable.
+  if (!canManagePermissions) {
+    return (
+      <div className="p-6">
+        <Card className="max-w-md mx-auto">
+          <CardHeader className="text-center">
+            <CardTitle>Access Denied</CardTitle>
+            <CardDescription>You don't have permission to manage user permissions.</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
