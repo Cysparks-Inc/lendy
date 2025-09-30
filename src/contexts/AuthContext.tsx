@@ -44,19 +44,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchUserRoleAndProfile = async (userId: string): Promise<{ role: string | null; profile: any | null }> => {
     try {
+      console.log('Fetching profile for user:', userId);
+      
       // Fetch profile which contains both role and other profile data
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('*')
+        .select('id, email, role, full_name, branch_id, is_active, created_at, updated_at')
         .eq('id', userId)
         .maybeSingle();
       
       if (profileError && profileError.code !== 'PGRST116') {
         console.error('Error fetching user profile:', profileError);
+        return { role: null, profile: null };
       }
       
+      if (!profileData) {
+        console.log('No profile found for user:', userId);
+        return { role: null, profile: null };
+      }
+      
+      console.log('Profile fetched successfully:', { role: profileData.role, isActive: profileData.is_active });
+      
       // Check if user is active
-      if (profileData && !(profileData as any).is_active) {
+      if (profileData.is_active === false) {
         console.log('User is inactive, signing out...');
         await supabase.auth.signOut();
         toast.error('Account Deactivated', {
@@ -66,8 +76,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       return {
-        role: (profileData as any)?.role || null,
-        profile: profileData || null
+        role: profileData.role || 'teller', // Default to teller if no role
+        profile: profileData
       };
     } catch (error) {
       console.error('Error fetching user role and profile:', error);

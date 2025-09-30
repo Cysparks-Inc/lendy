@@ -21,59 +21,96 @@ interface UserProfile {
 const UserPermissionsPage: React.FC = () => {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
-  const { hasPermission } = useAuth();
+  const { isSuperAdmin, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [selectedPermissions, setSelectedPermissions] = useState<Permission[]>([]);
 
-  // **FIX:** All hooks are now at the top, before any returns.
-  const canManagePermissions = hasPermission('users.manage_permissions');
-
   useEffect(() => {
-    // Only fetch data if the user has permission
-    if (userId && canManagePermissions) {
+    console.log('UserPermissionsPage useEffect triggered', { 
+      userId, 
+      isSuperAdmin, 
+      authLoading 
+    });
+    
+    // Wait for auth to load, then check permissions
+    if (authLoading) {
+      console.log('Auth still loading, waiting...');
+      return;
+    }
+
+    if (!isSuperAdmin) {
+      console.log('User does not have permission to manage permissions');
+      setLoading(false);
+      return;
+    }
+
+    if (userId) {
+      console.log('Fetching user and permissions for userId:', userId);
       fetchUserAndPermissions();
     } else {
-      // If no permission, stop the loading state
+      console.log('No userId provided');
       setLoading(false);
     }
-  }, [userId, canManagePermissions]); // Added canManagePermissions as a dependency
+  }, [userId, isSuperAdmin, authLoading]);
 
   const fetchUserAndPermissions = async () => {
     if (!userId) return;
     
+    console.log('Starting fetchUserAndPermissions for userId:', userId);
     setLoading(true);
+    
     try {
+      console.log('Fetching user profile...');
       // Fetch user profile
-      const { data: profileData, error: profileError } = await (supabase as any)
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('id, full_name, email, role, is_active')
         .eq('id', userId)
         .single();
 
+      console.log('Profile fetch result:', { profileData, profileError });
+
       if (profileError) {
+        console.error('Profile fetch error:', profileError);
         toast.error('Failed to fetch user profile');
         return;
       }
 
+      if (!profileData) {
+        console.log('No profile data found');
+        toast.error('User not found');
+        return;
+      }
+
+      console.log('Setting user data:', profileData);
       setUser(profileData);
 
+      console.log('Fetching user permissions...');
       // Fetch user permissions
-      const { data: permissionsData, error: permissionsError } = await (supabase as any)
+      const { data: permissionsData, error: permissionsError } = await supabase
         .from('user_permissions')
         .select('permission')
         .eq('user_id', userId);
 
+      console.log('Permissions fetch result:', { permissionsData, permissionsError });
+
       if (permissionsError && permissionsError.code !== 'PGRST116') {
+        console.error('Permissions fetch error:', permissionsError);
         toast.error('Failed to fetch user permissions');
         return;
       }
 
-      setSelectedPermissions(permissionsData?.map((p: any) => p.permission as Permission) || []);
+      const permissions = permissionsData?.map((p: any) => p.permission as Permission) || [];
+      console.log('Setting permissions:', permissions);
+      setSelectedPermissions(permissions);
+      
     } catch (error: any) {
+      console.error('Error in fetchUserAndPermissions:', error);
       toast.error('Error loading user data', { description: error.message });
     } finally {
+      console.log('Fetch completed, setting loading to false');
       setLoading(false);
     }
   };
@@ -87,49 +124,58 @@ const UserPermissionsPage: React.FC = () => {
   const handleSavePermissions = async () => {
     if (!userId) return;
     
+    console.log('Starting save permissions for userId:', userId);
     setSaving(true);
+    
     try {
       // Get current user data first
       const { data: { user: currentUser } } = await supabase.auth.getUser();
+      console.log('Current user:', currentUser?.id);
       
       // Delete existing permissions
-      const { error: deleteError } = await (supabase as any)
+      console.log('Deleting existing permissions...');
+      const { error: deleteError } = await supabase
         .from('user_permissions')
         .delete()
         .eq('user_id', userId);
 
       if (deleteError) {
+        console.error('Delete error:', deleteError);
         throw new Error('Failed to clear existing permissions');
       }
 
       // Insert new permissions
       if (selectedPermissions.length > 0) {
+        console.log('Inserting new permissions:', selectedPermissions);
         const newPermissions = selectedPermissions.map(permission => ({
           user_id: userId,
           permission,
           created_by: currentUser?.id
         }));
 
-        const { error: insertError } = await (supabase as any)
+        const { error: insertError } = await supabase
           .from('user_permissions')
           .insert(newPermissions);
 
         if (insertError) {
+          console.error('Insert error:', insertError);
           throw new Error('Failed to save new permissions');
         }
       }
 
+      console.log('Permissions saved successfully');
       toast.success('User permissions updated successfully!');
       navigate('/users');
     } catch (error: any) {
+      console.error('Save permissions error:', error);
       toast.error('Failed to save permissions', { description: error.message });
     } finally {
       setSaving(false);
     }
   };
   
-  // **FIX:** Perform conditional rendering based on the `canManagePermissions` variable.
-  if (!canManagePermissions) {
+  // Check permissions first
+  if (!authLoading && !isSuperAdmin) {
     return (
       <div className="p-6">
         <Card className="max-w-md mx-auto">
@@ -142,7 +188,7 @@ const UserPermissionsPage: React.FC = () => {
     );
   }
 
-  if (loading) {
+  if (loading || authLoading) {
     return (
       <div className="flex justify-center items-center h-screen">
         <Loader2 className="h-8 w-8 animate-spin" />

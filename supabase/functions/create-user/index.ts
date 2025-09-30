@@ -138,8 +138,8 @@ function createUserFriendlyError(error: any, context: string = 'user creation') 
   let matchedError = null
   
   // Check for exact code matches first
-  if (errorPatterns[errorCode]) {
-    matchedError = errorPatterns[errorCode]
+  if (errorPatterns[errorCode as keyof typeof errorPatterns]) {
+    matchedError = errorPatterns[errorCode as keyof typeof errorPatterns]
   } else {
     // Check for pattern matches in the error message
     const lowerMessage = errorMessage.toLowerCase()
@@ -413,14 +413,16 @@ serve(async (req) => {
   } catch (error) {
     console.error('=== UNEXPECTED ERROR IN CREATE USER FUNCTION ===')
     console.error('Error type:', typeof error)
-    console.error('Error message:', error.message)
-    console.error('Error stack:', error.stack)
+    if (error instanceof Error) {
+      console.error('Error message:', error.message)
+      console.error('Error stack:', error.stack)
+    }
     console.error('Full error object:', JSON.stringify(error, null, 2))
     
     // Create user-friendly error response for unexpected errors
     const errorResponse = createUserFriendlyError({
       code: 'UNEXPECTED_ERROR',
-      message: error.message
+      message: error instanceof Error ? error.message : 'Unknown error'
     }, 'create user')
     
     console.error('=== ERROR RESPONSE ===')

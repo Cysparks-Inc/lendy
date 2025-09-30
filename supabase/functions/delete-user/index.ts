@@ -44,7 +44,7 @@ serve(async (req) => {
 
       if (countError) {
         console.warn('Could not count super admins:', countError.message);
-      } else if (superAdminCount <= 1) {
+      } else if (superAdminCount !== null && superAdminCount <= 1) {
         throw new Error('Cannot delete the last super admin. At least one super admin must remain in the system.');
       }
     }
@@ -119,7 +119,7 @@ serve(async (req) => {
         console.log('Cleaned up audit logs');
       }
     } catch (error) {
-      console.warn('Audit log table might not exist:', error.message);
+      console.warn('Audit log table might not exist:', error instanceof Error ? error.message : 'Unknown error');
     }
 
     // 3d. Clean up communication logs
