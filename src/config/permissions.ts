@@ -177,3 +177,59 @@ export const PERMISSION_GROUPS = {
 } as const;
 
 export type PermissionGroup = keyof typeof PERMISSION_GROUPS;
+
+// Role-based default permissions
+export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
+  super_admin: Object.keys(PERMISSIONS) as Permission[], // Super admin has all permissions
+  
+  branch_admin: [
+    'dashboard.view',
+    'members.view', 'members.create', 'members.edit', 'members.search',
+    'groups.view', 'groups.create', 'groups.edit', 'groups.activate',
+    'loans.view', 'loans.create', 'loans.edit', 'loans.approve', 'loans.receive_payments', 'loans.view_overdue',
+    'transactions.view',
+    'expenses.view', 'expenses.create', 'expenses.edit',
+    'income.view',
+    'reports.view.realizable', 'reports.view.dormant', 'reports.export',
+    'branches.view',
+    'notifications.view',
+    'communications.log', 'communications.view',
+    'profile.view', 'profile.edit',
+  ],
+  
+  loan_officer: [
+    'dashboard.view',
+    'members.view', 'members.create', 'members.edit', 'members.search',
+    'groups.view',
+    'loans.view', 'loans.create', 'loans.edit', 'loans.receive_payments', 'loans.view_overdue',
+    'transactions.view',
+    'notifications.view',
+    'communications.log', 'communications.view',
+    'profile.view', 'profile.edit',
+    'loan_officer.view',
+  ],
+  
+  teller: [
+    'dashboard.view',
+    'members.view', 'members.search',
+    'loans.view', 'loans.receive_payments',
+    'transactions.view',
+    'notifications.view',
+    'profile.view', 'profile.edit',
+  ],
+  
+  auditor: [
+    'dashboard.view',
+    'members.view', 'members.search',
+    'groups.view',
+    'loans.view', 'loans.view_overdue',
+    'transactions.view',
+    'expenses.view',
+    'income.view',
+    'reports.view.realizable', 'reports.view.dormant', 'reports.view.bad_debt', 'reports.export',
+    'branches.view',
+    'notifications.view',
+    'communications.view',
+    'profile.view', 'profile.edit',
+  ],
+};
