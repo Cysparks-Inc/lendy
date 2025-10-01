@@ -44,8 +44,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchUserRoleAndProfile = async (userId: string): Promise<{ role: string | null; profile: any | null }> => {
     try {
-      console.log('Fetching profile for user:', userId);
-      
       // Fetch profile which contains both role and other profile data
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
@@ -59,15 +57,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       if (!profileData) {
-        console.log('No profile found for user:', userId);
         return { role: null, profile: null };
       }
       
-      console.log('Profile fetched successfully:', { role: profileData.role, isActive: profileData.is_active });
-      
       // Check if user is active
       if (profileData.is_active === false) {
-        console.log('User is inactive, signing out...');
         await supabase.auth.signOut();
         toast.error('Account Deactivated', {
           description: 'Your account has been deactivated. Please contact an administrator.',
@@ -93,13 +87,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('user_id', userId);
       
       if (error) {
-        console.error('Error fetching user permissions:', error);
         return [];
       }
       
       return data?.map((p: any) => p.permission as Permission) || [];
     } catch (error) {
-      console.error('Error fetching user permissions:', error);
       return [];
     }
   };
