@@ -73,16 +73,12 @@ export function AppSidebar() {
     }
   };
 
-  // Filter the navigation groups based on permissions or roles
+  // Filter the navigation groups based on user role
   const visibleNavGroups = sidebarConfig.map(group => ({
     ...group,
     items: group.items.filter(item => {
-      // Check permission-based access first
-      if (item.requiredPermission) {
-        return hasPermission(item.requiredPermission as any);
-      }
-      // Fallback to role-based access
-      if (item.requiredRoles) {
+      // Check if user's role is in the required roles list
+      if (item.requiredRoles && userRole) {
         return item.requiredRoles.includes(userRole as UserRole);
       }
       // Default: allow access for authenticated users

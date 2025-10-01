@@ -44,7 +44,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchUserRoleAndProfile = async (userId: string): Promise<{ role: string | null; profile: any | null }> => {
     try {
-      console.log('[AUTH] Fetching profile for user:', userId);
+      console.log('Fetching profile for user:', userId);
       
       // Fetch profile which contains both role and other profile data
       const { data: profileData, error: profileError } = await supabase
@@ -63,7 +63,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { role: null, profile: null };
       }
       
-      console.log('[AUTH] Profile fetched successfully:', { role: profileData.role, isActive: profileData.is_active });
+      console.log('Profile fetched successfully:', { role: profileData.role, isActive: profileData.is_active });
       
       // Check if user is active
       if (profileData.is_active === false) {
@@ -93,15 +93,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('user_id', userId);
       
       if (error) {
-        console.log('[AUTH] No explicit user permissions found (this is normal if using role-based permissions):', error.message);
+        console.error('Error fetching user permissions:', error);
         return [];
       }
       
-      const explicitPermissions = data?.map((p: any) => p.permission as Permission) || [];
-      console.log('[AUTH] Explicit user permissions loaded:', explicitPermissions.length);
-      return explicitPermissions;
+      return data?.map((p: any) => p.permission as Permission) || [];
     } catch (error) {
-      console.log('[AUTH] Error fetching user permissions (this is normal if user_permissions table does not exist)');
+      console.error('Error fetching user permissions:', error);
       return [];
     }
   };
@@ -128,13 +126,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUserRole(role);
             setProfile(userProfile);
             setPermissions(userPermissions);
-            console.log('[AUTH] Auth state updated:', { role, hasProfile: !!userProfile });
           }, 0);
         } else {
           setUserRole(null);
           setProfile(null);
           setPermissions([]);
-          console.log('[AUTH] User signed out');
         }
         
         // If we're signed out by any means, ensure MFA flags are cleared
@@ -222,17 +218,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const hasPermission = (permission: Permission): boolean => {
     // Super admin always has all permissions
     if (isSuperAdmin) return true;
-    
-    // Check role-based default permissions first
-    if (userRole) {
-      const { ROLE_PERMISSIONS } = require('@/config/permissions');
-      const rolePermissions = ROLE_PERMISSIONS[userRole] || [];
-      if (rolePermissions.includes(permission)) {
-        return true;
-      }
-    }
-    
-    // Check explicit user permissions from user_permissions table
+    // Check if user has the specific permission
     return permissions.includes(permission);
   };
 

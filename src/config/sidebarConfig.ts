@@ -4,9 +4,8 @@ import {
   Bell, HandCoins, TrendingUp, BarChart3
 } from 'lucide-react';
 import { NavGroup, UserRole } from '@/types';
-import { Permission } from '@/config/permissions';
 
-// Permission-based navigation configuration
+// Simple role-based navigation configuration
 export const sidebarConfig: NavGroup[] = [
   {
     label: 'Overview',
@@ -15,7 +14,7 @@ export const sidebarConfig: NavGroup[] = [
         title: 'Dashboard', 
         url: '/', 
         icon: LayoutDashboard,
-        requiredPermission: 'dashboard.view' as Permission
+        requiredRoles: ['super_admin', 'branch_admin', 'loan_officer', 'teller', 'auditor']
       },
     ],
   },
@@ -26,19 +25,19 @@ export const sidebarConfig: NavGroup[] = [
         title: 'Members', 
         url: '/members', 
         icon: Users,
-        requiredPermission: 'members.view' as Permission
+        requiredRoles: ['super_admin', 'branch_admin', 'loan_officer', 'teller', 'auditor']
       },
       { 
         title: 'Search Member', 
         url: '/search-member', 
         icon: Search,
-        requiredPermission: 'members.search' as Permission
+        requiredRoles: ['super_admin', 'branch_admin', 'loan_officer', 'teller', 'auditor']
       },
       { 
         title: 'Groups', 
         url: '/groups', 
         icon: UsersRound,
-        requiredPermission: 'groups.view' as Permission
+        requiredRoles: ['super_admin', 'branch_admin', 'loan_officer', 'auditor']
       },
     ],
   },
@@ -49,31 +48,31 @@ export const sidebarConfig: NavGroup[] = [
         title: 'Loans', 
         url: '/loans', 
         icon: Banknote,
-        requiredPermission: 'loans.view' as Permission
+        requiredRoles: ['super_admin', 'branch_admin', 'loan_officer', 'teller', 'auditor']
       },
       { 
         title: 'New Loan Application', 
         url: '/loans/new', 
         icon: CreditCard,
-        requiredPermission: 'loans.create' as Permission
+        requiredRoles: ['super_admin', 'branch_admin', 'loan_officer']
       },
       { 
         title: 'Receive Payments', 
         url: '/receive-payments', 
         icon: HandCoins,
-        requiredPermission: 'loans.receive_payments' as Permission
+        requiredRoles: ['super_admin', 'branch_admin', 'loan_officer', 'teller']
       },
       { 
         title: 'Loans Overdue', 
         url: '/daily-overdue', 
         icon: AlertTriangle,
-        requiredPermission: 'loans.view_overdue' as Permission
+        requiredRoles: ['super_admin', 'branch_admin', 'loan_officer', 'auditor']
       },
       { 
         title: 'Loan Approvals', 
         url: '/loans/approvals', 
         icon: Shield,
-        requiredPermission: 'loans.approve' as Permission
+        requiredRoles: ['super_admin', 'branch_admin']
       },
      
     ],
@@ -85,19 +84,19 @@ export const sidebarConfig: NavGroup[] = [
         title: 'Transactions', 
         url: '/transactions', 
         icon: Receipt,
-        requiredPermission: 'transactions.view' as Permission
+        requiredRoles: ['super_admin', 'branch_admin', 'loan_officer', 'teller', 'auditor']
       },
       { 
         title: 'Expenses', 
         url: '/expenses', 
         icon: DollarSign,
-        requiredPermission: 'expenses.view' as Permission
+        requiredRoles: ['super_admin', 'branch_admin', 'auditor']
       },
       { 
         title: 'Income', 
         url: '/income', 
         icon: TrendingUp,
-        requiredPermission: 'income.view' as Permission
+        requiredRoles: ['super_admin', 'branch_admin', 'auditor']
       },
     ],
   },
@@ -108,19 +107,19 @@ export const sidebarConfig: NavGroup[] = [
         title: 'Realizable Report', 
         url: '/realizable-report', 
         icon: BarChart3,
-        requiredPermission: 'reports.view.realizable' as Permission
+        requiredRoles: ['super_admin', 'branch_admin', 'auditor']
       },
       { 
         title: 'Dormant Members', 
         url: '/dormant-members', 
         icon: AlertTriangle,
-        requiredPermission: 'reports.view.dormant' as Permission
+        requiredRoles: ['super_admin', 'branch_admin', 'auditor']
       },
       { 
         title: 'Bad Debt Accounts', 
         url: '/bad-debt', 
         icon: Trash2,
-        requiredPermission: 'reports.view.bad_debt' as Permission
+        requiredRoles: ['super_admin', 'auditor']
       },
     ],
   },
@@ -131,13 +130,13 @@ export const sidebarConfig: NavGroup[] = [
         title: 'Users Management', 
         url: '/users', 
         icon: Users,
-        requiredPermission: 'users.view' as Permission
+        requiredRoles: ['super_admin']
       },
       { 
         title: 'Branches', 
         url: '/branches', 
         icon: Building,
-        requiredPermission: 'branches.view' as Permission
+        requiredRoles: ['super_admin', 'auditor']
       },
     ],
   },
@@ -148,31 +147,31 @@ export const sidebarConfig: NavGroup[] = [
         title: 'Profile', 
         url: '/profile', 
         icon: User,
-        requiredPermission: 'profile.view' as Permission
+        requiredRoles: ['super_admin', 'branch_admin', 'loan_officer', 'teller', 'auditor']
       },
       { 
         title: 'Loan Officer', 
         url: '/loan-officer', 
         icon: UserCheck,
-        requiredPermission: 'loan_officer.view' as Permission
+        requiredRoles: ['loan_officer']
       },
       { 
         title: 'Notifications', 
         url: '/notifications', 
         icon: Bell,
-        requiredPermission: 'notifications.view' as Permission
+        requiredRoles: ['super_admin', 'branch_admin', 'loan_officer', 'teller', 'auditor']
       },
       { 
         title: 'Security', 
         url: '/security', 
         icon: Shield,
-        requiredPermission: 'security.view' as Permission
+        requiredRoles: ['super_admin', 'branch_admin', 'loan_officer', 'teller', 'auditor']
       },
       { 
         title: 'Settings', 
         url: '/settings', 
         icon: Settings,
-        requiredPermission: 'settings.view' as Permission
+        requiredRoles: ['super_admin']
       },
     ],
   },
