@@ -52,10 +52,11 @@ const LoansPage: React.FC = () => {
     try {
       setLoading(true);
       
-      // Step 1: Fetch all loans
+      // Step 1: Fetch all loans (excluding deleted ones)
       const { data: loansData, error: loansError } = await supabase
         .from('loans')
-        .select('*');
+        .select('*')
+        .eq('is_deleted', false);
 
       if (loansError) {
         throw loansError;

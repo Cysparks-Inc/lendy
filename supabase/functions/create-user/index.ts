@@ -352,11 +352,35 @@ serve(async (req) => {
 
     console.log('Profile data to insert:', JSON.stringify(profileData, null, 2))
 
-    const { data: profile, error: profileError } = await supabaseAdmin
+    // Check if profile already exists first
+    const { data: existingProfile } = await supabaseAdmin
       .from('profiles')
-      .upsert(profileData, { onConflict: 'id' })
-      .select()
+      .select('id')
+      .eq('id', authData.user!.id)
       .single()
+
+    let profile;
+    let profileError;
+
+    if (existingProfile) {
+      // Profile exists - just fetch it without updating
+      const result = await supabaseAdmin
+        .from('profiles')
+        .select()
+        .eq('id', authData.user!.id)
+        .single()
+      profile = result.data
+      profileError = result.error
+    } else {
+      // Profile doesn't exist - create it
+      const result = await supabaseAdmin
+        .from('profiles')
+        .insert(profileData)
+        .select()
+        .single()
+      profile = result.data
+      profileError = result.error
+    }
 
     if (profileError) {
       console.error('Profile creation failed:', profileError)
