@@ -112,6 +112,7 @@ const MemberProfilePage: React.FC = () => {
         }
 
         // Fetch loans - try both member_id and customer_id to handle different schema versions
+        // IMPORTANT: Filter out deleted loans
         let loansRes;
         const loanColumns = 'id, principal_amount, current_balance, status, due_date, member_id, customer_id, total_paid, interest_disbursed, processing_fee, approval_status';
         
@@ -120,7 +121,8 @@ const MemberProfilePage: React.FC = () => {
           loansRes = await supabase
             .from('loans')
             .select(loanColumns)
-            .or(`member_id.eq.${id},customer_id.eq.${id}`);
+            .or(`member_id.eq.${id},customer_id.eq.${id}`)
+            .eq('is_deleted', false);
           
           if (loansRes.error) {
             // Try alternative approach - search by member name

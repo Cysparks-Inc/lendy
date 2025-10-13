@@ -126,11 +126,12 @@ const IncomePage: React.FC = () => {
     try {
       // Fetch income data from multiple sources
       const [processingFees, processingFeeTransactions, interestPayments, registrationFees, activationFees, allMembers, groupsData, loanOfficersData] = await Promise.all([
-        // Processing fees from loans (direct)
+        // Processing fees from loans (direct) - exclude deleted loans
         supabase
           .from('loans')
           .select('id, processing_fee, created_at, customer_id, approval_status, loan_officer_id')
           .eq('approval_status', 'approved')
+          .eq('is_deleted', false)
           .not('processing_fee', 'is', null)
           .gt('processing_fee', 0),
         
@@ -256,7 +257,8 @@ const IncomePage: React.FC = () => {
           const { data: loansData } = await supabase
             .from('loans')
             .select('id, customer_id, loan_officer_id')
-            .in('id', loanIds);
+            .in('id', loanIds)
+            .eq('is_deleted', false);
           loanDetails = loansData || [];
         }
         
