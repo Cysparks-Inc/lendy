@@ -73,10 +73,11 @@ const MembersPage: React.FC = () => {
       // Step 2: Fetch loan data for each member
       const memberIds = membersData.map(member => member.id);
       
-      // Fetch loans for all members
+      // Fetch loans for all members - exclude deleted loans
       const { data: loansData, error: loansError } = await supabase
         .from('loans')
-        .select('*');
+        .select('*')
+        .eq('is_deleted', false);
       
       if (loansError) {
         throw loansError;
