@@ -270,17 +270,17 @@ const Groups: React.FC = () => {
         const contactPerson = membersData?.find(m => m.id === (group as any).contact_person_id);
 
         return {
-          id: group.id.toString(),
-          name: group.name,
+          id: group.id?.toString() || '',
+          name: group.name || 'Unnamed Group',
           code: (group as any).code,
           meeting_day: (group as any).meeting_day || 1,
           meeting_time: (group as any).meeting_time,
           location: (group as any).location,
-          branch_id: group.branch_id.toString(),
+          branch_id: group.branch_id?.toString() || '',
           branch_name: branch?.name || 'Unknown',
           member_count: groupMembers.length,
           status: (group as any).status || 'active',
-          created_at: group.created_at,
+          created_at: group.created_at || new Date().toISOString(),
           loan_officer_id: officerId || undefined,
           loan_officer_name: officer?.full_name || 'Unassigned',
           contact_person_id: (group as any).contact_person_id,

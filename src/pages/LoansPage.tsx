@@ -131,6 +131,10 @@ const LoansPage: React.FC = () => {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'loans' }, (payload) => {
         fetchLoans(); // Refetch data when any change occurs
       })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'loans' }, (payload) => {
+        // Remove deleted loan from state immediately
+        setLoans(prev => prev.filter(loan => loan.id !== payload.old.id));
+      })
       .subscribe();
 
     return () => {
@@ -490,6 +494,8 @@ const LoansPage: React.FC = () => {
           }}
           loan={loanToDelete}
           onDeleted={() => {
+            setDeleteDialogOpen(false);
+            setLoanToDelete(null);
             fetchLoans(); // Refresh the loans list
           }}
         />
