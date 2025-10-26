@@ -52,32 +52,33 @@ import { useAuth } from "@/contexts/AuthContext";
 const queryClient = new QueryClient();
 
 const RequireMfa: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
-  const location = useLocation();
-  const inMfa = location.pathname.startsWith('/mfa');
+  // MFA temporarily disabled for easier initial setup
+  // const { user } = useAuth();
+  // const location = useLocation();
+  // const inMfa = location.pathname.startsWith('/mfa');
   // Check a short-lived local flag indicating MFA verification for this user
-  const isMfaVerified = (() => {
-    try {
-      if (!user) return false;
-      const key = `mfa_verified_${user.id}`;
-      const raw = localStorage.getItem(key);
-      if (!raw) return false;
-      const parsed = JSON.parse(raw || '{}');
-      const expiresAt = typeof parsed.expiresAt === 'number' ? parsed.expiresAt : 0;
-      if (Date.now() > expiresAt) {
-        localStorage.removeItem(key);
-        return false;
-      }
-      return true;
-    } catch {
-      return false;
-    }
-  })();
+  // const isMfaVerified = (() => {
+  //   try {
+  //     if (!user) return false;
+  //     const key = `mfa_verified_${user.id}`;
+  //     const raw = localStorage.getItem(key);
+  //     if (!raw) return false;
+  //     const parsed = JSON.parse(raw || '{}');
+  //     const expiresAt = typeof parsed.expiresAt === 'number' ? parsed.expiresAt : 0;
+  //     if (Date.now() > expiresAt) {
+  //       localStorage.removeItem(key);
+  //       return false;
+  //     }
+  //     return true;
+  //   } catch {
+  //     return false;
+  //   }
+  // })();
 
-  // Require MFA for any authenticated user
-  if (user && !inMfa && !isMfaVerified) {
-    return <Navigate to="/mfa" replace state={{ from: location.pathname }} />;
-  }
+  // Require MFA for any authenticated user - DISABLED
+  // if (user && !inMfa && !isMfaVerified) {
+  //   return <Navigate to="/mfa" replace state={{ from: location.pathname }} />;
+  // }
   return <>{children}</>;
 };
 

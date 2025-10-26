@@ -32,12 +32,12 @@ const Auth = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-brand-green-50 via-white to-brand-green-100 flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-brand-blue-50 via-white to-brand-blue-100 flex items-center justify-center p-4 relative overflow-hidden">
       {/* Background decorative elements */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-brand-green-200 rounded-full opacity-20 blur-3xl"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-brand-green-300 rounded-full opacity-20 blur-3xl"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-brand-green-100 rounded-full opacity-10 blur-3xl"></div>
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-brand-blue-200 rounded-full opacity-20 blur-3xl"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-brand-blue-300 rounded-full opacity-20 blur-3xl"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-brand-blue-100 rounded-full opacity-10 blur-3xl"></div>
       </div>
 
       <div className="w-full max-w-md relative z-10">
@@ -45,11 +45,11 @@ const Auth = () => {
         <div className="text-center mb-8">
           <div className="flex justify-center mb-6">
             <div className="relative">
-              <div className="absolute inset-0 bg-brand-green-200 rounded-full blur-xl opacity-30"></div>
+              <div className="absolute inset-0 bg-brand-blue-200 rounded-full blur-xl opacity-30"></div>
               <img 
-                src="/lovable-uploads/d7fc2e96-c700-49a2-be74-507880e07deb.png" 
+                src="/lovable-uploads/lendy-logo.png" 
                 alt="Lendy Logo" 
-                className="h-28 w-28 object-contain relative z-10 drop-shadow-lg"
+                className="h-32 w-32 object-contain relative z-10 drop-shadow-lg rounded-full bg-white p-2"
               />
             </div>
           </div>
@@ -66,7 +66,7 @@ const Auth = () => {
           <CardHeader className="text-center pb-4">
             <CardTitle className="text-xl font-semibold text-foreground">
               <div className="flex items-center justify-center gap-2">
-                <Shield className="h-5 w-5 text-brand-green-600" />
+                <Shield className="h-5 w-5 text-brand-blue-600" />
                 Secure Login
               </div>
             </CardTitle>
