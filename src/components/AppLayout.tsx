@@ -57,11 +57,11 @@ const AppLayout = () => {
               <div className="flex items-center gap-2">
                 <img
                   src="/lovable-uploads/logo-napol.png"
-                  alt="Napol Logo"
+                  alt="Lendy Logo"
                   className="w-8 h-8 object-contain"
                 />
-                <h1 className="font-bold text-lg sm:text-xl md:text-2xl bg-gradient-to-r from-brand-green-600 to-brand-green-800 bg-clip-text text-transparent whitespace-nowrap">
-                  Napol Microfinance
+                <h1 className="font-bold text-lg sm:text-xl md:text-2xl bg-gradient-to-r from-brand-blue-600 to-brand-blue-800 bg-clip-text text-transparent whitespace-nowrap">
+                  Lendy Microfinance
                 </h1>
               </div>
             </div>

@@ -153,10 +153,15 @@ AS $$
 $$;
 
 -- Ensure the is_admin function works correctly
+-- Note: Changed from 'admin' to check for super_admin or branch_admin
 CREATE OR REPLACE FUNCTION public.is_admin(_user_id UUID)
 RETURNS BOOLEAN
 LANGUAGE SQL
 STABLE SECURITY DEFINER
 AS $$
-    SELECT public.has_role(_user_id, 'admin');
+    SELECT EXISTS (
+        SELECT 1 FROM public.user_roles 
+        WHERE user_id = _user_id 
+        AND role::text IN ('super_admin', 'branch_admin')
+    );
 $$;

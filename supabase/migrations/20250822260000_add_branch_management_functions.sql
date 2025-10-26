@@ -39,18 +39,18 @@ BEGIN
       branch_id,
       COUNT(*) as count
     FROM members 
-    WHERE status = 'active'
+    WHERE members.status = 'active'
     GROUP BY branch_id
   ) member_stats ON b.id = member_stats.branch_id
   LEFT JOIN (
     SELECT 
-      branch_id,
+      l.branch_id,
       COUNT(*) as total_loans,
-      COUNT(CASE WHEN status = 'active' THEN 1 END) as count,
-      COALESCE(SUM(CASE WHEN status = 'active' THEN current_balance ELSE 0 END), 0) as total_outstanding,
-      COALESCE(SUM(principal_amount), 0) as total_portfolio
-    FROM loans 
-    GROUP BY branch_id
+      COUNT(CASE WHEN l.status::text = 'active' THEN 1 END) as count,
+      COALESCE(SUM(CASE WHEN l.status::text = 'active' THEN l.current_balance ELSE 0 END), 0) as total_outstanding,
+      COALESCE(SUM(l.principal_amount), 0) as total_portfolio
+    FROM loans l
+    GROUP BY l.branch_id
   ) loan_stats ON b.id = loan_stats.branch_id
   ORDER BY b.name;
 END;
@@ -107,20 +107,20 @@ BEGIN
     SELECT 
       branch_id,
       COUNT(*) as total_count,
-      COUNT(CASE WHEN status = 'active' THEN 1 END) as active_count
+      COUNT(CASE WHEN members.status = 'active' THEN 1 END) as active_count
     FROM members 
     GROUP BY branch_id
   ) member_stats ON b.id = member_stats.branch_id
   LEFT JOIN (
     SELECT 
-      branch_id,
+      l.branch_id,
       COUNT(*) as total_count,
-      COUNT(CASE WHEN status = 'active' THEN 1 END) as active_count,
-      COUNT(CASE WHEN status = 'defaulted' THEN 1 END) as defaulted_count,
-      COALESCE(SUM(CASE WHEN status = 'active' THEN current_balance ELSE 0 END), 0) as total_outstanding,
-      COALESCE(SUM(principal_amount), 0) as total_portfolio
-    FROM loans 
-    GROUP BY branch_id
+      COUNT(CASE WHEN l.status::text = 'active' THEN 1 END) as active_count,
+      COUNT(CASE WHEN l.status::text = 'defaulted' THEN 1 END) as defaulted_count,
+      COALESCE(SUM(CASE WHEN l.status::text = 'active' THEN l.current_balance ELSE 0 END), 0) as total_outstanding,
+      COALESCE(SUM(l.principal_amount), 0) as total_portfolio
+    FROM loans l
+    GROUP BY l.branch_id
   ) loan_stats ON b.id = loan_stats.branch_id
   LEFT JOIN (
     SELECT 
@@ -161,16 +161,16 @@ BEGIN
       COALESCE(loan_stats.total_portfolio, 0) as total_portfolio
     FROM branches b
     LEFT JOIN (
-      SELECT branch_id, COUNT(*) as count FROM members WHERE status = 'active' GROUP BY branch_id
+      SELECT members.branch_id, COUNT(*) as count FROM members WHERE members.status = 'active' GROUP BY members.branch_id
     ) member_stats ON b.id = member_stats.branch_id
     LEFT JOIN (
       SELECT 
-        branch_id, 
+        l.branch_id, 
         COUNT(*) as count,
-        COALESCE(SUM(CASE WHEN status = 'active' THEN current_balance ELSE 0 END), 0) as total_outstanding,
-        COALESCE(SUM(principal_amount), 0) as total_portfolio
-      FROM loans 
-      GROUP BY branch_id
+        COALESCE(SUM(CASE WHEN l.status::text = 'active' THEN l.current_balance ELSE 0 END), 0) as total_outstanding,
+        COALESCE(SUM(l.principal_amount), 0) as total_portfolio
+      FROM loans l
+      GROUP BY l.branch_id
     ) loan_stats ON b.id = loan_stats.branch_id
   )
   SELECT 
@@ -220,21 +220,21 @@ LEFT JOIN (
     branch_id,
     COUNT(*) as count
   FROM members 
-  WHERE status = 'active'
+  WHERE members.status = 'active'
   GROUP BY branch_id
 ) member_stats ON b.id = member_stats.branch_id
 LEFT JOIN (
-  SELECT 
-    branch_id,
-    COUNT(CASE WHEN status = 'active' THEN 1 END) as count,
-    COALESCE(SUM(CASE WHEN status = 'active' THEN current_balance ELSE 0 END), 0) as total_outstanding,
-    COALESCE(SUM(principal_amount), 0) as total_portfolio,
-    CASE 
-      WHEN COUNT(*) > 0 THEN COALESCE(SUM(principal_amount), 0) / COUNT(*)
-      ELSE 0 
-    END as avg_loan_size
-  FROM loans 
-  GROUP BY branch_id
+    SELECT 
+      branch_id,
+      COUNT(*) as count,
+      0 as total_outstanding,
+      COALESCE(SUM(principal_amount), 0) as total_portfolio,
+      CASE 
+        WHEN COUNT(*) > 0 THEN COALESCE(SUM(principal_amount), 0) / COUNT(*)
+        ELSE 0 
+      END as avg_loan_size
+    FROM loans 
+    GROUP BY branch_id
 ) loan_stats ON b.id = loan_stats.branch_id;
 
 -- Grant select permissions on the view

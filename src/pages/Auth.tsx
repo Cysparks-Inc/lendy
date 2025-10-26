@@ -48,16 +48,16 @@ const Auth = () => {
               <div className="absolute inset-0 bg-brand-green-200 rounded-full blur-xl opacity-30"></div>
               <img 
                 src="/lovable-uploads/d7fc2e96-c700-49a2-be74-507880e07deb.png" 
-                alt="Napol Logo" 
+                alt="Lendy Logo" 
                 className="h-28 w-28 object-contain relative z-10 drop-shadow-lg"
               />
             </div>
           </div>
-          <h1 className="text-4xl font-bold text-center mb-3 bg-gradient-to-r from-brand-green-600 to-brand-green-700 bg-clip-text text-transparent">
+          <h1 className="text-4xl font-bold text-center mb-3 bg-gradient-to-r from-brand-blue-600 to-brand-blue-700 bg-clip-text text-transparent">
             Welcome Back
           </h1>
           <p className="text-muted-foreground text-center text-lg">
-            Sign in to access your Napol dashboard
+            Sign in to access your Lendy dashboard
           </p>
         </div>
 
@@ -155,7 +155,7 @@ const Auth = () => {
         {/* Footer */}
         <div className="text-center mt-8">
           <p className="text-xs text-muted-foreground">
-            © 2025 Napol Microfinance. All rights reserved.
+            © 2025 Lendy Microfinance. All rights reserved.
           </p>
         </div>
       </div>

@@ -88,16 +88,16 @@ export function AppSidebar() {
 
   return (
     <Sidebar className={`${isCollapsed ? "w-14" : "w-56"} collapsible="icon"`} style={{ top: '64px', height: 'calc(100vh - 64px)' }}>
-      <SidebarHeader className="border-b border-border p-4 bg-gradient-to-br from-brand-green-50 to-brand-green-100">
+      <SidebarHeader className="border-b border-border p-4 bg-gradient-to-br from-brand-blue-50 to-brand-blue-100">
         <div className="flex items-center gap-3">
           <img
             src="/lovable-uploads/logo-napol.png"
-            alt="Napol Logo"
+            alt="Lendy Logo"
             className="w-8 h-8 object-contain flex-shrink-0"
           />
           {!isCollapsed && (
             <div>
-              <h2 className="text-xl font-bold text-foreground bg-gradient-to-r from-brand-green-600 to-brand-green-800 bg-clip-text text-transparent">
+              <h2 className="text-xl font-bold text-foreground bg-gradient-to-r from-brand-blue-600 to-brand-blue-800 bg-clip-text text-transparent">
               
               </h2>
               <p className="text-xs text-muted-foreground capitalize font-medium">

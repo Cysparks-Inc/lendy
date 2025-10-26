@@ -46,30 +46,30 @@ const Loader: React.FC<LoaderProps> = ({
   );
 };
 
-// Page Loader Component - Branded with Napol logo
+// Page Loader Component - Branded with Lendy logo
 export const PageLoader: React.FC<{ text?: string }> = ({ text = 'Loading...' }) => {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-brand-green-50 to-white flex items-center justify-center">
+    <div className="min-h-screen bg-gradient-to-br from-brand-blue-50 to-white flex items-center justify-center">
       <div className="text-center animate-scale-in">
-        {/* Napol Logo */}
+        {/* Lendy Logo */}
         <div className="mb-6">
           <div className="w-24 h-24 mx-auto mb-4">
             <img 
               src="/lovable-uploads/logo-napol.png" 
-              alt="Napol Microfinance" 
+              alt="Lendy Microfinance" 
               className="w-full h-full object-contain"
             />
           </div>
-          <h1 className="text-2xl font-bold text-brand-green-800">Napol Microfinance</h1>
+          <h1 className="text-2xl font-bold text-brand-blue-800">Lendy Microfinance</h1>
           <p className="text-gray-600 mt-1 text-sm">Loading your dashboard...</p>
         </div>
         
         {/* Simple, fast loader */}
-        <div className="w-16 h-16 border-4 border-gray-200 border-t-brand-green-600 rounded-full animate-spin-fast mx-auto"></div>
+        <div className="w-16 h-16 border-4 border-gray-200 border-t-brand-blue-600 rounded-full animate-spin-fast mx-auto"></div>
         
         {/* Loading text */}
         {text && (
-          <p className="text-brand-green-700 font-medium mt-4 animate-fade-in-up">{text}</p>
+          <p className="text-brand-blue-700 font-medium mt-4 animate-fade-in-up">{text}</p>
         )}
       </div>
     </div>

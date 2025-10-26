@@ -247,25 +247,25 @@
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 0%;
 
-    /* Primary: Brand green for trust and growth */
-    --primary: 142 76% 36%;
+    /* Primary: Brand dark blue for trust and professionalism */
+    --primary: 217 91% 40%;
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 142 76% 42%;
+    --primary-hover: 217 91% 45%;
 
-    /* Secondary: Professional black */
+    /* Secondary: Professional dark navy */
     --secondary: 0 0% 10%;
     --secondary-foreground: 0 0% 100%;
 
     --muted: 0 0% 96%;
     --muted-foreground: 0 0% 45%;
 
-    --accent: 142 76% 96%;
-    --accent-foreground: 142 76% 36%;
+    --accent: 217 91% 96%;
+    --accent-foreground: 217 91% 40%;
 
-    /* Financial status colors - Green theme */
-    --success: 142 76% 36%;
+    /* Financial status colors - Dark blue theme */
+    --success: 217 91% 40%;
     --success-foreground: 0 0% 100%;
-    --success-light: 142 76% 96%;
+    --success-light: 217 91% 96%;
 
     --warning: 48 96% 53%;
     --warning-foreground: 0 0% 0%;
@@ -278,17 +278,17 @@
     /* UI Elements */
     --border: 0 0% 90%;
     --input: 0 0% 90%;
-    --ring: 142 76% 36%;
+    --ring: 217 91% 40%;
 
-    /* Gradients for financial branding - Green and Black */
-    --gradient-primary: linear-gradient(135deg, hsl(142 76% 36%), hsl(142 76% 42%));
-    --gradient-success: linear-gradient(135deg, hsl(142 76% 36%), hsl(142 76% 42%));
+    /* Gradients for financial branding - Dark Blue and Black */
+    --gradient-primary: linear-gradient(135deg, hsl(217 91% 40%), hsl(217 91% 45%));
+    --gradient-success: linear-gradient(135deg, hsl(217 91% 40%), hsl(217 91% 45%));
     --gradient-card: linear-gradient(180deg, hsl(0 0% 100%), hsl(0 0% 98%));
 
     /* Shadows for depth and professionalism */
     --shadow-card: 0 2px 10px -2px hsl(0 0% 0% / 0.08);
     --shadow-elevated: 0 8px 25px -8px hsl(0 0% 0% / 0.12);
-    --shadow-financial: 0 4px 20px -4px hsl(142 76% 36% / 0.15);
+    --shadow-financial: 0 4px 20px -4px hsl(217 91% 40% / 0.15);
 
     /* Animation variables */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -298,16 +298,16 @@
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 0 0% 0%;
-    --sidebar-primary: 142 76% 36%;
+    --sidebar-primary: 217 91% 40%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 142 76% 96%;
-    --sidebar-accent-foreground: 142 76% 36%;
+    --sidebar-accent: 217 91% 96%;
+    --sidebar-accent-foreground: 217 91% 40%;
     --sidebar-border: 0 0% 90%;
-    --sidebar-ring: 142 76% 36%;
+    --sidebar-ring: 217 91% 40%;
   }
 
   .dark {
-    /* Dark mode: Green and Black theme */
+    /* Dark mode: Dark Blue and Black theme */
     --background: 0 0% 8%;
     --foreground: 0 0% 95%;
 
@@ -317,9 +317,9 @@
     --popover: 0 0% 12%;
     --popover-foreground: 0 0% 95%;
 
-    --primary: 142 76% 55%;
+    --primary: 217 91% 55%;
     --primary-foreground: 0 0% 8%;
-    --primary-hover: 142 76% 60%;
+    --primary-hover: 217 91% 60%;
 
     --secondary: 0 0% 18%;
     --secondary-foreground: 0 0% 95%;
@@ -327,12 +327,12 @@
     --muted: 0 0% 18%;
     --muted-foreground: 0 0% 65%;
 
-    --accent: 142 76% 18%;
-    --accent-foreground: 142 76% 55%;
+    --accent: 217 91% 18%;
+    --accent-foreground: 217 91% 55%;
 
-    --success: 142 76% 55%;
+    --success: 217 91% 55%;
     --success-foreground: 0 0% 8%;
-    --success-light: 142 76% 8%;
+    --success-light: 217 91% 8%;
 
     --warning: 48 96% 60%;
     --warning-foreground: 0 0% 0%;
@@ -344,26 +344,26 @@
 
     --border: 0 0% 20%;
     --input: 0 0% 20%;
-    --ring: 142 76% 55%;
+    --ring: 217 91% 55%;
 
     --sidebar-background: 0 0% 10%;
     --sidebar-foreground: 0 0% 90%;
-    --sidebar-primary: 142 76% 55%;
+    --sidebar-primary: 217 91% 55%;
     --sidebar-primary-foreground: 0 0% 8%;
-    --sidebar-accent: 142 76% 18%;
-    --sidebar-accent-foreground: 142 76% 55%;
+    --sidebar-accent: 217 91% 18%;
+    --sidebar-accent-foreground: 217 91% 55%;
     --sidebar-border: 0 0% 18%;
-    --sidebar-ring: 142 76% 55%;
+    --sidebar-ring: 217 91% 55%;
 
-    /* Dark mode gradients - Green and Black */
-    --gradient-primary: linear-gradient(135deg, hsl(142 76% 45%), hsl(142 76% 55%));
-    --gradient-success: linear-gradient(135deg, hsl(142 76% 45%), hsl(142 76% 55%));
+    /* Dark mode gradients - Dark Blue and Black */
+    --gradient-primary: linear-gradient(135deg, hsl(217 91% 45%), hsl(217 91% 55%));
+    --gradient-success: linear-gradient(135deg, hsl(217 91% 45%), hsl(217 91% 55%));
     --gradient-card: linear-gradient(180deg, hsl(0 0% 12%), hsl(0 0% 10%));
 
     /* Dark mode shadows */
     --shadow-card: 0 2px 10px -2px hsl(0 0% 0% / 0.25);
     --shadow-elevated: 0 8px 25px -8px hsl(0 0% 0% / 0.35);
-    --shadow-financial: 0 4px 20px -4px hsl(142 76% 36% / 0.35);
+    --shadow-financial: 0 4px 20px -4px hsl(217 91% 40% / 0.35);
   }
 }
 

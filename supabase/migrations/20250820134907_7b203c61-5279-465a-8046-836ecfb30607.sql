@@ -151,7 +151,7 @@ CREATE TABLE public.realizable_assets (
   realization_period integer NOT NULL DEFAULT 30, -- days
   risk_factor numeric NOT NULL DEFAULT 0 CHECK (risk_factor >= 0 AND risk_factor <= 100),
   location text,
-  branch_id bigint REFERENCES public.branches(id),
+  branch_id uuid REFERENCES public.branches(id),
   last_valuation_date date NOT NULL DEFAULT CURRENT_DATE,
   status text NOT NULL DEFAULT 'available' CHECK (status IN ('available', 'in_process', 'realized', 'disputed')),
   recovery_likelihood text NOT NULL DEFAULT 'medium' CHECK (recovery_likelihood IN ('high', 'medium', 'low')),
@@ -168,22 +168,22 @@ ALTER TABLE public.realizable_assets ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Authenticated users can view realizable assets" 
 ON public.realizable_assets 
 FOR SELECT 
-USING (has_role(auth.uid(), 'admin'::app_role) OR has_role(auth.uid(), 'staff'::app_role));
+USING (auth.uid() IS NOT NULL);
 
 CREATE POLICY "Authenticated users can insert realizable assets" 
 ON public.realizable_assets 
 FOR INSERT 
-WITH CHECK ((has_role(auth.uid(), 'admin'::app_role) OR has_role(auth.uid(), 'staff'::app_role)) AND (created_by = auth.uid()));
+WITH CHECK (auth.uid() IS NOT NULL AND created_by = auth.uid());
 
 CREATE POLICY "Authenticated users can update realizable assets" 
 ON public.realizable_assets 
 FOR UPDATE 
-USING (has_role(auth.uid(), 'admin'::app_role) OR has_role(auth.uid(), 'staff'::app_role));
+USING (auth.uid() IS NOT NULL);
 
-CREATE POLICY "Only admins can delete realizable assets" 
+CREATE POLICY "Only super admins can delete realizable assets" 
 ON public.realizable_assets 
 FOR DELETE 
-USING (is_admin(auth.uid()));
+USING (is_super_admin(auth.uid()));
 
 -- Add trigger for updated_at
 CREATE TRIGGER update_realizable_assets_updated_at

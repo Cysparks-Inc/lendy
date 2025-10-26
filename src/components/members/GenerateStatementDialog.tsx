@@ -54,7 +54,7 @@ export const GenerateStatementDialog: React.FC<GenerateStatementDialogProps> = (
             doc.setFontSize(22);
             doc.setFont("helvetica", "bold");
             doc.setTextColor(17, 24, 39); // Dark blue color for branding
-            doc.text("Napol Microfinance", 14, 22);
+            doc.text("Lendy Microfinance", 14, 22);
             doc.setFontSize(12);
             doc.setFont("helvetica", "normal");
             doc.text("MEMBER ACCOUNT STATEMENT", 14, 30);
@@ -146,7 +146,7 @@ export const GenerateStatementDialog: React.FC<GenerateStatementDialogProps> = (
 
             let csvContent = [];
             // --- Company Header and Branding ---
-            csvContent.push("Napol Microfinance");
+            csvContent.push("Lendy Microfinance");
             csvContent.push(""); // Empty row for spacing
             
             // --- Header Section with Personal Details ---

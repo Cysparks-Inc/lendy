@@ -1,4 +1,4 @@
-# 🏦 Napol Microfinance - Core Management System
+# 🏦 Lendy Microfinance - Core Management System
 
 A comprehensive, modern microfinance management system built with React, TypeScript, and Supabase. Designed to streamline loan management, member tracking, and financial operations for microfinance institutions.
 
@@ -347,4 +347,4 @@ For support and questions:
 
 **Built with ❤️ for the microfinance community**
 
-*Last updated: September 2025*
+*Last updated: January 2025*

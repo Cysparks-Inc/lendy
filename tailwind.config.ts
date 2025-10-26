@@ -74,8 +74,21 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
-				// Custom brand colors
+				// Custom brand colors - Dark Blue theme
 				brand: {
+					blue: {
+						'50': '#eff6ff',
+						'100': '#dbeafe',
+						'200': '#bfdbfe',
+						'300': '#93c5fd',
+						'400': '#60a5fa',
+						'500': '#3b82f6',
+						'600': '#2563eb',
+						'700': '#1d4ed8',
+						'800': '#1e40af',
+						'900': '#1e3a8a',
+						'950': '#172554',
+					},
 					green: {
 						'50': '#f0fdf4',
 						'100': '#dcfce7',
@@ -108,14 +121,14 @@ export default {
 				'gradient-primary': 'var(--gradient-primary)',
 				'gradient-success': 'var(--gradient-success)',
 				'gradient-card': 'var(--gradient-card)',
-				'gradient-brand': 'linear-gradient(135deg, #16a34a, #22c55e)',
-				'gradient-brand-dark': 'linear-gradient(135deg, #14532d, #166534)',
+				'gradient-brand': 'linear-gradient(135deg, #1d4ed8, #2563eb)',
+				'gradient-brand-dark': 'linear-gradient(135deg, #1e3a8a, #1e40af)',
 			},
 			boxShadow: {
 				'card': 'var(--shadow-card)',
 				'elevated': 'var(--shadow-elevated)',
 				'financial': 'var(--shadow-financial)',
-				'brand': '0 4px 20px -4px rgba(22, 163, 74, 0.15)',
+				'brand': '0 4px 20px -4px rgba(29, 78, 216, 0.15)',
 			},
 			transitionTimingFunction: {
 				'smooth': 'var(--transition-smooth)',
