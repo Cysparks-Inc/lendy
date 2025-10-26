@@ -219,7 +219,7 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
             className={cn(
               "justify-start text-left font-normal min-w-[180px]",
               !dateRange.from && "text-muted-foreground",
-              hasActiveFilter && "border-brand-green-300 bg-brand-green-50"
+              hasActiveFilter && "border-brand-blue-300 bg-brand-blue-50"
             )}
           >
             <Filter className="mr-2 h-4 w-4" />

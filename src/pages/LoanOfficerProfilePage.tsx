@@ -299,7 +299,7 @@ const LoanOfficerProfilePage: React.FC = () => {
               variant="outline" 
               size="sm"
               onClick={() => handleAssignSpecificMember(row.id, row.full_name)}
-              className="text-brand-green-600 hover:text-brand-green-700"
+              className="text-brand-blue-600 hover:text-brand-blue-700"
             >
               <Users className="h-4 w-4" />
               Assign to Me
@@ -460,31 +460,31 @@ const LoanOfficerProfilePage: React.FC = () => {
       
       {/* Modern Profile Card with Better Mobile Layout */}
       {/* Profile Card */}
-      <Card className="overflow-hidden bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
+      <Card className="overflow-hidden bg-gradient-to-br from-brand-blue-50 to-brand-blue-100 border-brand-blue-200 hover:border-brand-blue-300 transition-all duration-200 hover:shadow-md">
         <CardHeader className="pb-6">
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
             <div className="relative">
-              <Avatar className="h-20 w-20 sm:h-24 sm:w-24 border-2 border-brand-green-200">
+              <Avatar className="h-20 w-20 sm:h-24 sm:w-24 border-2 border-brand-blue-200">
                 <AvatarImage src={officer.profile_picture_url} alt={officer.name} />
-                <AvatarFallback className="bg-brand-green-100 text-brand-green-700 text-lg">
+                <AvatarFallback className="bg-brand-blue-100 text-brand-blue-700 text-lg">
                   {getInitials(officer.name)}
                 </AvatarFallback>
               </Avatar>
             </div>
             <div className="text-center sm:text-left">
-              <CardTitle className="text-2xl sm:text-3xl text-brand-green-800 mb-2">{officer.name}</CardTitle>
-              <CardDescription className="text-brand-green-600">{officer.email}</CardDescription>
+              <CardTitle className="text-2xl sm:text-3xl text-brand-blue-800 mb-2">{officer.name}</CardTitle>
+              <CardDescription className="text-brand-blue-600">{officer.email}</CardDescription>
               <div className="flex flex-wrap gap-4 mt-4 text-sm">
-                <div className="text-brand-green-700">
+                <div className="text-brand-blue-700">
                   <span className="font-semibold">{members.length}</span> Assigned Members
                 </div>
-                <div className="text-brand-green-700">
+                <div className="text-brand-blue-700">
                   <span className="font-semibold">{unassignedMembers.length}</span> Unassigned Members
                 </div>
-                <div className="text-brand-green-700">
+                <div className="text-brand-blue-700">
                   <span className="font-semibold">{loans.length}</span> Total Loans
                 </div>
-                <div className="text-brand-green-700">
+                <div className="text-brand-blue-700">
                   <span className="font-semibold">{formatCurrency(officer.total_disbursed)}</span> Portfolio
                 </div>
               </div>
@@ -523,7 +523,7 @@ const LoanOfficerProfilePage: React.FC = () => {
                   <Button 
                     variant="outline" 
                     onClick={handleAssignUnassignedMembers}
-                    className="text-brand-green-600 hover:text-brand-green-700"
+                    className="text-brand-blue-600 hover:text-brand-blue-700"
                   >
                     <Users className="mr-2 h-4 w-4" />
                     Assign Unassigned Members
@@ -548,7 +548,7 @@ const LoanOfficerProfilePage: React.FC = () => {
                   <Button 
                     variant="outline" 
                     onClick={handleAssignUnassignedMembers}
-                    className="text-brand-green-600 hover:text-brand-green-700"
+                    className="text-brand-blue-600 hover:text-brand-blue-700"
                   >
                     <Users className="mr-2 h-4 w-4" />
                     Assign All to Me

@@ -97,11 +97,11 @@ const Settings: React.FC = () => {
   if (userRole !== 'super_admin') {
     return (
       <div className="p-2 sm:p-4 md:p-6">
-        <Card className="max-w-md mx-auto bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
+        <Card className="max-w-md mx-auto bg-gradient-to-br from-brand-blue-50 to-brand-blue-100 border-brand-blue-200 hover:border-brand-blue-300 transition-all duration-200 hover:shadow-md">
           <CardHeader className="text-center">
-            <AlertTriangle className="mx-auto h-12 w-12 text-brand-green-600" />
-            <CardTitle className="mt-4 text-brand-green-800">Access Denied</CardTitle>
-            <CardDescription className="text-brand-green-600">You do not have permission to view this page.</CardDescription>
+            <AlertTriangle className="mx-auto h-12 w-12 text-brand-blue-600" />
+            <CardTitle className="mt-4 text-brand-blue-800">Access Denied</CardTitle>
+            <CardDescription className="text-brand-blue-600">You do not have permission to view this page.</CardDescription>
           </CardHeader>
         </Card>
       </div>

@@ -22,8 +22,8 @@ const Loader: React.FC<LoaderProps> = ({
   };
 
   const variantClasses = {
-    default: 'text-brand-green-600',
-    primary: 'text-brand-green-600',
+    default: 'text-brand-blue-600',
+    primary: 'text-brand-blue-600',
     success: 'text-green-600',
     warning: 'text-yellow-600',
     error: 'text-red-600'
@@ -32,7 +32,7 @@ const Loader: React.FC<LoaderProps> = ({
   return (
     <div className={`flex flex-col items-center justify-center ${className}`}>
       {/* Simple, fast spinner */}
-      <div className={`${sizeClasses[size]} border-2 border-gray-200 border-t-brand-green-600 rounded-full animate-spin-fast`}></div>
+      <div className={`${sizeClasses[size]} border-2 border-gray-200 border-t-brand-blue-600 rounded-full animate-spin-fast`}></div>
       
       {/* Loading text */}
       {text && (
@@ -101,7 +101,7 @@ export const ButtonLoader: React.FC<{ size?: 'sm' | 'md' | 'lg' }> = ({ size = '
 export const QuickLoader: React.FC<{ text?: string }> = ({ text }) => {
   return (
     <div className="flex items-center justify-center space-x-2 animate-fade-in-up">
-      <div className="w-4 h-4 border-2 border-brand-green-200 border-t-brand-green-600 rounded-full animate-spin-fast"></div>
+      <div className="w-4 h-4 border-2 border-brand-blue-200 border-t-brand-blue-600 rounded-full animate-spin-fast"></div>
       {text && <span className="text-sm text-gray-600">{text}</span>}
     </div>
   );
@@ -150,13 +150,13 @@ export const ProgressLoader: React.FC<{
         <div className="flex justify-between items-center text-sm">
           <span className="text-gray-600">{text}</span>
           {showPercentage && (
-            <span className="text-brand-green-600 font-medium">{Math.round(progress)}%</span>
+            <span className="text-brand-blue-600 font-medium">{Math.round(progress)}%</span>
           )}
         </div>
       )}
       <div className={`w-full bg-gray-200 rounded-full ${sizeClasses[size]}`}>
         <div 
-          className={`bg-brand-green-600 ${sizeClasses[size]} rounded-full transition-all duration-300 ease-out`}
+          className={`bg-brand-blue-600 ${sizeClasses[size]} rounded-full transition-all duration-300 ease-out`}
           style={{ width: `${progress}%` }}
         ></div>
       </div>
@@ -165,7 +165,7 @@ export const ProgressLoader: React.FC<{
 };
 
 // Dots Loader - For simple loading states
-export const DotsLoader: React.FC<{ text?: string; color?: string }> = ({ text, color = 'brand-green-600' }) => {
+export const DotsLoader: React.FC<{ text?: string; color?: string }> = ({ text, color = 'brand-blue-600' }) => {
   return (
     <div className="flex items-center justify-center space-x-1 animate-fade-in-up">
       <div className={`w-2 h-2 bg-${color} rounded-full animate-pulse-soft`} style={{ animationDelay: '0ms' }}></div>
@@ -180,7 +180,7 @@ export const DotsLoader: React.FC<{ text?: string; color?: string }> = ({ text, 
 export const InstantLoader: React.FC<{ text?: string }> = ({ text }) => {
   return (
     <div className="flex items-center justify-center space-x-2 animate-scale-in">
-      <div className="w-3 h-3 bg-brand-green-600 rounded-full animate-pulse-soft"></div>
+      <div className="w-3 h-3 bg-brand-blue-600 rounded-full animate-pulse-soft"></div>
       {text && <span className="text-xs text-gray-500">{text}</span>}
     </div>
   );

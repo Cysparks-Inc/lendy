@@ -32,10 +32,10 @@ const Security: React.FC = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           {/* User Security Actions */}
-          <Card className="bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
+          <Card className="bg-gradient-to-br from-brand-blue-50 to-brand-blue-100 border-brand-blue-200 hover:border-brand-blue-300 transition-all duration-200 hover:shadow-md">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-brand-green-800 text-lg sm:text-xl">
-                <UserCog className="h-4 w-4 sm:h-5 sm:w-5 text-brand-green-600" />
+              <CardTitle className="flex items-center gap-2 text-brand-blue-800 text-lg sm:text-xl">
+                <UserCog className="h-4 w-4 sm:h-5 sm:w-5 text-brand-blue-600" />
                 {userRole === 'super_admin' ? 'Admin Security Actions' : 'Your Security'}
               </CardTitle>
               <CardDescription className="text-sm sm:text-base">
@@ -82,10 +82,10 @@ const Security: React.FC = () => {
           </Card>
 
           {/* Password Policy */}
-          <Card className="bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
+          <Card className="bg-gradient-to-br from-brand-blue-50 to-brand-blue-100 border-brand-blue-200 hover:border-brand-blue-300 transition-all duration-200 hover:shadow-md">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-brand-green-800 text-lg sm:text-xl">
-                <Lock className="h-4 w-4 sm:h-5 sm:w-5 text-brand-green-600" />
+              <CardTitle className="flex items-center gap-2 text-brand-blue-800 text-lg sm:text-xl">
+                <Lock className="h-4 w-4 sm:h-5 sm:w-5 text-brand-blue-600" />
                 Password Policy
               </CardTitle>
              

@@ -47,7 +47,7 @@ const Auth = () => {
             <div className="relative">
               <div className="absolute inset-0 bg-brand-blue-200 rounded-full blur-xl opacity-30"></div>
               <img 
-                src="/lovable-uploads/lendy-logo.png" 
+                src="/lovable-uploads/logo-napol.png" 
                 alt="Lendy Logo" 
                 className="h-32 w-32 object-contain relative z-10 drop-shadow-lg rounded-full bg-white p-2"
               />
@@ -81,7 +81,7 @@ const Auth = () => {
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-sm font-medium text-foreground">
                   <div className="flex items-center gap-2">
-                    <Mail className="h-4 w-4 text-brand-green-600" />
+                    <Mail className="h-4 w-4 text-brand-blue-600" />
                     Email Address
                   </div>
                 </Label>
@@ -91,7 +91,7 @@ const Auth = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="Enter your email address"
-                  className="h-12 border-2 border-gray-200 focus:border-brand-green-500 focus:ring-brand-green-500/20 transition-all duration-200"
+                  className="h-12 border-2 border-gray-200 focus:border-brand-blue-500 focus:ring-brand-blue-500/20 transition-all duration-200"
                   required
                 />
               </div>
@@ -100,7 +100,7 @@ const Auth = () => {
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-sm font-medium text-foreground">
                   <div className="flex items-center gap-2">
-                    <Lock className="h-4 w-4 text-brand-green-600" />
+                    <Lock className="h-4 w-4 text-brand-blue-600" />
                     Password
                   </div>
                 </Label>
@@ -111,7 +111,7 @@ const Auth = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your password"
-                    className="h-12 border-2 border-gray-200 focus:border-brand-green-500 focus:ring-brand-green-500/20 transition-all duration-200 pr-12"
+                    className="h-12 border-2 border-gray-200 focus:border-brand-blue-500 focus:ring-brand-blue-500/20 transition-all duration-200 pr-12"
                     required
                   />
                   <Button
@@ -130,7 +130,7 @@ const Auth = () => {
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full h-12 bg-gradient-to-r from-brand-green-600 to-brand-green-700 hover:from-brand-green-700 hover:to-brand-green-800 text-white font-semibold text-lg rounded-lg transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-50 disabled:transform-none shadow-lg hover:shadow-xl"
+                className="w-full h-12 bg-gradient-to-r from-brand-blue-600 to-brand-blue-700 hover:from-brand-blue-700 hover:to-brand-blue-800 text-white font-semibold text-lg rounded-lg transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-50 disabled:transform-none shadow-lg hover:shadow-xl"
               >
                 {isSubmitting ? (
                   <div className="flex items-center gap-2">
@@ -146,7 +146,7 @@ const Auth = () => {
             {/* Additional Info */}
             <div className="text-center pt-4 border-t border-gray-100">
               <p className="text-muted-foreground text-sm">
-                Contact your administrator for account access
+                Contact administrator for account access
               </p>
             </div>
           </CardContent>

@@ -13,7 +13,7 @@ interface SecureCardProps {
 export function SecureCard({ title, value, icon: Icon, subtitle, className = "" }: SecureCardProps) {
   return (
     <Card 
-      className={`border-brand-green-200 hover:border-brand-green-300 transition-colors ${className}`}
+      className={`border-brand-blue-200 hover:border-brand-blue-300 transition-colors ${className}`}
       style={{
         overflow: 'hidden !important',
         maxWidth: '100% !important',
@@ -31,13 +31,13 @@ export function SecureCard({ title, value, icon: Icon, subtitle, className = "" 
           {title}
         </CardTitle>
         <Icon 
-          className="h-4 w-4 text-brand-green-600 flex-shrink-0" 
+          className="h-4 w-4 text-brand-blue-600 flex-shrink-0" 
           style={{ flexShrink: '0 !important' }}
         />
       </CardHeader>
       <CardContent style={{ overflow: 'hidden !important' }}>
         <div 
-          className="text-2xl font-bold text-brand-green-700"
+          className="text-2xl font-bold text-brand-blue-700"
           style={{ overflow: 'hidden !important', textOverflow: 'ellipsis !important' }}
         >
           {value}

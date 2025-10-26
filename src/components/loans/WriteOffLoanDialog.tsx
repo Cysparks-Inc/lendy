@@ -108,8 +108,8 @@ export const WriteOffLoanDialog: React.FC<WriteOffLoanDialogProps> = ({ open, on
                         </PopoverContent>
                     </Popover>
                     
-                    {selectedLoan && <Card className="bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200">
-                      <CardContent className="p-4 text-sm text-brand-green-800">
+                    {selectedLoan && <Card className="bg-gradient-to-br from-brand-blue-50 to-brand-blue-100 border-brand-blue-200">
+                      <CardContent className="p-4 text-sm text-brand-blue-800">
                         You have selected to write off <strong>{selectedLoan.member_name}'s</strong> loan with a balance of <strong>{new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(selectedLoan.current_balance)}</strong>.
                       </CardContent>
                     </Card>}

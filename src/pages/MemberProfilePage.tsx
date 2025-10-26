@@ -332,10 +332,10 @@ const MemberProfilePage: React.FC = () => {
                 {/* Profile Card - Full width on mobile, left column on desktop */}
                 <div className="lg:col-span-1 space-y-6">
                     {/* Profile Card */}
-                    <Card className="overflow-hidden bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
+                    <Card className="overflow-hidden bg-gradient-to-br from-brand-blue-50 to-brand-blue-100 border-brand-blue-200 hover:border-brand-blue-300 transition-all duration-200 hover:shadow-md">
                       <CardHeader className="items-center text-center pb-6">
                         <div className="relative mb-4">
-                          <Avatar className="h-20 w-20 sm:h-24 w-24 border-2 border-brand-green-200">
+                          <Avatar className="h-20 w-20 sm:h-24 w-24 border-2 border-brand-blue-200">
                             {member.photo_url ? (
                               <AvatarImage 
                                 src={member.photo_url} 
@@ -345,13 +345,13 @@ const MemberProfilePage: React.FC = () => {
                                 }}
                               />
                             ) : null}
-                            <AvatarFallback className="bg-brand-green-100 text-brand-green-700 text-lg">
+                            <AvatarFallback className="bg-brand-blue-100 text-brand-blue-700 text-lg">
                               {getInitials(`${member.first_name} ${member.last_name}`)}
                             </AvatarFallback>
                           </Avatar>
                         </div>
-                        <CardTitle className="text-lg sm:text-xl text-brand-green-800">{`${member.first_name} ${member.last_name}`}</CardTitle>
-                        <CardDescription className="text-sm text-brand-green-600">ID: {member.id_number}</CardDescription>
+                        <CardTitle className="text-lg sm:text-xl text-brand-blue-800">{`${member.first_name} ${member.last_name}`}</CardTitle>
+                        <CardDescription className="text-sm text-brand-blue-600">ID: {member.id_number}</CardDescription>
                       </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="space-y-3">
@@ -568,13 +568,13 @@ const InfoItem: React.FC<{icon: React.ElementType, label: string, value: string 
 );
 
 const StatCard: React.FC<{title: string, value: string | number, icon: React.ElementType}> = ({ title, value, icon: Icon }) => (
-    <Card className="bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md p-3 sm:p-4">
+    <Card className="bg-gradient-to-br from-brand-blue-50 to-brand-blue-100 border-brand-blue-200 hover:border-brand-blue-300 transition-all duration-200 hover:shadow-md p-3 sm:p-4">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-0 pt-0">
-            <CardTitle className="text-xs md:text-sm font-medium text-brand-green-800">{title}</CardTitle>
-            <Icon className="h-4 w-4 text-brand-green-600" />
+            <CardTitle className="text-xs md:text-sm font-medium text-brand-blue-800">{title}</CardTitle>
+            <Icon className="h-4 w-4 text-brand-blue-600" />
         </CardHeader>
         <CardContent className="px-0 pb-0">
-            <div className="text-xl md:text-2xl font-bold text-brand-green-700">{value}</div>
+            <div className="text-xl md:text-2xl font-bold text-brand-blue-700">{value}</div>
         </CardContent>
     </Card>
 );

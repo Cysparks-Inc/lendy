@@ -54,7 +54,7 @@ export function AppSidebar() {
   };
 
   const getNavClassName = (active: boolean): string =>
-    active ? "bg-brand-green-600 text-white font-medium shadow-sm" : "hover:bg-brand-green-50 hover:text-brand-green-700 transition-all duration-200";
+    active ? "bg-brand-blue-600 text-white font-medium shadow-sm" : "hover:bg-brand-blue-50 hover:text-brand-blue-700 transition-all duration-200";
 
   const handleSignOut = (): void => {
     signOut();

@@ -245,13 +245,13 @@ const MemberFormPage: React.FC = () => {
     if (successData) {
         return (
             <div className="flex flex-col items-center justify-center h-full p-2 sm:p-4 md:p-6 text-center">
-                <Card className="max-w-md bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
+                <Card className="max-w-md bg-gradient-to-br from-brand-blue-50 to-brand-blue-100 border-brand-blue-200 hover:border-brand-blue-300 transition-all duration-200 hover:shadow-md">
                     <CardHeader>
-                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-brand-green-100">
-                            <CheckCircle className="h-6 w-6 text-brand-green-600" />
+                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-brand-blue-100">
+                            <CheckCircle className="h-6 w-6 text-brand-blue-600" />
                         </div>
-                        <CardTitle className="mt-4 text-brand-green-800">Success!</CardTitle>
-                        <CardDescription className="text-brand-green-600">Member "{successData.name}" has been saved.</CardDescription>
+                        <CardTitle className="mt-4 text-brand-blue-800">Success!</CardTitle>
+                        <CardDescription className="text-brand-blue-600">Member "{successData.name}" has been saved.</CardDescription>
                     </CardHeader>
                     <CardContent className="flex flex-col gap-3">
                         <Button asChild><Link to={`/members/${successData.id}`}>View Member Profile</Link></Button>
@@ -271,12 +271,12 @@ const MemberFormPage: React.FC = () => {
                     toast.error('Registration fee is required', { description: 'Please confirm the KES 500 registration fee before submitting.' });
                 }
             })}>
-                <Card className="bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
+                <Card className="bg-gradient-to-br from-brand-blue-50 to-brand-blue-100 border-brand-blue-200 hover:border-brand-blue-300 transition-all duration-200 hover:shadow-md">
                     <CardHeader>
-                        <CardTitle className="text-2xl font-bold text-brand-green-800">
+                        <CardTitle className="text-2xl font-bold text-brand-blue-800">
                             {isEditMode ? 'Edit Member' : 'Add New Member'}
                         </CardTitle>
-                        <CardDescription className="text-brand-green-600">
+                        <CardDescription className="text-brand-blue-600">
                             {isEditMode 
                                 ? 'Update member information below. Only Super Admins can edit existing members.' 
                                 : userRole === 'loan_officer'
@@ -361,7 +361,7 @@ const MemberFormPage: React.FC = () => {
                                         type="checkbox"
                                         id="registration_fee_paid"
                                         {...register("registration_fee_paid")}
-                                        className="h-4 w-4 text-brand-green-600 focus:ring-brand-green-500 border-gray-300 rounded"
+                                        className="h-4 w-4 text-brand-blue-600 focus:ring-brand-blue-500 border-gray-300 rounded"
                                     />
                                     <Label htmlFor="registration_fee_paid" className="text-sm font-medium">
                                         Registration Fee Paid (KES 500)
@@ -408,7 +408,7 @@ const MemberFormPage: React.FC = () => {
                             )}
                             {userRole === 'loan_officer' && (
                                 <div className="col-span-full">
-                                    <Alert className="bg-brand-green-50 border-brand-green-200 text-brand-green-800">
+                                    <Alert className="bg-brand-blue-50 border-brand-blue-200 text-brand-blue-800">
                                         <AlertDescription>
                                             <strong>Note:</strong> New members you create will be automatically assigned to you as their loan officer.
                                         </AlertDescription>

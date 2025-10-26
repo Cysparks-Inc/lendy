@@ -298,7 +298,7 @@ const MembersPage: React.FC = () => {
                     : `Showing ${dateFilteredMembers.length} of ${filteredMembers.length} members`
                   }
                   {dateRange.from && dateRange.to && (
-                    <span className="text-brand-green-600 font-medium">
+                    <span className="text-brand-blue-600 font-medium">
                       {' '}• Filtered by date range
                     </span>
                   )}
@@ -353,13 +353,13 @@ const MembersPage: React.FC = () => {
 };
 
 const StatCard: React.FC<{ title: string; value: string | number; icon: React.ElementType }> = ({ title, value, icon: Icon }) => (
-  <Card className="bg-gradient-to-br from-brand-green-50 to-brand-green-100 border-brand-green-200 hover:border-brand-green-300 transition-all duration-200 hover:shadow-md">
+  <Card className="bg-gradient-to-br from-brand-blue-50 to-brand-blue-100 border-brand-blue-200 hover:border-brand-blue-300 transition-all duration-200 hover:shadow-md">
     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-      <CardTitle className="text-sm font-medium text-brand-green-800">{title}</CardTitle>
-      <Icon className="h-4 w-4 text-brand-green-600" />
+      <CardTitle className="text-sm font-medium text-brand-blue-800">{title}</CardTitle>
+      <Icon className="h-4 w-4 text-brand-blue-600" />
     </CardHeader>
     <CardContent>
-      <div className="text-2xl font-bold text-brand-green-700">{value}</div>
+      <div className="text-2xl font-bold text-brand-blue-700">{value}</div>
     </CardContent>
   </Card>
 );
