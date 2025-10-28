@@ -75,13 +75,13 @@ const LoansPage: React.FC = () => {
       
       // Step 3: Batch fetch related data
       const [membersRes, branchesRes, officersRes] = await Promise.all([
-        memberIds.length > 0 ? supabase.from('members').select('id, full_name').in('id', memberIds) : { data: [], error: null },
+        memberIds.length > 0 ? supabase.from('members').select('id, first_name, last_name').in('id', memberIds) : { data: [], error: null },
         branchIds.length > 0 ? supabase.from('branches').select('id, name').in('id', branchIds) : { data: [], error: null },
         officerIds.length > 0 ? supabase.from('profiles').select('id, full_name').in('id', officerIds) : { data: [], error: null }
       ]);
       
       // Step 4: Create lookup maps
-      const membersMap = new Map((membersRes.data || []).map(m => [m.id, m.full_name]));
+      const membersMap = new Map((membersRes.data || []).map(m => [m.id, `${m.first_name || ''} ${m.last_name || ''}`.trim() || 'Unknown Member']));
       const branchesMap = new Map((branchesRes.data || []).map(b => [b.id, b.name]));
       const officersMap = new Map((officersRes.data || []).map(o => [o.id, o.full_name]));
       

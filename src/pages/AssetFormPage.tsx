@@ -19,21 +19,27 @@ const assetSchema = z.object({
   asset_type: z.string().min(1, "Asset type is required"),
   description: z.string().min(3, "A clear description is required"),
   branch_id: z.string().min(1, "A branch must be assigned"),
-  member_id: z.string().uuid().optional().nullable(),
-  loan_id: z.string().uuid().optional().nullable(),
+  member_id: z.string().uuid().optional().nullable().or(z.literal('')),
+  loan_id: z.string().uuid().optional().nullable().or(z.literal('')),
   current_market_value: z.preprocess(val => Number(val), z.number().min(0)),
   realizable_value: z.preprocess(val => Number(val), z.number().min(0)),
-  last_valuation_date: z.string().optional().nullable(),
+  last_valuation_date: z.string().optional().nullable().or(z.literal('')),
   status: z.string().min(1, "Status is required"),
   recovery_likelihood: z.string().min(1, "Likelihood is required"),
-  notes: z.string().optional(),
-});
+  notes: z.string().optional().nullable().or(z.literal('')),
+}).transform(data => ({
+  ...data,
+  member_id: data.member_id === '' ? null : data.member_id,
+  loan_id: data.loan_id === '' ? null : data.loan_id,
+  last_valuation_date: data.last_valuation_date === '' ? null : data.last_valuation_date,
+  notes: data.notes === '' ? null : data.notes,
+}));
 type AssetFormData = z.infer<typeof assetSchema>;
 
 // --- Helper Types ---
-type Branch = { id: number; name: string; };
-type Member = { id: string; full_name: string; };
-type Loan = { id: string; account_number: string; };
+type Branch = { id: string; name: string; };
+type Member = { id: string; first_name: string; last_name: string; full_name?: string; };
+type Loan = { id: string; application_no: string; };
 
 const AssetFormPage: React.FC = () => {
     const { id: assetId } = useParams<{ id: string }>();
@@ -48,8 +54,9 @@ const AssetFormPage: React.FC = () => {
     const [loadingData, setLoadingData] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const { register, handleSubmit, control, reset, watch, setValue } = useForm<AssetFormData>({
-        resolver: zodResolver(assetSchema)
+    const { register, handleSubmit, control, reset, watch, setValue, formState: { errors } } = useForm<AssetFormData>({
+        resolver: zodResolver(assetSchema),
+        mode: 'onChange'
     });
 
     const watchedMemberId = watch('member_id');
@@ -63,19 +70,33 @@ const AssetFormPage: React.FC = () => {
             try {
                 const [branchRes, memberRes] = await Promise.all([
                     supabase.from('branches').select('id, name'),
-                    supabase.from('members').select('id, full_name')
+                    supabase.from('members').select('id, first_name, last_name')
                 ]);
                 setBranches(branchRes.data || []);
-                setMembers(memberRes.data || []);
+                // Map members to include full_name
+                const membersWithFullName = (memberRes.data || []).map((member: any) => ({
+                    ...member,
+                    full_name: member?.first_name && member?.last_name
+                        ? `${member.first_name} ${member.last_name}`.trim()
+                        : member?.first_name || member?.last_name || 'Unknown Member'
+                }));
+                setMembers(membersWithFullName);
 
                 if (isEditMode && assetId) {
                     const { data: assetData } = await supabase.from('realizable_assets').select('*').eq('id', assetId).single();
                     if (assetData) {
-                        // --- THE CRITICAL FIX: Pre-fill branch_id for Branch Manager if in create mode ---
-                        const sanitizedData = { ...assetData, branch_id: String(assetData.branch_id), last_valuation_date: assetData.last_valuation_date || '' };
+                        // Convert branch_id to string for the form, and handle all nullable fields
+                        const sanitizedData = { 
+                            ...assetData, 
+                            branch_id: assetData.branch_id ? String(assetData.branch_id) : '',
+                            last_valuation_date: assetData.last_valuation_date || null,
+                            member_id: assetData.member_id || '',
+                            loan_id: assetData.loan_id || '',
+                            notes: assetData.notes || ''
+                        };
                         reset(sanitizedData);
                     }
-                } else if (profile?.role === 'branch_manager' && profile.branch_id) {
+                } else if (profile?.role === 'branch_admin' && profile.branch_id) {
                     // Auto-select the branch manager's branch when creating a new asset
                     setValue('branch_id', String(profile.branch_id));
                 }
@@ -91,7 +112,7 @@ const AssetFormPage: React.FC = () => {
     useEffect(() => {
         if (watchedMemberId) {
             const fetchMemberLoans = async () => {
-                const { data } = await supabase.from('loans').select('id, account_number').eq('customer_id', watchedMemberId);
+                const { data } = await supabase.from('loans').select('id, application_no').eq('member_id', watchedMemberId);
                 setLoans((data as any) || []);
             };
             fetchMemberLoans();
@@ -101,27 +122,52 @@ const AssetFormPage: React.FC = () => {
     }, [watchedMemberId]);
 
     const onSubmit = async (data: AssetFormData) => {
+        console.log('Form submitted with data:', data);
         setIsSubmitting(true);
         try {
-            const submissionData = {
-                ...data,
-                branch_id: Number(data.branch_id),
-                last_valuation_date: data.last_valuation_date || null,
-                member_id: data.member_id || null,
-                loan_id: data.loan_id || null,
+            // Clean the data - only include fields that should be sent
+            const submissionData: any = {
+                asset_type: data.asset_type,
+                description: data.description,
+                branch_id: data.branch_id,
+                last_valuation_date: data.last_valuation_date,
+                member_id: data.member_id,
+                loan_id: data.loan_id,
+                current_market_value: data.current_market_value,
+                realizable_value: data.realizable_value,
+                status: data.status,
+                recovery_likelihood: data.recovery_likelihood,
             };
+            
+            // Add notes if provided
+            if (data.notes) {
+                submissionData.notes = data.notes;
+            }
+
+            console.log('Submitting data:', submissionData);
 
             if (isEditMode) {
-                const { error } = await supabase.from('realizable_assets').update(submissionData).eq('id', assetId);
-                if (error) throw error;
+                console.log('Updating asset with ID:', assetId);
+                const { error, data: result } = await supabase.from('realizable_assets').update(submissionData).eq('id', assetId).select();
+                if (error) {
+                    console.error('Update error:', error);
+                    throw error;
+                }
+                console.log('Update result:', result);
                 toast.success("Asset updated successfully!");
             } else {
-                const { error } = await supabase.from('realizable_assets').insert(submissionData as any);
-                if (error) throw error;
+                console.log('Inserting new asset');
+                const { error, data: result } = await supabase.from('realizable_assets').insert(submissionData).select();
+                if (error) {
+                    console.error('Insert error:', error);
+                    throw error;
+                }
+                console.log('Insert result:', result);
                 toast.success("New asset added successfully!");
             }
             navigate('/realizable-report');
         } catch (error: any) {
+            console.error('Submit error:', error);
             toast.error("Operation failed", { description: error.message });
         } finally {
             setIsSubmitting(false);
@@ -151,7 +197,7 @@ const AssetFormPage: React.FC = () => {
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <FormField label="Associated Member (Optional)"><Controller name="member_id" control={control} render={({ field }) => <Select onValueChange={field.onChange} value={field.value || ''}><SelectTrigger><SelectValue placeholder="Select a member..."/></SelectTrigger><SelectContent>{members.map(m => <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>)}</SelectContent></Select>} /></FormField>
-                            <FormField label="Associated Loan (Optional)"><Controller name="loan_id" control={control} render={({ field }) => <Select onValueChange={field.onChange} value={field.value || ''} disabled={!watchedMemberId || loans.length === 0}><SelectTrigger><SelectValue placeholder={!watchedMemberId ? "Select a member first" : "Select a loan..."}/></SelectTrigger><SelectContent>{loans.map(l => <SelectItem key={l.id} value={l.id}>{l.account_number}</SelectItem>)}</SelectContent></Select>} /></FormField>
+                            <FormField label="Associated Loan (Optional)"><Controller name="loan_id" control={control} render={({ field }) => <Select onValueChange={field.onChange} value={field.value || ''} disabled={!watchedMemberId || loans.length === 0}><SelectTrigger><SelectValue placeholder={!watchedMemberId ? "Select a member first" : "Select a loan..."}/></SelectTrigger><SelectContent>{loans.map(l => <SelectItem key={l.id} value={l.id}>{l.application_no || 'N/A'}</SelectItem>)}</SelectContent></Select>} /></FormField>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -164,7 +210,7 @@ const AssetFormPage: React.FC = () => {
                             {/* --- THE CRITICAL FIX: Use optional chaining `profile?.role` --- */}
                             <FormField label="Branch" required>
                                 <Controller name="branch_id" control={control} render={({ field }) => (
-                                    <Select onValueChange={field.onChange} value={String(field.value || '')} disabled={profile?.role === 'branch_manager'}>
+                                    <Select onValueChange={field.onChange} value={String(field.value || '')} disabled={profile?.role === 'branch_admin'}>
                                         <SelectTrigger><SelectValue placeholder="Select branch..."/></SelectTrigger>
                                         <SelectContent>{branches.map(b => <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>)}</SelectContent>
                                     </Select>
@@ -173,6 +219,16 @@ const AssetFormPage: React.FC = () => {
                             <FormField label="Recovery Likelihood" required><Controller name="recovery_likelihood" control={control} render={({ field }) => <Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue placeholder="Select likelihood..."/></SelectTrigger><SelectContent><SelectItem value="high">High</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="low">Low</SelectItem></SelectContent></Select>} /></FormField>
                         </div>
                         
+                        {Object.keys(errors).length > 0 && (
+                            <div className="bg-red-50 border border-red-200 rounded-md p-4">
+                                <p className="text-sm font-medium text-red-800 mb-2">Please fix the following errors:</p>
+                                <ul className="text-sm text-red-700 list-disc list-inside space-y-1">
+                                    {Object.entries(errors).map(([key, error]: [string, any]) => (
+                                        <li key={key}>{error.message || `Invalid ${key}`}</li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
                         <div className="flex justify-end pt-4">
                             <Button type="submit" disabled={isSubmitting}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{isEditMode ? 'Save Changes' : 'Add Asset'}</Button>
                         </div>

@@ -25,8 +25,7 @@ export function SecureCard({ title, value, icon: Icon, subtitle, className = "" 
         style={{ overflow: 'hidden !important' }}
       >
         <CardTitle 
-          className="text-sm font-medium"
-          style={{ overflow: 'hidden !important', textOverflow: 'ellipsis !important' }}
+          className="text-xs font-medium truncate"
         >
           {title}
         </CardTitle>
@@ -37,8 +36,7 @@ export function SecureCard({ title, value, icon: Icon, subtitle, className = "" 
       </CardHeader>
       <CardContent style={{ overflow: 'hidden !important' }}>
         <div 
-          className="text-2xl font-bold text-brand-blue-700"
-          style={{ overflow: 'hidden !important', textOverflow: 'ellipsis !important' }}
+          className="text-lg font-bold text-brand-blue-700 truncate"
         >
           {value}
         </div>

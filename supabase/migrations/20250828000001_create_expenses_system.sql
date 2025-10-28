@@ -3,9 +3,15 @@
 -- This migration is idempotent - safe to run multiple times
 
 -- Drop existing objects if they exist (for idempotency)
-DROP TRIGGER IF EXISTS trigger_generate_expense_number ON public.expenses;
-DROP TRIGGER IF EXISTS trigger_update_budget_spent ON public.expenses;
-DROP TRIGGER IF EXISTS trigger_check_budget_limit ON public.expenses;
+-- Drop triggers only if table exists
+DO $$ 
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'expenses') THEN
+        DROP TRIGGER IF EXISTS trigger_generate_expense_number ON public.expenses;
+        DROP TRIGGER IF EXISTS trigger_update_budget_spent ON public.expenses;
+        DROP TRIGGER IF EXISTS trigger_check_budget_limit ON public.expenses;
+    END IF;
+END $$;
 
 DROP FUNCTION IF EXISTS generate_expense_number();
 DROP FUNCTION IF EXISTS update_budget_spent();
@@ -92,7 +98,7 @@ CREATE TABLE IF NOT EXISTS public.expenses (
     priority TEXT CHECK (priority IN ('low', 'medium', 'high', 'urgent')) DEFAULT 'medium',
     payment_method public.payment_method,
     payment_date DATE,
-    branch_id INTEGER REFERENCES public.branches(id) NULL,
+    branch_id UUID REFERENCES public.branches(id) NULL,
     department TEXT,
     tags TEXT[],
     attachments JSONB DEFAULT '[]',
@@ -108,7 +114,7 @@ CREATE TABLE IF NOT EXISTS public.expenses (
 CREATE TABLE IF NOT EXISTS public.expense_budgets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     category_id UUID REFERENCES public.expense_categories(id),
-    branch_id INTEGER REFERENCES public.branches(id) NULL,
+    branch_id UUID REFERENCES public.branches(id) NULL,
     year INTEGER NOT NULL,
     month INTEGER CHECK (month BETWEEN 1 AND 12),
     budget_amount DECIMAL(15,2) NOT NULL,
@@ -171,7 +177,7 @@ BEGIN
         UPDATE public.expense_budgets
         SET spent_amount = spent_amount + NEW.amount
         WHERE category_id = NEW.category_id
-        AND branch_id = COALESCE(NEW.branch_id, (SELECT id FROM public.branches LIMIT 1))
+        AND (branch_id = NEW.branch_id OR (NEW.branch_id IS NULL AND branch_id IS NULL))
         AND year = EXTRACT(YEAR FROM NEW.expense_date)
         AND month = EXTRACT(MONTH FROM NEW.expense_date);
         
@@ -185,7 +191,7 @@ BEGIN
             UPDATE public.expense_budgets
             SET spent_amount = spent_amount - OLD.amount
             WHERE category_id = OLD.category_id
-            AND branch_id = COALESCE(OLD.branch_id, (SELECT id FROM public.branches LIMIT 1))
+            AND (branch_id = OLD.branch_id OR (OLD.branch_id IS NULL AND branch_id IS NULL))
             AND year = EXTRACT(YEAR FROM OLD.expense_date)
             AND month = EXTRACT(MONTH FROM OLD.expense_date);
             
@@ -193,7 +199,7 @@ BEGIN
             UPDATE public.expense_budgets
             SET spent_amount = spent_amount + NEW.amount
             WHERE category_id = NEW.category_id
-            AND branch_id = COALESCE(NEW.branch_id, (SELECT id FROM public.branches LIMIT 1))
+            AND (branch_id = NEW.branch_id OR (NEW.branch_id IS NULL AND branch_id IS NULL))
             AND year = EXTRACT(YEAR FROM NEW.expense_date)
             AND month = EXTRACT(MONTH FROM NEW.expense_date);
         END IF;
@@ -204,7 +210,7 @@ BEGIN
         UPDATE public.expense_budgets
         SET spent_amount = spent_amount - OLD.amount
         WHERE category_id = OLD.category_id
-        AND branch_id = COALESCE(OLD.branch_id, (SELECT id FROM public.branches LIMIT 1))
+        AND (branch_id = OLD.branch_id OR (OLD.branch_id IS NULL AND branch_id IS NULL))
         AND year = EXTRACT(YEAR FROM OLD.expense_date)
         AND month = EXTRACT(MONTH FROM OLD.expense_date);
         
@@ -234,7 +240,7 @@ BEGIN
     INTO budget_limit
     FROM public.expense_budgets eb
     WHERE eb.category_id = NEW.category_id
-    AND eb.branch_id = COALESCE(NEW.branch_id, (SELECT id FROM public.branches LIMIT 1))
+    AND (eb.branch_id = NEW.branch_id OR (NEW.branch_id IS NULL AND eb.branch_id IS NULL))
     AND eb.year = EXTRACT(YEAR FROM NEW.expense_date)
     AND eb.month = EXTRACT(MONTH FROM NEW.expense_date);
     
@@ -244,7 +250,7 @@ BEGIN
         INTO current_spent
         FROM public.expense_budgets eb
         WHERE eb.category_id = NEW.category_id
-        AND eb.branch_id = COALESCE(NEW.branch_id, (SELECT id FROM public.branches LIMIT 1))
+        AND (eb.branch_id = NEW.branch_id OR (NEW.branch_id IS NULL AND eb.branch_id IS NULL))
         AND eb.year = EXTRACT(YEAR FROM NEW.expense_date)
         AND eb.month = EXTRACT(MONTH FROM NEW.expense_date);
         
@@ -274,7 +280,17 @@ DECLARE
     admin_user_id UUID;
 BEGIN
     -- Get a super admin user ID
-    SELECT id INTO admin_user_id FROM public.profiles WHERE role = 'super_admin' LIMIT 1;
+    -- Get a super admin user ID (use 'postgres' fallback if no super admin exists)
+    SELECT COALESCE(
+        (SELECT id FROM public.profiles WHERE role = 'super_admin' LIMIT 1),
+        gen_random_uuid()
+    ) INTO admin_user_id;
+    
+    -- Only proceed if admin_user_id is valid
+    IF admin_user_id = gen_random_uuid() THEN
+        RAISE NOTICE 'No super admin user found, skipping category creation';
+        RETURN;
+    END IF;
     
     -- Insert categories only if they don't exist
     INSERT INTO public.expense_categories (name, code, description, created_by)

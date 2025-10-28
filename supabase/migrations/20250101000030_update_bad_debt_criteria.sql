@@ -1,18 +1,21 @@
 -- Migration: Update bad debt criteria to loans not repaid for more than a year
 -- This creates a function to identify bad debt based on 1-year non-payment criteria
 
+-- Drop existing function if it exists
+DROP FUNCTION IF EXISTS get_bad_debt_loans(UUID);
+
 -- Create function to get bad debt loans (not repaid for more than a year)
-CREATE OR REPLACE FUNCTION get_bad_debt_loans(requesting_user_id UUID DEFAULT auth.uid())
+CREATE FUNCTION get_bad_debt_loans(requesting_user_id UUID DEFAULT auth.uid())
 RETURNS TABLE(
     id UUID,
     account_number TEXT,
     member_name TEXT,
     member_id UUID,
     principal_amount DECIMAL(15,2),
-    current_balance DECIMAL(15,2),
+    written_off_balance DECIMAL(15,2),
     loan_officer_name TEXT,
     branch_name TEXT,
-    due_date DATE,
+    written_off_date DATE,
     days_overdue INTEGER,
     status TEXT,
     issue_date DATE,
@@ -28,19 +31,21 @@ BEGIN
     WITH bad_debt_loans AS (
         SELECT
             l.id,
-            COALESCE(l.account_number, 'N/A') as account_number,
-            COALESCE(m.full_name, 'Unknown Member') as member_name,
-            COALESCE(l.member_id, l.customer_id) as member_id,
+            COALESCE(l.application_no, 'N/A') as account_number,
+            TRIM(CONCAT(COALESCE(m.first_name, ''), ' ', COALESCE(m.last_name, ''))) as member_name,
+            l.member_id,
             COALESCE(l.principal_amount, 0::DECIMAL(15,2)) as principal_amount,
-            COALESCE(l.current_balance, 0::DECIMAL(15,2)) as current_balance,
+            COALESCE(l.current_balance, 0::DECIMAL(15,2)) as written_off_balance,
             COALESCE(lo.full_name, 'Unassigned') as loan_officer_name,
+            l.loan_officer_id,
             COALESCE(b.name, 'Unknown Branch') as branch_name,
-            l.due_date,
+            l.branch_id,
+            l.maturity_date as written_off_date,
             
             -- Calculate days overdue
             CASE 
-                WHEN l.due_date IS NOT NULL AND l.due_date < CURRENT_DATE::date THEN 
-                    (CURRENT_DATE::date - l.due_date::date)::INTEGER
+                WHEN l.maturity_date IS NOT NULL AND l.maturity_date < CURRENT_DATE::date THEN 
+                    (CURRENT_DATE::date - l.maturity_date::date)::INTEGER
                 ELSE 0::INTEGER
             END as days_overdue,
             
@@ -87,10 +92,7 @@ BEGIN
             END as days_since_last_payment
 
         FROM loans l
-        LEFT JOIN members m ON (
-            (l.member_id IS NOT NULL AND l.member_id = m.id) OR 
-            (l.customer_id IS NOT NULL AND l.customer_id = m.id)
-        )
+        LEFT JOIN members m ON l.member_id = m.id
         LEFT JOIN branches b ON l.branch_id = b.id
         LEFT JOIN profiles lo ON l.loan_officer_id = lo.id
         WHERE 
@@ -99,7 +101,21 @@ BEGIN
             AND l.is_deleted = false
     )
     SELECT
-        bdl.*
+        bdl.id,
+        bdl.account_number,
+        bdl.member_name,
+        bdl.member_id,
+        bdl.principal_amount,
+        bdl.written_off_balance,
+        bdl.loan_officer_name,
+        bdl.branch_name,
+        bdl.written_off_date,
+        bdl.days_overdue,
+        bdl.status,
+        bdl.issue_date,
+        bdl.is_problem,
+        bdl.last_payment_date,
+        bdl.days_since_last_payment
     FROM bad_debt_loans bdl
     WHERE
         -- Only return loans that are problem loans (not repaid for more than a year)
@@ -141,7 +157,7 @@ BEGIN
                 ELSE FALSE
             END
         )
-    ORDER BY bdl.days_since_last_payment DESC, bdl.current_balance DESC;
+    ORDER BY bdl.days_since_last_payment DESC, bdl.written_off_balance DESC;
 END;
 $$;
 

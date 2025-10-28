@@ -21,7 +21,7 @@ interface OverdueItem {
   member_id: string;
   phone_number: string;
   branch_name: string;
-  branch_id: number;
+  branch_id: string | number;
   loan_officer_id: string;
   overdue_amount: number;
   days_overdue: number;

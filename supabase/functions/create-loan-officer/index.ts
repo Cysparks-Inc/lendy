@@ -45,11 +45,11 @@ serve(async (req) => {
     
     // 3. Assign the loan officer role and branch
     const { error: roleError } = await supabaseAdmin
-      .from('user_branch_roles')
+      .from('user_roles')
       .insert({
         user_id: userId,
         branch_id: branch_id,
-        role: 'loan_officer'
+        role: 'loan_officer'::app_role
       });
     if (roleError) throw roleError;
 

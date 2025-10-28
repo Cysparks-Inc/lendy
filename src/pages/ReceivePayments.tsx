@@ -107,7 +107,7 @@ const ReceivePayments: React.FC = () => {
       const memberIds = loansData?.map(loan => loan.customer_id || loan.member_id).filter(Boolean) || [];
       const { data: membersData, error: membersError } = await supabase
         .from('members')
-        .select('*')
+        .select('id, first_name, last_name, phone_number, group_id, branch_id, assigned_officer_id')
         .in('id', memberIds);
 
       if (membersError) throw membersError;
@@ -153,6 +153,11 @@ const ReceivePayments: React.FC = () => {
         const group = groupsData?.find(g => g.id === member?.group_id);
         const branch = branchesData?.find(b => b.id === member?.branch_id);
 
+        // Concatenate first_name and last_name for member name
+        const memberName = member?.first_name && member?.last_name
+          ? `${member.first_name} ${member.last_name}`.trim()
+          : member?.first_name || member?.last_name || 'Unknown Member';
+
         // Get overdue information from unified function
         const overdueInfo = overdueData?.find(overdue => overdue.id === loan.id);
         const isOverdue = !!overdueInfo;
@@ -175,7 +180,7 @@ const ReceivePayments: React.FC = () => {
           id: loan.id,
           customer_id: memberId,
           member_id: memberId,
-          member_name: member?.full_name || 'Unknown Member',
+          member_name: memberName,
           member_phone: member?.phone_number || '',
           principal_amount: loan.principal_amount || 0,
           current_balance: validatedBalance,

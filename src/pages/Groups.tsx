@@ -208,26 +208,21 @@ const Groups: React.FC = () => {
       let loansData: any[] = [];
       
       if (memberIds.length > 0) {
-        const { data: customerLoans, error: customerError } = await (supabase as any)
-          .from('loans')
-          .select('*')
-          .in('customer_id', memberIds);
-        
+        // Fetch loans by member_id only (removed customer_id as it doesn't exist)
         const { data: memberLoans, error: memberError } = await (supabase as any)
           .from('loans')
           .select('*')
           .in('member_id', memberIds);
         
-        if (customerError) console.error('Error fetching customer loans:', customerError);
         if (memberError) console.error('Error fetching member loans:', memberError);
         
-        loansData = [...(customerLoans || []), ...(memberLoans || [])];
+        loansData = [...(memberLoans || [])];
       }
 
       // Calculate financial data for each member
       const memberFinancialData = new Map();
       loansData?.forEach(loan => {
-        const memberId = loan.customer_id || (loan as any).member_id;
+        const memberId = (loan as any).member_id;
         if (!memberFinancialData.has(memberId)) {
           memberFinancialData.set(memberId, {
             total_loans_disbursed: 0,
@@ -251,8 +246,14 @@ const Groups: React.FC = () => {
           current_loan_balance: 0
         };
 
+        // Concatenate first_name and last_name to create full_name
+        const fullName = member.first_name && member.last_name 
+          ? `${member.first_name} ${member.last_name}`.trim()
+          : member.first_name || member.last_name || 'Unknown Member';
+
         return {
           ...member,
+          full_name: fullName,
           group_name: group?.name || 'No Group',
           branch_name: branch?.name || 'Unknown',
           loan_officer_name: officer?.full_name || 'Unassigned',

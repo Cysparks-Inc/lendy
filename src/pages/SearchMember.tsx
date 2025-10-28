@@ -46,14 +46,15 @@ const SearchMemberPage: React.FC = () => {
         .from('members')
         .select(`
           id,
-          full_name,
+          first_name,
+          last_name,
           id_number,
           phone_number,
           status,
           branch_id,
           group_id
         `)
-        .or(`full_name.ilike.%${searchTerm.trim()}%,id_number.ilike.%${searchTerm.trim()}%,phone_number.ilike.%${searchTerm.trim()}%`)
+        .or(`first_name.ilike.%${searchTerm.trim()}%,last_name.ilike.%${searchTerm.trim()}%,id_number.ilike.%${searchTerm.trim()}%,phone_number.ilike.%${searchTerm.trim()}%`)
         .limit(20);
 
       if (membersError) throw membersError;
@@ -70,7 +71,7 @@ const SearchMemberPage: React.FC = () => {
       const [branchesRes, groupsRes, loansRes] = await Promise.all([
         branchIds.length > 0 ? supabase.from('branches').select('id, name').in('id', branchIds) : { data: [], error: null },
         groupIds.length > 0 ? supabase.from('groups').select('id, name').in('id', groupIds) : { data: [], error: null },
-        supabase.from('loans').select('*').in('customer_id', membersData.map((member: any) => member.id))
+        supabase.from('loans').select('*').in('member_id', membersData.map((member: any) => member.id))
       ]);
 
       if (branchesRes.error) throw branchesRes.error;
@@ -95,9 +96,13 @@ const SearchMemberPage: React.FC = () => {
           return sum;
         }, 0);
 
+        const fullName = member.first_name && member.last_name 
+          ? `${member.first_name} ${member.last_name}`.trim()
+          : member.first_name || member.last_name || 'Unknown Member';
+        
         return {
           id: member.id,
-          full_name: member.full_name || 'Unknown Member',
+          full_name: fullName,
           id_number: member.id_number || member.id.slice(0, 8),
           phone_number: member.phone_number || 'N/A',
           branch_name: branchesMap.get(member.branch_id) || 'Nairobi',

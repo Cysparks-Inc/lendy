@@ -112,25 +112,21 @@ const MemberProfilePage: React.FC = () => {
         }
 
         // Fetch loans - try both member_id and customer_id to handle different schema versions
-        // IMPORTANT: Filter out deleted loans
+        // Fetch loans for this member
         let loansRes;
-        const loanColumns = 'id, principal_amount, current_balance, status, due_date, member_id, customer_id, total_paid, interest_disbursed, processing_fee, approval_status';
+        const loanColumns = 'id, principal_amount, current_balance, status, maturity_date, member_id, total_paid, interest_disbursed, processing_fee, approval_status';
         
         try {
-          // First try member_id with the current member's ID
+          // Fetch loans by member_id only
           loansRes = await supabase
             .from('loans')
             .select(loanColumns)
-            .or(`member_id.eq.${id},customer_id.eq.${id}`)
-            .eq('is_deleted', false);
+            .eq('member_id', id);
           
+          // Handle error gracefully
           if (loansRes.error) {
-            // Try alternative approach - search by member name
-            const memberName = memberRes.data.full_name || memberRes.data.first_name + ' ' + memberRes.data.last_name;
-            if (memberName) {
-              // This is a fallback - in a real system you'd want to use proper foreign keys
-              loansRes = { data: [], error: null };
-            }
+            console.error('Error fetching loans:', loansRes.error);
+            loansRes = { data: [], error: null };
           }
         } catch (error: any) {
           loansRes = { data: [], error: null };
@@ -172,7 +168,14 @@ const MemberProfilePage: React.FC = () => {
         
         
         setMember(adaptedMember);
-        setLoans(loansRes.data || []);
+        
+        // Map loans and convert maturity_date to due_date for display
+        const mappedLoans = (loansRes.data || []).map(loan => ({
+          ...loan,
+          due_date: loan.maturity_date || loan.due_date
+        }));
+        
+        setLoans(mappedLoans);
         
         // Fetch additional member information
         await fetchAdditionalMemberInfo(adaptedMember);
@@ -394,14 +397,14 @@ const MemberProfilePage: React.FC = () => {
                 {/* Main Content - Full width on mobile, right columns on desktop */}
                 <div className="lg:col-span-2 space-y-6">
                                          {/* Stats Cards - Responsive grid */}
-                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6">
-                         <StatCard icon={Banknote} title="Total Loans" value={loans.length} />
-                         <StatCard icon={DollarSign} title="Active Loans" value={loans.filter(l => l.status === 'active' || l.status === 'pending').length} />
-                         <StatCard icon={DollarSign} title="Repaid Loans" value={loans.filter(l => l.status === 'repaid').length} />
-                         <StatCard icon={Landmark} title="Total Outstanding" value={formatCurrency(totalOutstanding)} />
-                         <StatCard icon={Users} title="Member No." value={member.member_no} />
+                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
+                         <StatCard icon={Banknote} title="Loans" value={loans.length} />
+                         <StatCard icon={DollarSign} title="Active" value={loans.filter(l => l.status === 'active' || l.status === 'pending').length} />
+                         <StatCard icon={DollarSign} title="Repaid" value={loans.filter(l => l.status === 'repaid').length} />
+                         <StatCard icon={Landmark} title="Outstanding" value={formatCurrency(totalOutstanding)} />
+                         <StatCard icon={Users} title="Member No." value={member.member_no || 'N/A'} />
                          {loanStatusFilter !== 'all' && (
-                           <div className="col-span-5">
+                           <div className="col-span-full">
                              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
                                <p className="text-sm text-blue-800 font-medium">
                                  Filtered View: {filteredLoans.length} {loanStatusFilter} loans
@@ -446,13 +449,14 @@ const MemberProfilePage: React.FC = () => {
                                             }
                                         </p>
                                     </div>
-                                    <DataTable 
+                                    <div className="overflow-x-auto">
+                                        <DataTable 
                                         columns={[
-                                            { header: 'Loan ID', cell: (row) => <span className="font-mono text-xs">{row.id.slice(0, 8)}...</span> },
-                                            { header: 'Principal', cell: (row) => formatCurrency(row.principal_amount) },
-                                            { header: 'Outstanding', cell: (row) => formatCurrency(row.current_balance) },
+                                            { header: 'ID', cell: (row) => <span className="font-mono text-xs">{row.id.slice(0, 8)}...</span> },
+                                            { header: 'Principal', cell: (row) => <span className="text-sm">{formatCurrency(row.principal_amount)}</span> },
+                                            { header: 'Balance', cell: (row) => <span className="text-sm">{formatCurrency(row.current_balance)}</span> },
                                             { header: 'Approval', cell: (row) => (
-                                                <Badge variant={row.approval_status === 'approved' ? 'secondary' : row.approval_status === 'rejected' ? 'destructive' : 'outline'} className="capitalize">
+                                                <Badge variant={row.approval_status === 'approved' ? 'secondary' : row.approval_status === 'rejected' ? 'destructive' : 'outline'} className="text-xs capitalize">
                                                     {row.approval_status || 'pending'}
                                                 </Badge>
                                             ) },
@@ -472,10 +476,10 @@ const MemberProfilePage: React.FC = () => {
                                                 }
                                                 
                                                 return (
-                                                    <div className="flex items-center gap-2">
+                                                    <div className="flex items-center gap-1">
                                                         <Progress 
                                                             value={progress} 
-                                                            className="w-20 h-2" 
+                                                            className="w-16 h-2" 
                                                             style={{
                                                                 '--progress-background': row.status === 'repaid' ? 'hsl(142.1 76.2% 36.3%)' : undefined
                                                             } as React.CSSProperties}
@@ -484,18 +488,18 @@ const MemberProfilePage: React.FC = () => {
                                                     </div>
                                                 );
                                             }},
-                                            { header: 'Status', cell: (row) => <Badge variant={getStatusVariant(row.status)} className="capitalize">{row.status}</Badge> },
-                                            { header: 'Due Date', cell: (row) => new Date(row.due_date).toLocaleDateString() },
+                                            { header: 'Status', cell: (row) => <Badge variant={getStatusVariant(row.status)} className="text-xs capitalize">{row.status}</Badge> },
+                                            { header: 'Due', cell: (row) => <span className="text-xs">{new Date(row.due_date).toLocaleDateString()}</span> },
                                             { header: 'Actions', cell: (row) => (
                                                 <div className="text-right">
-                                                    <div className="flex items-center justify-end gap-2">
-                                                        <Button asChild variant="outline" size="icon">
+                                                    <div className="flex items-center justify-end gap-1">
+                                                        <Button asChild variant="outline" size="sm">
                                                             <Link to={`/loans/${row.id}`}>
-                                                                <Eye className="h-4 w-4" />
+                                                                <Eye className="h-3 w-3" />
                                                             </Link>
                                                         </Button>
                                                         {row.approval_status === 'rejected' && (
-                                                            <Button asChild size="sm">
+                                                            <Button asChild size="sm" className="text-xs">
                                                                 <Link to={`/loans/new?memberId=${member.id}&memberName=${encodeURIComponent(member.first_name + ' ' + member.last_name)}`}>
                                                                     Re-apply
                                                                 </Link>
@@ -507,7 +511,9 @@ const MemberProfilePage: React.FC = () => {
                                         ]} 
                                         data={filteredLoans} 
                                         emptyStateMessage="No loan history for this member." 
+                                        className="min-w-fit"
                                     />
+                                    </div>
                                 </TabsContent>
                                 <TabsContent value="communication" className="mt-6">
                                     <CommunicationLogs 

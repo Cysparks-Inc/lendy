@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { PageLoader, ButtonLoader } from '@/components/ui/loader';
@@ -15,6 +15,13 @@ const Auth = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  // Reset submitting state when user becomes available
+  useEffect(() => {
+    if (user) {
+      setIsSubmitting(false);
+    }
+  }, [user]);
+
   // Redirect if already authenticated
   if (user && !loading) {
     return <Navigate to="/" replace />;
@@ -23,8 +30,16 @@ const Auth = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    await signIn(email, password);
-    setIsSubmitting(false);
+    
+    const { error } = await signIn(email, password);
+    
+    // If there's an error, reset the submitting state after a delay
+    if (error) {
+      setTimeout(() => {
+        setIsSubmitting(false);
+      }, 1000);
+    }
+    // If successful, the useEffect above will handle resetting via the user state change
   };
 
   if (loading) {

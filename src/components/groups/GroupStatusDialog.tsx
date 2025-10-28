@@ -18,7 +18,7 @@ interface GroupStatusDialogProps {
   isOpen: boolean;
   onClose: () => void;
   group: {
-    id: number;
+    id: string | number;
     name: string;
     code?: string;
     branch_name?: string;
@@ -48,12 +48,23 @@ export const GroupStatusDialog: React.FC<GroupStatusDialogProps> = ({
 
     try {
       setIsUpdating(true);
+      
+      const updateData = group.is_active 
+        ? { 
+            is_active: false, 
+            deactivated_at: new Date().toISOString(),
+            deactivated_by: user.id
+          }
+        : { 
+            is_active: true, 
+            deactivated_at: null,
+            deactivated_by: null
+          };
 
-      const functionName = group.is_active ? 'deactivate_group' : 'activate_group';
-      const { error } = await (supabase as any).rpc(functionName, {
-        group_id: group.id,
-        admin_user_id: user.id,
-      });
+      const { error } = await supabase
+        .from('groups')
+        .update(updateData)
+        .eq('id', group.id);
 
       if (error) {
         throw error;

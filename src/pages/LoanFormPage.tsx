@@ -17,14 +17,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 
 const loanSchema = z.object({
-  customer_id: z.string().uuid("A valid member must be selected"),
+  member_id: z.string().uuid("A valid member must be selected"),
   loan_program: z.enum(['small_loan', 'big_loan'], { required_error: "Loan program is required" }),
   principal_amount: z.preprocess(val => Number(val), z.number().min(1, "Principal is required")),
   issue_date: z.string().min(1, "Issue date is required"),
   installment_type: z.enum(['weekly', 'monthly', 'daily']).default('weekly'),
   loan_officer_id: z.string().uuid("An officer must be assigned").optional(),
-  branch_id: z.preprocess(val => val === null || val === undefined || val === '' ? null : Number(val), z.number().nullable().optional()),
-  group_id: z.preprocess(val => val === null || val === undefined || val === '' ? null : Number(val), z.number().nullable().optional()),
+  branch_id: z.string().uuid().nullable().optional(),
+  group_id: z.string().uuid().nullable().optional(),
 });
 
 type LoanFormData = z.infer<typeof loanSchema>;
@@ -32,8 +32,8 @@ type LoanFormData = z.infer<typeof loanSchema>;
 interface Member { 
   id: string; 
   full_name: string; 
-  branch_id: number | null; 
-  group_id: number | null;
+  branch_id: string | null; 
+  group_id: string | null;
   branch_name: string | null;
   group_name: string | null;
   id_number?: string;
@@ -46,12 +46,12 @@ interface Officer {
 }
 
 interface Branch { 
-  id: number; 
+  id: string; 
   name: string; 
 }
 
 interface Group { 
-  id: number; 
+  id: string; 
   name: string; 
 }
 
@@ -188,7 +188,7 @@ const LoanFormPage: React.FC = () => {
     const watchedLoanProgram = watch('loan_program');
     const watchedIssueDate = watch('issue_date');
     const watchedInstallmentType = watch('installment_type');
-    const watchedCustomerId = watch('customer_id');
+    const watchedMemberId = watch('member_id');
 
     // Immediate rule enforcement: 5k and 7k only on 8-week (small_loan)
     useEffect(() => {
@@ -203,9 +203,9 @@ const LoanFormPage: React.FC = () => {
 
     // Memoized selected member to prevent unnecessary recalculations
     const selectedMember = useMemo(() => {
-        if (!watchedCustomerId || members.length === 0) return null;
-        return members.find(m => m.id === watchedCustomerId) || null;
-    }, [watchedCustomerId, members]);
+        if (!watchedMemberId || members.length === 0) return null;
+        return members.find(m => m.id === watchedMemberId) || null;
+    }, [watchedMemberId, members]);
 
     // Enhanced member formatter with better error handling
     const formatMemberWithBranchGroup = useCallback((memberData: any, branchesData: Branch[], groupsData: Group[]): Member => {
@@ -251,7 +251,7 @@ const LoanFormPage: React.FC = () => {
                     supabase.from('groups').select('id, name').order('name'),
                     supabase.from('profiles')
                         .select('id, full_name')
-                        .in('role', ['loan_officer', 'super_admin', 'branch_manager'])
+                        .in('role', ['loan_officer', 'super_admin', 'branch_admin'])
                         .order('full_name')
                 ]);
 
@@ -284,7 +284,7 @@ const LoanFormPage: React.FC = () => {
                         setMemberSearchTerm(formattedMember.full_name);
                         
                         // Set form values with proper types
-                        setValue('customer_id', formattedMember.id);
+                        setValue('member_id', formattedMember.id);
                         setValue('branch_id', formattedMember.branch_id);
                         setValue('group_id', formattedMember.group_id);
                     }
@@ -319,8 +319,8 @@ const LoanFormPage: React.FC = () => {
                         if (loanError) throw loanError;
 
                         if (loanData) {
-                            // Get the member ID (could be either member_id or customer_id)
-                            const memberId = (loanData as any).customer_id;
+                            // Get the member ID
+                            const memberId = (loanData as any).member_id;
                             
                             if (memberId) {
                                 // Load the member data for this loan
@@ -341,7 +341,7 @@ const LoanFormPage: React.FC = () => {
 
                             // Populate the form with existing loan data using correct column names
                             reset({
-                                customer_id: memberId || '',
+                                member_id: memberId || '',
                                 loan_program: (loanData as any).loan_program || 'small_loan',
                                 principal_amount: (loanData as any).principal_amount || 0,
                                 issue_date: (loanData as any).issue_date || getCurrentDate(),
@@ -526,8 +526,8 @@ const LoanFormPage: React.FC = () => {
             if (!isEditMode) {
                 const { data: existingLoans, error: pendingError } = await supabase
                     .from('loans' as any)
-                    .select('id, status, approval_status, customer_id')
-                    .eq('customer_id', data.customer_id);
+                    .select('id, status, approval_status, member_id')
+                    .eq('member_id', data.member_id);
 
                 if (pendingError) throw pendingError;
 
@@ -539,7 +539,7 @@ const LoanFormPage: React.FC = () => {
 
             // Apply loan increment rules validation (only for new loans)
             if (!isEditMode) {
-                const incrementValidation = validateLoanIncrement(data.principal_amount, data.customer_id, userRole);
+                const incrementValidation = validateLoanIncrement(data.principal_amount, data.member_id, userRole);
                 if (!incrementValidation.isValid) {
                     if (incrementValidation.suggestedAmount) {
                         toast.error(incrementValidation.message!, {
@@ -576,16 +576,26 @@ const LoanFormPage: React.FC = () => {
             const dueDate = new Date(data.issue_date);
             dueDate.setDate(dueDate.getDate() + (weeksToAdd * 7));
 
+            // Generate unique application number
+            const timestamp = Date.now().toString().slice(-8);
+            const prefix = data.loan_program === 'small_loan' ? 'SL' : 'BL';
+            const applicationNo = `${prefix}${timestamp}`;
+
+            // Calculate term_months based on loan program (8 weeks = 2 months, 12 weeks = 3 months)
+            const termMonths = data.loan_program === 'small_loan' ? 2 : 3;
+
             // Prepare loan data for submission
             const loanData = {
-                customer_id: data.customer_id,
+                member_id: data.member_id,
                 loan_program: data.loan_program,
+                application_no: applicationNo,
                 principal_amount: data.principal_amount,
-                interest_rate: loanCalculation.interest_rate,
+                interest_rate: loanCalculation.interest_rate / 100, // Convert percentage to decimal (15 -> 0.15)
                 interest_type: 'simple' as const,
+                term_months: termMonths,
                 repayment_schedule: 'weekly' as const,
                 issue_date: data.issue_date,
-                due_date: dueDate.toISOString().split('T')[0],
+                maturity_date: dueDate.toISOString().split('T')[0],
                 installment_type: data.installment_type,
                 branch_id: data.branch_id,
                 group_id: data.group_id,
@@ -694,9 +704,9 @@ const LoanFormPage: React.FC = () => {
                         )}
 
                         {/* Member Selection */}
-                        <FormField label="Member" error={errors.customer_id} required>
+                        <FormField label="Member" error={errors.member_id} required>
                             <Controller 
-                                name="customer_id" 
+                                name="member_id" 
                                 control={control} 
                                 render={({ field }) => (
                                     <div className="relative">
@@ -780,7 +790,7 @@ const LoanFormPage: React.FC = () => {
                                         
                                         return (
                                             <Select 
-                                                onValueChange={(value) => field.onChange(Number(value))} 
+                                                onValueChange={(value) => field.onChange(value)} 
                                                 value={field.value?.toString() || ''} 
                                                 disabled={isDisabled}
                                             >
@@ -821,7 +831,7 @@ const LoanFormPage: React.FC = () => {
                                         
                                         return (
                                             <Select 
-                                                onValueChange={(value) => field.onChange(Number(value))} 
+                                                onValueChange={(value) => field.onChange(value)} 
                                                 value={field.value?.toString() || ''} 
                                                 disabled={isDisabled}
                                             >
@@ -833,7 +843,7 @@ const LoanFormPage: React.FC = () => {
                                                     } />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                                                                         {groups.map(group => (
+                                                    {groups.map(group => (
                                                          <SelectItem key={group.id} value={group.id.toString()}>
                                                              {group.name}
                                                          </SelectItem>

@@ -18,7 +18,7 @@ interface BranchStatusDialogProps {
   isOpen: boolean;
   onClose: () => void;
   branch: {
-    id: number;
+    id: string;
     name: string;
     location: string;
     is_active: boolean;
@@ -48,11 +48,23 @@ export const BranchStatusDialog: React.FC<BranchStatusDialogProps> = ({
     try {
       setIsUpdating(true);
 
-      const functionName = branch.is_active ? 'deactivate_branch' : 'activate_branch';
-      const { error } = await (supabase as any).rpc(functionName, {
-        branch_id: branch.id,
-        admin_user_id: user.id,
-      });
+      // Update branch directly instead of using RPC function
+      const updateData = branch.is_active 
+        ? { 
+            is_active: false, 
+            deactivated_at: new Date().toISOString(),
+            deactivated_by: user.id
+          }
+        : { 
+            is_active: true, 
+            deactivated_at: null,
+            deactivated_by: null
+          };
+
+      const { error } = await supabase
+        .from('branches')
+        .update(updateData)
+        .eq('id', branch.id);
 
       if (error) {
         throw error;

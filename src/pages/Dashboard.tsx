@@ -81,7 +81,7 @@ const Dashboard: React.FC = () => {
       let filteredLoans = loans || [];
       let filteredMembers = members || [];
       
-      if (userRole === 'branch_manager' && profile?.branch_id) {
+      if (userRole === 'branch_admin' && profile?.branch_id) {
         filteredLoans = filteredLoans.filter(loan => loan.branch_id === profile.branch_id);
         filteredMembers = filteredMembers.filter(member => member.branch_id === profile.branch_id);
       } else if (userRole === 'loan_officer') {
@@ -106,8 +106,8 @@ const Dashboard: React.FC = () => {
         // Silently handle overdue data error
       }
 
-      // Only count APPROVED loans across the system KPIs
-      const approvedLoans = (filteredLoans || []).filter((l: any) => (l as any).approval_status === 'approved');
+      // Include all loans (pending and approved) for dashboard display
+      const approvedLoans = (filteredLoans || []);
 
       const stats = {
         total_members: filteredMembers.length,
@@ -136,12 +136,12 @@ const Dashboard: React.FC = () => {
         
         // Batch fetch names
         const [membersRes, officersRes] = await Promise.all([
-          memberIds.length > 0 ? supabase.from('members').select('id, full_name').in('id', memberIds) : { data: [], error: null },
+          memberIds.length > 0 ? supabase.from('members').select('id, first_name, last_name').in('id', memberIds) : { data: [], error: null },
           officerIds.length > 0 ? supabase.from('profiles').select('id, full_name').in('id', officerIds) : { data: [], error: null }
         ]);
         
         // Create lookup maps
-        const membersMap = new Map((membersRes.data || []).map(m => [m.id, m.full_name]));
+        const membersMap = new Map((membersRes.data || []).map(m => [m.id, `${m.first_name || ''} ${m.last_name || ''}`.trim() || 'Unknown Member']));
         const officersMap = new Map((officersRes.data || []).map(o => [o.id, o.full_name]));
         
         // Transform with real names
@@ -257,33 +257,33 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Stats Cards - Now Clickable */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4 sm:gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 md:gap-3 sm:gap-4">
         <StatCard
           icon={Banknote}
-          title={userRole === 'loan_officer' ? 'My Portfolio Disbursed' : 'System Disbursed'}
+          title={userRole === 'loan_officer' ? 'Disbursed' : 'Disbursed'}
           value={formatCurrency(stats?.total_disbursed || 0)}
-          description={userRole === 'loan_officer' ? 'Total amount disbursed to your members' : 'Total amount disbursed'}
+          description={userRole === 'loan_officer' ? 'To members' : 'Total disbursed'}
           onClick={() => handleStatCardClick('disbursed')}
         />
         <StatCard
           icon={DollarSign}
-          title={userRole === 'loan_officer' ? 'My Portfolio Outstanding' : 'Outstanding Balance'}
+          title={userRole === 'loan_officer' ? 'Outstanding' : 'Outstanding'}
           value={formatCurrency(stats?.outstanding_balance || 0)}
-          description={userRole === 'loan_officer' ? 'Total outstanding from your members' : 'Total outstanding amount'}
+          description={userRole === 'loan_officer' ? 'From members' : 'Total outstanding'}
           onClick={() => handleStatCardClick('outstanding')}
         />
         <StatCard
           icon={Users}
-          title={userRole === 'loan_officer' ? 'My Assigned Members' : 'Total Members'}
+          title={userRole === 'loan_officer' ? 'Members' : 'Members'}
           value={stats?.total_members || 0}
-          description={userRole === 'loan_officer' ? 'Members assigned to you' : 'Active members'}
+          description={userRole === 'loan_officer' ? 'Assigned' : 'Active'}
           onClick={() => handleStatCardClick('members')}
         />
         <StatCard
           icon={TrendingUp}
-          title={userRole === 'loan_officer' ? 'My Portfolio Loans' : 'Total Loans'}
+          title={userRole === 'loan_officer' ? 'Loans' : 'Loans'}
           value={stats?.total_loans || 0}
-          description={userRole === 'loan_officer' ? `${stats?.active_loans || 0} active in your portfolio` : `${stats?.active_loans || 0} active`}
+          description={userRole === 'loan_officer' ? `${stats?.active_loans || 0} active` : `${stats?.active_loans || 0} active`}
           onClick={() => handleStatCardClick('loans')}
         />
         {stats?.overdue_loans > 0 && (
@@ -445,16 +445,16 @@ const StatCard: React.FC<{
   onClick
 }) => (
   <Card 
-    className={`bg-gradient-to-br from-brand-blue-50 to-brand-blue-100 border-brand-blue-200 hover:border-brand-blue-300 transition-all duration-200 hover:shadow-md p-3 sm:p-4 ${onClick ? 'cursor-pointer' : ''}`}
+    className={`bg-gradient-to-br from-brand-blue-50 to-brand-blue-100 border-brand-blue-200 hover:border-brand-blue-300 transition-all duration-200 hover:shadow-md p-2 sm:p-3 overflow-hidden ${onClick ? 'cursor-pointer' : ''}`}
     onClick={onClick}
   >
-    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-0 pt-0">
-      <CardTitle className="text-xs md:text-sm font-medium text-brand-blue-800">{title}</CardTitle>
-      <Icon className="h-4 w-4 text-brand-blue-600" />
+    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 px-0 pt-0">
+      <CardTitle className="text-xs font-medium text-brand-blue-800 truncate pr-2">{title}</CardTitle>
+      <Icon className="h-3 w-3 text-brand-blue-600 flex-shrink-0" />
     </CardHeader>
     <CardContent className="px-0 pb-0">
-      <div className="text-lg md:text-2xl font-bold text-brand-blue-700">{value}</div>
-      <p className="text-xs text-muted-foreground hidden sm:block">{description}</p>
+      <div className="text-base sm:text-xl font-bold text-brand-blue-700 truncate">{value}</div>
+      <p className="text-xs text-muted-foreground truncate hidden sm:block mt-1">{description}</p>
     </CardContent>
   </Card>
 );
@@ -471,7 +471,7 @@ const ApprovalSnapshot: React.FC<{ userRole: string; userId: string }> = ({ user
       try {
         const { data, error } = await supabase
           .from('loans')
-          .select('id, principal_amount, approval_status, created_at, created_by, loan_officer_id, customer_id')
+          .select('id, principal_amount, approval_status, created_at, created_by, loan_officer_id, member_id')
           .order('created_at', { ascending: false })
           .limit(6);
         if (error) throw error;
@@ -481,19 +481,19 @@ const ApprovalSnapshot: React.FC<{ userRole: string; userId: string }> = ({ user
         );
 
         // Batch fetch member and officer names
-        const memberIds = [...new Set(filtered.map(l => l.customer_id).filter(Boolean))];
+        const memberIds = [...new Set(filtered.map(l => (l as any).member_id).filter(Boolean))];
         const officerIds = [...new Set(filtered.map(l => l.loan_officer_id).filter(Boolean))];
         const [membersRes, officersRes] = await Promise.all([
-          memberIds.length > 0 ? supabase.from('members').select('id, full_name').in('id', memberIds) : { data: [], error: null },
+          memberIds.length > 0 ? supabase.from('members').select('id, first_name, last_name').in('id', memberIds) : { data: [], error: null },
           officerIds.length > 0 ? supabase.from('profiles').select('id, full_name').in('id', officerIds) : { data: [], error: null }
         ]);
-
-        const membersMap = new Map((membersRes.data || []).map((m: any) => [m.id, m.full_name]));
+        
+        const membersMap = new Map((membersRes.data || []).map((m: any) => [m.id, `${m.first_name || ''} ${m.last_name || ''}`.trim() || 'Unknown Member']));
         const officersMap = new Map((officersRes.data || []).map((o: any) => [o.id, o.full_name]));
 
         const enriched = filtered.map(l => ({
           ...l,
-          member_name: l.customer_id ? (membersMap.get(l.customer_id) || 'Unknown Member') : 'Unknown Member',
+          member_name: (l as any).member_id ? (membersMap.get((l as any).member_id) || 'Unknown Member') : 'Unknown Member',
           officer_name: l.loan_officer_id ? (officersMap.get(l.loan_officer_id) || 'Unassigned Officer') : 'Unassigned Officer'
         }));
 

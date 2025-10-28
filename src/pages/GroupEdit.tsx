@@ -35,6 +35,8 @@ interface Branch {
 
 interface Member {
   id: string;
+  first_name?: string;
+  last_name?: string;
   full_name: string;
   phone_number: string;
 }
@@ -80,13 +82,20 @@ const GroupEdit: React.FC = () => {
     try {
       const { data: membersData, error: membersError } = await supabase
         .from('members')
-        .select('id, full_name, phone_number')
+        .select('id, first_name, last_name, phone_number')
         .eq('group_id', groupId)
         .eq('status', 'active')
-        .order('full_name');
+        .order('first_name');
       
       if (membersError) throw membersError;
-      setGroupMembers(membersData || []);
+      // Concatenate first_name and last_name for display
+      const formattedMembers = (membersData || []).map((member: any) => ({
+        ...member,
+        full_name: member.first_name && member.last_name 
+          ? `${member.first_name} ${member.last_name}`.trim()
+          : member.first_name || member.last_name || 'Unknown Member'
+      }));
+      setGroupMembers(formattedMembers);
     } catch (error: any) {
       console.error('Failed to fetch group members:', error);
       setGroupMembers([]);
@@ -110,12 +119,19 @@ const GroupEdit: React.FC = () => {
       // Fetch all members for new group creation (no restriction)
       const { data: membersData, error: membersError } = await supabase
         .from('members')
-        .select('id, full_name, phone_number')
+        .select('id, first_name, last_name, phone_number')
         .eq('status', 'active')
-        .order('full_name');
+        .order('first_name');
       
       if (membersError) throw membersError;
-      setMembers(membersData || []);
+      // Concatenate first_name and last_name for display
+      const formattedMembers = (membersData || []).map((member: any) => ({
+        ...member,
+        full_name: member.first_name && member.last_name 
+          ? `${member.first_name} ${member.last_name}`.trim()
+          : member.first_name || member.last_name || 'Unknown Member'
+      }));
+      setMembers(formattedMembers);
 
       // Fetch loan officers for assignment
       const { data: officersData, error: officersError } = await supabase
@@ -156,8 +172,8 @@ const GroupEdit: React.FC = () => {
         meeting_day: groupData.meeting_day || 1,
         meeting_time: groupData.meeting_time || '',
         location: groupData.location || '',
-        contact_person_id: groupData.contact_person_id || '',
-        assigned_officer_id: (groupData as any).assigned_officer_id || ''
+        contact_person_id: (groupData as any).contact_person_id || 'none',
+        assigned_officer_id: (groupData as any).assigned_officer_id || 'none'
       });
       
     } catch (error: any) {
@@ -189,16 +205,27 @@ const GroupEdit: React.FC = () => {
     
     setIsSubmitting(true);
     try {
+      // Generate a unique code for the group
+      const baseCode = formData.name.toUpperCase().replace(/\s+/g, '_').substring(0, 10);
+      const timestamp = Date.now().toString().slice(-6);
+      const code = `${baseCode}_${timestamp}`;
+      
       const submitData: any = {
         name: formData.name,
+        code: code, // Add required code field
         description: formData.description,
-        branch_id: parseInt(formData.branch_id),
+        branch_id: formData.branch_id, // Keep as UUID string
         meeting_day: formData.meeting_day,
+        created_by: user?.id || '', // Add required created_by field
         // Allow null for optional meeting_time to avoid DB errors on empty string
         meeting_time: formData.meeting_time && formData.meeting_time.trim() !== '' ? formData.meeting_time : null,
-        location: formData.location,
-        contact_person_id: formData.contact_person_id === 'none' ? null : formData.contact_person_id || null
+        location: formData.location
       };
+
+      // Only include contact_person_id if it's not 'none' and not empty
+      if (formData.contact_person_id && formData.contact_person_id !== 'none') {
+        submitData.contact_person_id = formData.contact_person_id;
+      }
 
       // Only include assigned_officer_id if it's not 'none' and not empty
       if (formData.assigned_officer_id && formData.assigned_officer_id !== 'none') {
@@ -433,7 +460,7 @@ const GroupEdit: React.FC = () => {
                   <SelectItem value="none">No contact person</SelectItem>
                   {(isCreating ? members : groupMembers).map((member) => (
                     <SelectItem key={member.id} value={member.id}>
-                      {member.full_name} - {member.phone_number}
+                      {member.full_name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -460,7 +487,7 @@ const GroupEdit: React.FC = () => {
                   <SelectItem value="none">No assigned officer</SelectItem>
                   {loanOfficers.map((officer) => (
                     <SelectItem key={officer.id} value={officer.id}>
-                      {officer.full_name} - {officer.email}
+                      {officer.full_name}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -40,9 +40,64 @@ const RealizableReport: React.FC = () => {
   const fetchData = async () => {
     if (!user) return;
     try {
-      const { data, error } = await supabase.rpc('get_realizable_assets_report', { requesting_user_id: user.id });
-      if (error) throw error;
-      setItems(data || []);
+      // Fetch realizable assets directly from the table
+      const { data: assetsData, error: assetsError } = await supabase
+        .from('realizable_assets')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (assetsError) throw assetsError;
+
+      if (!assetsData || assetsData.length === 0) {
+        setItems([]);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch related data separately
+      const loanIds = assetsData.map(asset => asset.loan_id).filter(Boolean);
+      const memberIds = assetsData.map(asset => asset.member_id).filter(Boolean);
+      const branchIds = assetsData.map(asset => asset.branch_id).filter(Boolean);
+
+      const [loansData, membersData, branchesData] = await Promise.all([
+        loanIds.length > 0 ? supabase.from('loans').select('id, application_no, member_id').in('id', loanIds) : { data: [], error: null },
+        memberIds.length > 0 ? supabase.from('members').select('id, first_name, last_name').in('id', memberIds) : { data: [], error: null },
+        branchIds.length > 0 ? supabase.from('branches').select('id, name').in('id', branchIds) : { data: [], error: null }
+      ]);
+
+      // Create lookup maps
+      const loansMap = new Map((loansData.data || []).map(loan => [loan.id, loan]));
+      const membersMap = new Map((membersData.data || []).map((member: any) => {
+        const fullName = member?.first_name && member?.last_name
+          ? `${member.first_name} ${member.last_name}`.trim()
+          : member?.first_name || member?.last_name || 'Unknown Member';
+        return [member.id, fullName];
+      }));
+      const branchesMap = new Map((branchesData.data || []).map(branch => [branch.id, branch]));
+
+      // Combine the data
+      const combinedItems = assetsData.map(asset => {
+        const loan = loansMap.get(asset.loan_id);
+        const memberName = asset.member_id ? (membersMap.get(asset.member_id) || 'Unknown Member') : null;
+        const branchName = branchesMap.get(asset.branch_id);
+
+        return {
+          id: asset.id,
+          asset_type: asset.asset_type || 'unknown',
+          description: asset.description || 'N/A',
+          member_name: memberName || null,
+          loan_account_number: loan?.application_no || null,
+          member_id: asset.member_id || null,
+          loan_id: asset.loan_id || null,
+          realizable_value: asset.realizable_value || 0,
+          current_market_value: asset.current_market_value || 0,
+          recovery_likelihood: asset.recovery_likelihood || 'medium',
+          branch_name: branchName?.name || 'Unknown Branch',
+          status: asset.status || 'pending'
+        };
+      });
+
+      setItems(combinedItems);
     } catch (error: any) {
       toast.error('Failed to fetch report data', { description: error.message });
     } finally {
@@ -51,7 +106,7 @@ const RealizableReport: React.FC = () => {
   };
 
   useEffect(() => {
-    if (userRole === 'super_admin' || userRole === 'branch_manager') {
+    if (userRole === 'super_admin' || userRole === 'branch_admin') {
       fetchData();
       
       // Subscribe to real-time changes
@@ -125,7 +180,7 @@ const RealizableReport: React.FC = () => {
 
   if (loading) { return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>; }
 
-  if (userRole !== 'super_admin' && userRole !== 'branch_manager') {
+  if (userRole !== 'super_admin' && userRole !== 'branch_admin') {
     return (
       <div className="p-2 sm:p-4 md:p-6">
         <Card className="max-w-md mx-auto">

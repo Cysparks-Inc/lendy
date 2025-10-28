@@ -142,15 +142,10 @@ const ExpensesPage: React.FC = () => {
     try {
       setLoading(true);
       
-      // Fetch expenses with related data
+      // Fetch expenses (assuming the migration has been run)
       const { data: expensesData, error: expensesError } = await supabase
         .from('expenses')
-        .select(`
-          *,
-          expense_categories(name),
-          branches(name),
-          profiles!expenses_created_by_fkey(full_name)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (expensesError) throw expensesError;
@@ -333,11 +328,11 @@ const ExpensesPage: React.FC = () => {
         return;
       }
 
-      // Convert branch_id from string to integer or null
+      // Convert branch_id from string to UUID or null
       // Convert empty date strings to null for optional date fields
       const sanitizedData = {
         ...data,
-        branch_id: data.branch_id && data.branch_id !== '' ? parseInt(data.branch_id, 10) : null,
+        branch_id: data.branch_id && data.branch_id !== '' ? data.branch_id : null,
         due_date: data.due_date && data.due_date !== '' ? data.due_date : null,
         payment_date: data.payment_date && data.payment_date !== '' ? data.payment_date : null
       };
@@ -345,10 +340,14 @@ const ExpensesPage: React.FC = () => {
       // Debug: Log the sanitized data
       console.log('Sanitized data:', sanitizedData);
 
-      // Additional validation for branch_id conversion
-      if (data.branch_id && data.branch_id !== '' && isNaN(parseInt(data.branch_id, 10))) {
-        toast.error('Invalid branch ID format');
-        return;
+      // Additional validation for branch_id (UUID validation)
+      if (data.branch_id && data.branch_id !== '') {
+        // Validate UUID format
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(data.branch_id)) {
+          toast.error('Invalid branch ID format. Please select a valid branch.');
+          return;
+        }
       }
 
       // Debug: Check for any string fields that might contain quotes
@@ -372,7 +371,8 @@ const ExpensesPage: React.FC = () => {
         return;
       }
 
-      if (sanitizedData.branch_id !== null && (typeof sanitizedData.branch_id !== 'number' || isNaN(sanitizedData.branch_id))) {
+      // Validate branch_id is a valid UUID string or null
+      if (sanitizedData.branch_id !== null && typeof sanitizedData.branch_id !== 'string') {
         toast.error('Invalid branch ID format');
         return;
       }
@@ -406,7 +406,6 @@ const ExpensesPage: React.FC = () => {
           ...sanitizedData,
           updated_at: new Date().toISOString()
         };
-        console.log('Updating expense with data:', updateData);
         
         const { error } = await supabase
           .from('expenses')
@@ -422,7 +421,6 @@ const ExpensesPage: React.FC = () => {
           created_by: user?.id,
           status: 'active'
         };
-        console.log('Creating expense with data:', insertData);
         
         const { error } = await supabase
           .from('expenses')

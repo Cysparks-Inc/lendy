@@ -86,12 +86,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .select('permission')
         .eq('user_id', userId);
       
-      if (error) {
+      if (error || !data) {
+        // If table doesn't exist or user has no permissions, return empty array
         return [];
       }
       
-      return data?.map((p: any) => p.permission as Permission) || [];
+      return data.map((p: any) => p.permission as Permission);
     } catch (error) {
+      console.error('Error fetching user permissions:', error);
       return [];
     }
   };
@@ -104,6 +106,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
+    // Safety timeout to ensure loading never gets stuck
+    const safetyTimeout = setTimeout(() => {
+      setLoading(false);
+    }, 5000);
+
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
@@ -111,14 +118,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Fetch user role, profile, and permissions after setting user
-          setTimeout(async () => {
-            const { role, profile: userProfile } = await fetchUserRoleAndProfile(session.user.id);
-            const userPermissions = await fetchUserPermissions(session.user.id);
+          // Fetch user role, profile, and permissions BEFORE setting loading to false
+          try {
+            const [{ role, profile: userProfile }, userPermissions] = await Promise.all([
+              fetchUserRoleAndProfile(session.user.id),
+              fetchUserPermissions(session.user.id)
+            ]);
             setUserRole(role);
             setProfile(userProfile);
             setPermissions(userPermissions);
-          }, 0);
+          } catch (error) {
+            console.error('Error fetching user data:', error);
+          }
         } else {
           setUserRole(null);
           setProfile(null);
@@ -137,6 +148,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           } catch {}
         }
 
+        // Set loading to false AFTER all async operations complete
+        clearTimeout(safetyTimeout);
         setLoading(false);
       }
     );
@@ -154,14 +167,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUserRole(role);
           setProfile(userProfile);
           setPermissions(userPermissions);
+          clearTimeout(safetyTimeout);
+          setLoading(false);
+        }).catch((error) => {
+          console.error('Error fetching initial user data:', error);
+          clearTimeout(safetyTimeout);
           setLoading(false);
         });
       } else {
+        clearTimeout(safetyTimeout);
         setLoading(false);
       }
+    }).catch((error) => {
+      console.error('Error getting session:', error);
+      clearTimeout(safetyTimeout);
+      setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(safetyTimeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {

@@ -145,10 +145,12 @@ const Transactions: React.FC = () => {
     try {
       setLoading(true);
       
+      // NOTE: The transactions table doesn't exist yet in the schema
+      // This is a placeholder implementation
       let query = supabase
-        .from('transactions')
+        .from('loan_payments')  // Use loan_payments instead of transactions
         .select('*')
-        .order('transaction_date', { ascending: false });
+        .order('payment_date', { ascending: false });
 
       // Apply only basic filters (no relationship filters)
       if (userRole === 'branch_admin' && profile?.branch_id) {
@@ -170,10 +172,10 @@ const Transactions: React.FC = () => {
         query = query.eq('branch_id', filters.branch_id);
       }
       if (dateRange.from) {
-        query = query.gte('transaction_date', dateRange.from.toISOString().split('T')[0]);
+        query = query.gte('payment_date', dateRange.from.toISOString().split('T')[0]);
       }
       if (dateRange.to) {
-        query = query.lte('transaction_date', dateRange.to.toISOString().split('T')[0]);
+        query = query.lte('payment_date', dateRange.to.toISOString().split('T')[0]);
       }
       if (filters.search) {
         query = query.or(`
@@ -184,7 +186,7 @@ const Transactions: React.FC = () => {
 
       // Create a separate query for counting (without pagination)
       let countQuery = supabase
-        .from('transactions')
+        .from('loan_payments')  // Use loan_payments instead of transactions
         .select('*', { count: 'exact', head: true });
 
       // Apply the same basic filters to count query
@@ -205,10 +207,10 @@ const Transactions: React.FC = () => {
         countQuery = countQuery.eq('branch_id', filters.branch_id);
       }
       if (dateRange.from) {
-        countQuery = countQuery.gte('transaction_date', dateRange.from.toISOString().split('T')[0]);
+        countQuery = countQuery.gte('payment_date', dateRange.from.toISOString().split('T')[0]);
       }
       if (dateRange.to) {
-        countQuery = countQuery.lte('transaction_date', dateRange.to.toISOString().split('T')[0]);
+        countQuery = countQuery.lte('payment_date', dateRange.to.toISOString().split('T')[0]);
       }
       if (filters.search) {
         countQuery = countQuery.or(`
@@ -242,45 +244,65 @@ const Transactions: React.FC = () => {
 
       // Fetch related data separately to avoid relationship issues
       const loanIds = [...new Set(data.map(tx => tx.loan_id).filter(Boolean))];
-      const memberIds = [...new Set(data.map(tx => tx.member_id).filter(Boolean))];
-      const branchIds = [...new Set(data.map(tx => tx.branch_id).filter(Boolean))];
+      
+      // First fetch loans to get member_id and branch_id
+      const loansRes = loanIds.length > 0 
+        ? await supabase.from('loans').select('id, application_no, member_id, branch_id, loan_officer_id').in('id', loanIds)
+        : { data: [], error: null };
 
-      const [loansRes, membersRes, branchesRes] = await Promise.all([
-        loanIds.length > 0 ? supabase.from('loans').select('id, account_number, member_id, loan_officer_id').in('id', loanIds) : { data: [], error: null },
-        memberIds.length > 0 ? supabase.from('members').select('id, full_name').in('id', memberIds) : { data: [], error: null },
+      if (loansRes.error) throw loansRes.error;
+
+      // Extract member_ids from loans
+      const memberIds = [...new Set((loansRes.data || []).map(loan => loan.member_id).filter(Boolean))];
+      
+      // Extract branch_ids from loans
+      const branchIds = [...new Set((loansRes.data || []).map(loan => loan.branch_id).filter(Boolean))];
+
+      const [membersRes, branchesRes] = await Promise.all([
+        memberIds.length > 0 ? supabase.from('members').select('id, first_name, last_name, phone_number, id_number').in('id', memberIds) : { data: [], error: null },
         branchIds.length > 0 ? supabase.from('branches').select('id, name').in('id', branchIds) : { data: [], error: null }
       ]);
 
       // Create lookup maps
       const loansMap = new Map((loansRes.data || []).map(loan => [loan.id, loan]));
-      const membersMap = new Map((membersRes.data || []).map(member => [member.id, member]));
+      const membersMap = new Map((membersRes.data || []).map((member: any) => {
+        const fullName = member?.first_name && member?.last_name 
+          ? `${member.first_name} ${member.last_name}`.trim()
+          : member?.first_name || member?.last_name || 'Unknown Member';
+        return [member.id, { ...member, full_name: fullName }];
+      }));
       const branchesMap = new Map((branchesRes.data || []).map(branch => [branch.id, branch]));
 
       // Transform data to match our interface
       let transformedTransactions: Transaction[] = data.map(tx => {
         const loan = loansMap.get(tx.loan_id);
-        const member = membersMap.get(tx.member_id);
-        const branch = branchesMap.get(tx.branch_id);
+        // Get member_id from loan, not from the payment record
+        const member = loan?.member_id ? membersMap.get(loan.member_id) : null;
+        const branch = loan?.branch_id ? branchesMap.get(loan.branch_id) : null;
 
+        // Map loan_payments fields to transaction interface
+        // loan_payments uses 'payment_date' instead of 'transaction_date'
+        const paymentDate = tx.payment_date || tx.created_at || new Date().toISOString();
+        
         return {
           id: tx.id,
-          transaction_type: tx.transaction_type,
+          transaction_type: tx.payment_type || 'payment', // Map payment_type to transaction_type
           amount: tx.amount,
           currency: tx.currency || 'KES',
-          status: tx.status,
-          payment_method: tx.payment_method,
-          reference_number: tx.reference_number,
-          description: tx.description,
-          transaction_date: tx.transaction_date,
+          status: tx.status || 'completed',
+          payment_method: tx.payment_method || 'cash',
+          reference_number: tx.reference_number || `LP-${tx.id.slice(0, 8)}`,
+          description: tx.notes || 'Payment received',
+          transaction_date: paymentDate,
           created_at: tx.created_at,
           updated_at: tx.updated_at,
           
           // Related entities
           loan_id: tx.loan_id,
-          member_id: tx.member_id,
-          loan_account_number: loan?.account_number,
-          member_name: member?.full_name,
-          branch_id: tx.branch_id,
+          member_id: loan?.member_id,
+          loan_account_number: loan?.application_no || 'N/A',
+          member_name: member?.full_name || 'Unknown Member',
+          branch_id: loan?.branch_id,
           branch_name: branch?.name,
           loan_officer_id: loan?.loan_officer_id,
           loan_officer_name: '', // Will be fetched separately if needed
@@ -733,9 +755,15 @@ const Transactions: React.FC = () => {
                 },
                 {
                   header: 'Date',
-                  cell: (row) => (
-                    <div className="text-body">{format(new Date(row.transaction_date), 'MMM dd, yyyy')}</div>
-                  )
+                  cell: (row) => {
+                    try {
+                      const date = row.transaction_date ? new Date(row.transaction_date) : new Date();
+                      if (isNaN(date.getTime())) return <div className="text-body">Invalid Date</div>;
+                      return <div className="text-body">{format(date, 'MMM dd, yyyy')}</div>;
+                    } catch {
+                      return <div className="text-body">N/A</div>;
+                    }
+                  }
                 },
                 {
                   header: 'Actions',

@@ -18,7 +18,7 @@ interface GroupDeleteDialogProps {
   isOpen: boolean;
   onClose: () => void;
   group: {
-    id: number;
+    id: string | number;
     name: string;
     code?: string;
     branch_name?: string;
@@ -56,6 +56,7 @@ export const GroupDeleteDialog: React.FC<GroupDeleteDialogProps> = ({
     try {
       setIsDeleting(true);
 
+      // Hard delete the group
       const { error } = await supabase
         .from('groups')
         .delete()

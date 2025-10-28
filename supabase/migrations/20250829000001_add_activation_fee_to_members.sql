@@ -138,19 +138,20 @@ BEGIN
     RETURN QUERY
     SELECT 
         m.id,
-        m.full_name,
+        TRIM(CONCAT(COALESCE(m.first_name, ''), ' ', COALESCE(m.last_name, ''))) as full_name,
         m.id_number,
         m.phone_number,
         b.name as branch_name,
         m.last_activity_date,
         EXTRACT(MONTH FROM AGE(NOW(), m.last_activity_date))::INTEGER as months_inactive,
         m.status,
-        m.activation_fee_paid
+        COALESCE(m.activation_fee_paid, false) as activation_fee_paid
     FROM public.members m
     LEFT JOIN public.branches b ON m.branch_id = b.id
     WHERE 
         m.last_activity_date < NOW() - INTERVAL '3 months'
-        AND m.status = 'active';
+        AND m.status = 'active'
+    ORDER BY m.last_activity_date DESC;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 

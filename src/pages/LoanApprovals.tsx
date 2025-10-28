@@ -91,7 +91,7 @@ const LoanApprovals: React.FC = () => {
       // Fetch members data
       const { data: membersData, error: membersError } = await supabase
         .from('members')
-        .select('id, full_name, phone_number, group_id')
+        .select('id, first_name, last_name, phone_number, group_id')
         .in('id', memberIds);
 
       if (membersError) throw membersError;
@@ -120,10 +120,15 @@ const LoanApprovals: React.FC = () => {
         const group = groupsData?.find(g => g.id === member?.group_id);
         const creator = profilesData?.find(p => p.id === loan.created_by);
 
+        // Concatenate first_name and last_name
+        const fullName = member?.first_name && member?.last_name 
+          ? `${member.first_name} ${member.last_name}`.trim()
+          : member?.first_name || member?.last_name || 'Unknown';
+
         return {
           id: loan.id,
           member_id: memberId,
-          member_name: member?.full_name || 'Unknown',
+          member_name: fullName,
           member_phone: member?.phone_number || 'N/A',
           group_name: group?.name || 'No Group',
           principal_amount: loan.principal_amount,
@@ -198,10 +203,15 @@ const LoanApprovals: React.FC = () => {
         const group = groupsData?.find(g => g.id === member?.group_id);
         const creator = profilesData?.find(p => p.id === loan.created_by);
 
+        // Concatenate first_name and last_name
+        const fullName = member?.first_name && member?.last_name 
+          ? `${member.first_name} ${member.last_name}`.trim()
+          : member?.first_name || member?.last_name || 'Unknown';
+
         return {
           id: loan.id,
           member_id: memberId,
-          member_name: member?.full_name || 'Unknown',
+          member_name: fullName,
           member_phone: member?.phone_number || 'N/A',
           group_name: group?.name || 'No Group',
           principal_amount: loan.principal_amount,

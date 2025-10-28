@@ -1364,8 +1364,6 @@ export type Database = {
         Row: {
           activation_fee_paid: boolean | null
           address: string | null
-          address_1: string | null
-          address_2: string | null
           assigned_officer_id: string | null
           bank_account: string | null
           branch_id: number | null
@@ -1405,8 +1403,6 @@ export type Database = {
         Insert: {
           activation_fee_paid?: boolean | null
           address?: string | null
-          address_1?: string | null
-          address_2?: string | null
           assigned_officer_id?: string | null
           bank_account?: string | null
           branch_id?: number | null
@@ -1446,8 +1442,6 @@ export type Database = {
         Update: {
           activation_fee_paid?: boolean | null
           address?: string | null
-          address_1?: string | null
-          address_2?: string | null
           assigned_officer_id?: string | null
           bank_account?: string | null
           branch_id?: number | null
@@ -1810,7 +1804,7 @@ export type Database = {
       realizable_assets: {
         Row: {
           asset_type: string
-          branch_id: number | null
+          branch_id: string | null
           created_at: string
           created_by: string
           current_market_value: number
@@ -1831,7 +1825,7 @@ export type Database = {
         }
         Insert: {
           asset_type: string
-          branch_id?: number | null
+          branch_id?: string | null
           created_at?: string
           created_by?: string
           current_market_value?: number
@@ -1852,7 +1846,7 @@ export type Database = {
         }
         Update: {
           asset_type?: string
-          branch_id?: number | null
+          branch_id?: string | null
           created_at?: string
           created_by?: string
           current_market_value?: number
@@ -2230,49 +2224,6 @@ export type Database = {
             columns: ["member_id"]
             isOneToOne: false
             referencedRelation: "members_with_details"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      user_branch_roles: {
-        Row: {
-          branch_id: number
-          id: number
-          role: string
-          user_id: string
-        }
-        Insert: {
-          branch_id: number
-          id?: never
-          role: string
-          user_id: string
-        }
-        Update: {
-          branch_id?: number
-          id?: never
-          role?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_branch_roles_branch_id_fkey"
-            columns: ["branch_id"]
-            isOneToOne: false
-            referencedRelation: "branch_basic_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_branch_roles_branch_id_fkey"
-            columns: ["branch_id"]
-            isOneToOne: false
-            referencedRelation: "branch_summary_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_branch_roles_branch_id_fkey"
-            columns: ["branch_id"]
-            isOneToOne: false
-            referencedRelation: "branches"
             referencedColumns: ["id"]
           },
         ]
@@ -3559,7 +3510,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "staff" | "super_admin"
-      approval_level: "super_admin" | "finance_manager" | "branch_manager"
+      approval_level: "super_admin" | "finance_manager" | "branch_admin"
       expense_category:
         | "office_supplies"
         | "utilities"
@@ -3733,7 +3684,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "staff", "super_admin"],
-      approval_level: ["super_admin", "finance_manager", "branch_manager"],
+      approval_level: ["super_admin", "finance_manager", "branch_admin"],
       expense_category: [
         "office_supplies",
         "utilities",

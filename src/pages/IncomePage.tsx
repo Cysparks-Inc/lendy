@@ -129,18 +129,17 @@ const IncomePage: React.FC = () => {
         // Processing fees from loans (direct) - exclude deleted loans
         supabase
           .from('loans')
-          .select('id, processing_fee, created_at, customer_id, approval_status, loan_officer_id')
+          .select('id, processing_fee, created_at, member_id, approval_status, loan_officer_id')
           .eq('approval_status', 'approved')
           .eq('is_deleted', false)
           .not('processing_fee', 'is', null)
           .gt('processing_fee', 0),
         
-        // Processing fees from transactions table (recorded by trigger function)
+        // Processing fees from loan_payments table (recorded by trigger function)
         supabase
-          .from('transactions')
-          .select('id, amount, description, transaction_date, created_at, loan_id, member_id')
-          .eq('transaction_type', 'fee')
-          .like('description', '%Processing Fee%'),
+          .from('loan_payments')
+          .select('id, amount, payment_date, created_at, loan_id, member_id')
+          .eq('payment_type', 'fee'),
         
         // Interest payments from loan_payments
         supabase
@@ -151,19 +150,19 @@ const IncomePage: React.FC = () => {
         // Registration fees from members
         supabase
           .from('members')
-          .select('id, full_name, created_at, group_id, assigned_officer_id')
+          .select('id, first_name, last_name, created_at, group_id, assigned_officer_id')
           .eq('registration_fee_paid', true),
         
         // Activation fees (to be implemented)
         supabase
           .from('members')
-          .select('id, full_name, created_at, group_id, assigned_officer_id')
+          .select('id, first_name, last_name, created_at, group_id, assigned_officer_id')
           .eq('activation_fee_paid', true),
         
         // All members for lookup
         supabase
           .from('members')
-          .select('id, full_name, group_id'),
+          .select('id, first_name, last_name, group_id'),
         
         // Groups for filtering
         supabase
@@ -184,7 +183,11 @@ const IncomePage: React.FC = () => {
       const getMemberName = (memberId: string | null): string | null => {
         if (!memberId || !allMembers.data) return null;
         const member = allMembers.data.find(m => m.id === memberId);
-        return member?.full_name || null;
+        if (!member) return null;
+        const fullName = member?.first_name && member?.last_name
+          ? `${member.first_name} ${member.last_name}`.trim()
+          : member?.first_name || member?.last_name || null;
+        return fullName;
       };
 
       // Helper function to get group info by member ID
@@ -210,13 +213,13 @@ const IncomePage: React.FC = () => {
       if (processingFees.data) {
         processingFees.data.forEach(loan => {
           if (loan.processing_fee && loan.processing_fee > 0) {
-            const groupInfo = getGroupInfo(loan.customer_id);
+            const groupInfo = getGroupInfo(loan.member_id);
             allIncome.push({
               id: `pf-loan-${loan.id}`,
               source: 'processing_fee',
               amount: loan.processing_fee,
               description: 'Loan Processing Fee',
-              member_name: getMemberName(loan.customer_id),
+              member_name: getMemberName(loan.member_id),
               loan_id: loan.id,
               transaction_date: loan.created_at,
               created_at: loan.created_at,
@@ -256,7 +259,7 @@ const IncomePage: React.FC = () => {
         if (loanIds.length > 0) {
           const { data: loansData } = await supabase
             .from('loans')
-            .select('id, customer_id, loan_officer_id')
+            .select('id, member_id, loan_officer_id')
             .in('id', loanIds)
             .eq('is_deleted', false);
           loanDetails = loansData || [];
@@ -264,13 +267,13 @@ const IncomePage: React.FC = () => {
         
         interestPayments.data.forEach(payment => {
           const loan = loanDetails.find(l => l.id === payment.loan_id);
-          const groupInfo = getGroupInfo(loan?.customer_id);
+          const groupInfo = getGroupInfo(loan?.member_id);
           allIncome.push({
             id: `int-${payment.id}`,
             source: 'interest',
             amount: payment.amount,
             description: 'Interest Payment',
-            member_name: getMemberName(loan?.customer_id),
+            member_name: getMemberName(loan?.member_id),
             loan_id: payment.loan_id,
             transaction_date: payment.payment_date,
             created_at: payment.created_at,
@@ -285,12 +288,15 @@ const IncomePage: React.FC = () => {
       if (registrationFees.data) {
         registrationFees.data.forEach(member => {
           const groupInfo = getGroupInfo(member.id);
+          const memberName = member?.first_name && member?.last_name
+            ? `${member.first_name} ${member.last_name}`.trim()
+            : member?.first_name || member?.last_name || 'Unknown Member';
           allIncome.push({
             id: `reg-${member.id}`,
             source: 'registration_fee',
             amount: 500, // Fixed registration fee
             description: 'Member Registration Fee',
-            member_name: member.full_name,
+            member_name: memberName,
             transaction_date: member.created_at,
             created_at: member.created_at,
             group_id: groupInfo.group_id,
@@ -304,12 +310,15 @@ const IncomePage: React.FC = () => {
       if (activationFees.data) {
         activationFees.data.forEach(member => {
           const groupInfo = getGroupInfo(member.id);
+          const memberName = member?.first_name && member?.last_name
+            ? `${member.first_name} ${member.last_name}`.trim()
+            : member?.first_name || member?.last_name || 'Unknown Member';
           allIncome.push({
             id: `act-${member.id}`,
             source: 'activation_fee',
             amount: 500, // Fixed activation fee
             description: 'Member Activation Fee',
-            member_name: member.full_name,
+            member_name: memberName,
             transaction_date: member.created_at,
             created_at: member.created_at,
             group_id: groupInfo.group_id,

@@ -42,7 +42,7 @@ import { BranchStatusDialog } from '@/components/branches/BranchStatusDialog';
 
 // --- Type Definitions ---
 interface Branch {
-  id: number;
+  id: string;
   name: string;
   location: string;
   created_at: string;
@@ -133,7 +133,7 @@ const Branches: React.FC = () => {
       // Get basic branch data
       const { data: branchesData, error: branchesError } = await supabase
         .from('branches')
-        .select('id, name, location, created_at')
+        .select('id, name, location, created_at, is_active, deactivated_at, deactivated_by')
         .order('name');
       
       if (branchesError) throw branchesError;
@@ -149,7 +149,7 @@ const Branches: React.FC = () => {
       // Get loan statistics
       const { data: loanStats, error: loanError } = await supabase
         .from('loans')
-        .select('branch_id, status, current_balance, principal_amount');
+        .select('branch_id, status, current_balance, principal_amount, approval_status');
       
       if (loanError) throw loanError;
 
@@ -157,8 +157,14 @@ const Branches: React.FC = () => {
       return (branchesData || []).map(branch => {
         const memberCount = (memberStats || []).filter(m => m.branch_id === branch.id).length;
         const branchLoans = (loanStats || []).filter(l => l.branch_id === branch.id);
+        
+        // Include all active loans for outstanding calculation
         const activeLoans = branchLoans.filter(l => l.status === 'active');
-        const totalOutstanding = activeLoans.reduce((sum, l) => sum + parseFloat(String(l.current_balance || '0')), 0);
+        const totalOutstanding = branchLoans.reduce((sum, l) => {
+          const balance = parseFloat(String(l.current_balance || '0'));
+          return sum + balance;
+        }, 0);
+        
         const totalPortfolio = branchLoans.reduce((sum, l) => sum + parseFloat(String(l.principal_amount || '0')), 0);
         const avgLoanSize = branchLoans.length > 0 ? totalPortfolio / branchLoans.length : 0;
 
@@ -174,9 +180,9 @@ const Branches: React.FC = () => {
           total_portfolio: totalPortfolio,
           avg_loan_size: avgLoanSize,
           recovery_rate: totalPortfolio > 0 ? ((totalPortfolio - totalOutstanding) / totalPortfolio) * 100 : 0,
-          is_active: true, // Default to active since column doesn't exist yet
-          deactivated_at: undefined,
-          deactivated_by: undefined
+          is_active: branch.is_active ?? true, // Use actual value from database
+          deactivated_at: branch.deactivated_at,
+          deactivated_by: branch.deactivated_by
         };
       });
     } catch (error) {
@@ -208,9 +214,15 @@ const Branches: React.FC = () => {
         if (error) throw error;
         toast.success(`Branch "${formData.name}" updated successfully.`);
       } else {
+        // Generate a unique code from the name with timestamp
+        const baseCode = formData.name.toUpperCase().replace(/\s+/g, '_').substring(0, 15);
+        const timestamp = Date.now().toString().slice(-6); // Last 6 digits of timestamp
+        const code = `${baseCode}_${timestamp}`;
+        const branchData = { ...formData, code };
+        
         const { error } = await supabase
           .from('branches')
-          .insert(formData);
+          .insert(branchData);
         if (error) throw error;
         toast.success(`Branch "${formData.name}" created successfully.`);
       }

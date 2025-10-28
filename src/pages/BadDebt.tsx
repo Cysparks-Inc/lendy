@@ -46,10 +46,11 @@ const BadDebt: React.FC = () => {
 
     try {
       const { data: badDebtData, error: badDebtError } = await (supabase as any)
-        .rpc('get_bad_debt_report', { requesting_user_id: user.id });
+        .rpc('get_bad_debt_loans', { requesting_user_id: user.id });
 
       if (badDebtError) {
         console.error('Error fetching bad debt loans:', badDebtError);
+        console.error('Detailed error details:', badDebtError);
         throw badDebtError;
       }
 

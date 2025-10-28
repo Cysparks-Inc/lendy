@@ -57,7 +57,8 @@ const UsersPage: React.FC = () => {
       // Fetch profiles first
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select('*');
+        .select('*')
+        .order('created_at', { ascending: false });
       
       if (profilesError) throw profilesError;
 
@@ -68,18 +69,35 @@ const UsersPage: React.FC = () => {
       
       if (rolesError) throw rolesError;
 
-      // Create a map of user roles
-      const roleMap = new Map();
+      // Create a map of user roles - group all roles per user
+      const roleMap = new Map<string, string[]>();
       (rolesData || []).forEach((roleRecord: any) => {
-        roleMap.set(roleRecord.user_id, roleRecord.role);
+        if (!roleMap.has(roleRecord.user_id)) {
+          roleMap.set(roleRecord.user_id, []);
+        }
+        roleMap.get(roleRecord.user_id)!.push(roleRecord.role);
       });
 
-      // Combine the data
-      const formattedUsers = (profilesData || []).map((profile: any) => ({
-        ...profile,
-        role: roleMap.get(profile.id) || 'staff',
-        is_active: true // Default to active for now
-      }));
+      // Fetch branches for branch_name
+      const { data: branchesData, error: branchesError } = await supabase
+        .from('branches')
+        .select('id, name');
+      
+      const branchesMap = new Map((branchesData || []).map(b => [b.id, b.name]));
+
+      // Combine the data - get the primary role (first one) or 'Not Set'
+      const formattedUsers = (profilesData || []).map((profile: any) => {
+        const roles = roleMap.get(profile.id) || [];
+        const primaryRole = roles.length > 0 ? roles[0] : (profile.role || 'Not Set');
+        const branchName = profile.branch_id ? branchesMap.get(profile.branch_id) : null;
+        
+        return {
+          ...profile,
+          role: primaryRole,
+          branch_name: branchName,
+          is_active: !profile.deactivated_at // Check if user is deactivated
+        };
+      });
       
       setUsers(formattedUsers);
     } catch (error: any) {

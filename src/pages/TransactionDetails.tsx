@@ -105,17 +105,8 @@ const TransactionDetails: React.FC = () => {
   
   const finalTransactionId = transactionId || getTransactionIdFromUrl();
   
-  console.log('Transaction ID debugging:', {
-    paramTransactionId,
-    transactionId,
-    finalTransactionId,
-    pathname: location.pathname,
-    pathSegments: location.pathname.split('/')
-  });
-  
   // Early return if no transaction ID
   if (!finalTransactionId) {
-    console.error('No transaction ID available');
     return (
       <div className="text-center py-8">
         <p className="text-gray-500">Invalid transaction URL</p>
@@ -134,58 +125,52 @@ const TransactionDetails: React.FC = () => {
   // Fetch transaction details
   const fetchTransactionDetails = useCallback(async () => {
     if (!finalTransactionId) {
-      console.error('No transaction ID provided');
       toast.error('Transaction ID is required');
       navigate('/transactions');
       return;
     }
-
-    console.log('Fetching transaction details for ID:', finalTransactionId);
     
     try {
       setLoading(true);
       
-      const { data, error } = await supabase
-        .from('transactions')
-        .select(`
-          *,
-          loans!loan_id(
-            id,
-            account_number,
-            principal_amount,
-            interest_rate,
-            issue_date,
-            due_date,
-            status,
-            member_id,
-            loan_officer_id
-          ),
-          members!member_id(
-            id,
-            full_name,
-            phone_number,
-            id_number
-          ),
-          branches!branch_id(
-            id,
-            name,
-            address
-          )
-        `)
+      // NOTE: Using loan_payments instead of transactions table
+      // First fetch the payment record
+      const { data: paymentData, error: paymentError } = await supabase
+        .from('loan_payments')
+        .select('*')
         .eq('id', finalTransactionId)
         .single();
 
-      console.log('Supabase response:', { data, error });
+      if (paymentError || !paymentData) {
+        toast.error('Transaction not found');
+        navigate('/transactions');
+        return;
+      }
+
+      // Fetch related data separately
+      // First get the loan to extract member_id and branch_id
+      const loanData = paymentData.loan_id 
+        ? await supabase.from('loans').select('id, application_no, principal_amount, interest_rate, issue_date, maturity_date, status, member_id, branch_id, loan_officer_id').eq('id', paymentData.loan_id).single()
+        : { data: null, error: null };
+
+      if (loanData.error) throw loanData.error;
+
+      // Now fetch member and branch using IDs from the loan
+      const [memberData, branchData] = await Promise.all([
+        loanData.data?.member_id ? supabase.from('members').select('id, first_name, last_name, phone_number, id_number').eq('id', loanData.data.member_id).single() : { data: null, error: null },
+        loanData.data?.branch_id ? supabase.from('branches').select('id, name').eq('id', loanData.data.branch_id).single() : { data: null, error: null }
+      ]);
+
+      const data = {
+        ...paymentData,
+        loans: loanData.data,
+        members: memberData.data,
+        branches: branchData.data
+      };
+
+      const error = paymentError || loanData.error || memberData.error || branchData.error;
 
       if (error) {
-        console.error('Error fetching transaction:', error);
-        console.error('Error details:', {
-          code: error.code,
-          message: error.message,
-          details: error.details,
-          hint: error.hint
-        });
-        
         // Check if it's a table not found error
         if (error.code === '42P01') {
           toast.error('Transactions table not found. Please run the database migration first.');
@@ -198,11 +183,9 @@ const TransactionDetails: React.FC = () => {
       }
 
       if (!data) {
-        console.log('No transaction data found');
-        
-        // Check if we have any transactions at all
+        // Check if we have any loan payments at all
         const { count } = await supabase
-          .from('transactions')
+          .from('loan_payments')
           .select('*', { count: 'exact', head: true });
         
         if (count === 0) {
@@ -216,8 +199,6 @@ const TransactionDetails: React.FC = () => {
         return;
       }
 
-      console.log('Transaction data found:', data);
-
       // Check access control
       if (userRole === 'branch_admin' && profile?.branch_id && data.branch_id !== profile.branch_id) {
         toast.error('Access denied. You can only view transactions from your branch.');
@@ -225,67 +206,71 @@ const TransactionDetails: React.FC = () => {
         return;
       }
 
-      if (userRole === 'loan_officer' && data.loans?.loan_officer_id !== user?.id) {
+      if (userRole === 'loan_officer' && loanData.data?.loan_officer_id !== user?.id) {
         toast.error('Access denied. You can only view your own transactions.');
         navigate('/transactions');
         return;
       }
 
+      // Concatenate member first_name and last_name
+      const memberName = data.members?.first_name && data.members?.last_name
+        ? `${data.members.first_name} ${data.members.last_name}`.trim()
+        : data.members?.first_name || data.members?.last_name || 'Unknown Member';
+
       // Transform data to match our interface
       const transformedTransaction: TransactionDetails = {
-        id: data.id,
-        transaction_type: data.transaction_type,
-        amount: data.amount,
-        currency: data.currency || 'KES',
-        status: data.status,
-        payment_method: data.payment_method,
-        reference_number: data.reference_number,
-        description: data.description,
-        transaction_date: data.transaction_date,
-        created_at: data.created_at,
-        updated_at: data.updated_at,
+        id: paymentData.id,
+        transaction_type: paymentData.payment_type || 'payment',
+        amount: paymentData.amount,
+        currency: paymentData.currency || 'KES',
+        status: paymentData.status || 'completed',
+        payment_method: paymentData.payment_method || 'cash',
+        reference_number: paymentData.reference_number || `LP-${paymentData.id.slice(0, 8)}`,
+        description: paymentData.notes || 'Payment received',
+        transaction_date: paymentData.payment_date || paymentData.created_at,
+        created_at: paymentData.created_at,
+        updated_at: paymentData.updated_at || paymentData.created_at,
         
         // Related entities
-        loan_id: data.loans?.id,
-        member_id: data.members?.id,
-        loan_account_number: data.loans?.account_number,
-        member_name: data.members?.full_name,
-        member_phone: data.members?.phone_number,
-        member_id_number: data.members?.id_number,
-        branch_id: data.branch_id,
-        branch_name: data.branches?.name,
-        branch_address: data.branches?.address,
-        loan_officer_id: data.loans?.loan_officer_id,
+        loan_id: paymentData.loan_id || loanData.data?.id,
+        member_id: loanData.data?.member_id || memberData.data?.id,
+        loan_account_number: loanData.data?.application_no || 'N/A',
+        member_name: memberName,
+        member_phone: memberData.data?.phone_number,
+        member_id_number: memberData.data?.id_number,
+        branch_id: loanData.data?.branch_id,
+        branch_name: branchData.data?.name,
+        branch_address: branchData.data?.location || 'N/A',
+        loan_officer_id: loanData.data?.loan_officer_id,
         loan_officer_name: 'Not specified', // We'll get this separately if needed
         loan_officer_phone: 'Not specified', // We'll get this separately if needed
         
         // Additional details
-        fees: data.fees,
-        penalties: data.penalties,
-        principal_paid: data.principal_paid,
-        interest_paid: data.interest_paid,
-        total_paid: data.total_paid,
-        balance_before: data.balance_before,
-        balance_after: data.balance_after,
+        fees: paymentData.processing_fee,
+        penalties: paymentData.penalty_amount,
+        principal_paid: paymentData.principal_amount,
+        interest_paid: paymentData.interest_amount,
+        total_paid: paymentData.total_amount,
+        balance_before: paymentData.balance_before_payment,
+        balance_after: paymentData.balance_after_payment,
         
         // Metadata
-        notes: data.notes,
-        receipt_url: data.receipt_url,
-        created_by: data.created_by,
-        created_by_name: data.created_by_name,
+        notes: paymentData.notes,
+        receipt_url: paymentData.receipt_file,
+        created_by: paymentData.created_by,
+        created_by_name: 'Not specified',
         
         // Loan details
-        loan_principal: data.loans?.principal_amount,
-        loan_interest_rate: data.loans?.interest_rate,
-        loan_issue_date: data.loans?.issue_date,
-        loan_due_date: data.loans?.due_date,
-        loan_status: data.loans?.status
+        loan_principal: loanData.data?.principal_amount,
+        loan_interest_rate: loanData.data?.interest_rate,
+        loan_issue_date: loanData.data?.issue_date,
+        loan_due_date: loanData.data?.maturity_date,
+        loan_status: loanData.data?.status
       };
 
       setTransaction(transformedTransaction);
 
     } catch (error) {
-      console.error('Error fetching transaction details:', error);
       toast.error('Failed to fetch transaction details');
     } finally {
       setLoading(false);
@@ -555,7 +540,6 @@ const TransactionDetails: React.FC = () => {
       
       toast.success('Receipt downloaded successfully');
     } catch (error) {
-      console.error('Error generating receipt:', error);
       toast.error('Failed to generate receipt');
     }
   };
@@ -565,27 +549,24 @@ const TransactionDetails: React.FC = () => {
     const checkTableExists = async () => {
       try {
         const { error } = await supabase
-          .from('transactions')
+          .from('loan_payments')
           .select('id')
           .limit(1);
         
         if (error) {
-          console.error('Transactions table check failed:', error);
           if (error.code === '42P01') {
             toast.error('Transactions table not found. Please run the database migration first.');
             navigate('/transactions');
             return;
           }
         } else {
-          console.log('Transactions table exists, proceeding with fetch');
           // Fetch transaction details when component mounts
           if (finalTransactionId) {
-            console.log('useEffect triggered, fetching transaction:', finalTransactionId);
             fetchTransactionDetails();
           }
         }
       } catch (err) {
-        console.error('Error checking table existence:', err);
+        // Silent error handling
       }
     };
     
@@ -593,9 +574,7 @@ const TransactionDetails: React.FC = () => {
     
     // Add timeout to prevent infinite loading
     const timeout = setTimeout(() => {
-      console.log('Timeout fired, current loading state:', loading);
       if (loading) {
-        console.error('Transaction fetch timeout');
         setLoading(false);
         toast.error('Transaction fetch timed out. Please try again.');
       }

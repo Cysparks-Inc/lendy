@@ -32,7 +32,7 @@ const memberSchema = z.object({
   kyc_id_type: z.string().min(1, "KYC ID type is required"),
   id_number: z.string().min(5, "A valid KYC ID number is required and must be unique"),
   kra_pin: z.string().optional().default(''),
-  address_1: z.string().optional().default(''),
+  address: z.string().optional().default(''),
   location: z.string().optional().default(''),
   profession: z.string().optional().default(''),
   profession_other: z.string().optional().default(''),
@@ -125,8 +125,28 @@ const MemberFormPage: React.FC = () => {
                     const { data: memberData, error } = await supabase.from('members').select('*').eq('id', id).single();
                     if (error) throw error;
                     if (memberData) {
-                        const sanitizedData = sanitizeDataForForm(memberData);
-                        reset({ ...sanitizedData, branch_id: String(sanitizedData.branch_id), monthly_income: String(sanitizedData.monthly_income || '') });
+                        // Convert database format to form format
+                        const formData: any = {
+                            full_name: `${memberData.first_name || ''} ${memberData.last_name || ''}`.trim(),
+                            photo_url: memberData.photo_url || '',
+                            dob: memberData.date_of_birth || '',
+                            sex: memberData.gender || '',
+                            phone_number: memberData.phone_number || '',
+                            marital_status: memberData.marital_status || '',
+                            kyc_id_type: memberData.kyc_id_type || 'National ID',
+                            id_number: memberData.id_number || '',
+                            kra_pin: memberData.kra_pin || '',
+                            address: memberData.address || '',
+                            location: memberData.location || '',
+                            profession: memberData.profession || '',
+                            profession_other: memberData.profession_other || '',
+                            monthly_income: memberData.monthly_income || 0,
+                            branch_id: memberData.branch_id || '',
+                            group_id: memberData.group_id || '',
+                            assigned_officer_id: memberData.assigned_officer_id || '',
+                            registration_fee_paid: memberData.registration_fee_paid || false
+                        };
+                        reset(formData);
                     }
                 }
             } catch (error: any) {
@@ -181,22 +201,53 @@ const MemberFormPage: React.FC = () => {
                 pictureUrl = urlData.publicUrl;
             }
 
-            const memberData = data;
-            if (memberData.dob === '') memberData.dob = null;
-            if (memberData.spouse_dob === '') memberData.spouse_dob = null;
+            // Split full_name into first_name and last_name
+            const nameParts = data.full_name.trim().split(/\s+/);
+            const firstName = nameParts[0] || '';
+            const lastName = nameParts.slice(1).join(' ') || '';
             
-            // If the current user is a loan officer, they are forced to be the assignee.
-            // Otherwise, we use the value from the (now mandatory) dropdown.
-            const assignedOfficer = userRole === 'loan_officer' ? user?.id : (data.assigned_officer_id || null);
-
-            const finalMemberData = {
-                ...memberData,
+            // Generate member_no for new members
+            let memberNo = '';
+            if (!isEditMode) {
+                const timestamp = Date.now().toString().slice(-8);
+                const initials = `${firstName.charAt(0).toUpperCase()}${lastName.charAt(0).toUpperCase()}`;
+                memberNo = `MEM${timestamp}${initials}`;
+            }
+            
+            // Convert form data to database format
+            let finalMemberData: any = {
+                first_name: firstName,
+                last_name: lastName,
+                phone_number: data.phone_number,
+                id_number: data.id_number,
+                date_of_birth: data.dob || null,
+                gender: data.sex?.toLowerCase() || null,
+                marital_status: data.marital_status?.toLowerCase() || null,
+                address: data.address || null,
+                occupation: data.profession || null,
+                profession: data.profession || null,
+                profession_other: data.profession_other || null,
+                monthly_income: data.monthly_income || 0,
                 photo_url: pictureUrl,
-                branch_id: Number(data.branch_id),
-                group_id: data.group_id, // Group is now required
-                assigned_officer_id: assignedOfficer,
-                created_by: user?.id
+                branch_id: data.branch_id,
+                group_id: data.group_id,
+                assigned_officer_id: userRole === 'loan_officer' ? user?.id : data.assigned_officer_id,
+                created_by: user?.id,
+                registration_fee_paid: data.registration_fee_paid
             };
+            
+            // Add member_no only for new members
+            if (!isEditMode && memberNo) {
+                finalMemberData.member_no = memberNo;
+            }
+
+            // Remove null/empty fields (but keep required fields)
+            const requiredFields = ['first_name', 'last_name', 'branch_id', 'group_id', 'id_number', 'phone_number', 'member_no'];
+            Object.keys(finalMemberData).forEach(key => {
+                if (finalMemberData[key] === null || (finalMemberData[key] === '' && !requiredFields.includes(key))) {
+                    delete finalMemberData[key];
+                }
+            });
 
 
             let memberId = id;
@@ -375,7 +426,7 @@ const MemberFormPage: React.FC = () => {
 
                         <FormSection title="Address & Housing">
                             <FormField label="Location / Estate" error={errors.location}><Input {...register("location")} /></FormField>
-                            <FormField label="Address" error={errors.address_1}><Input {...register("address_1")} /></FormField>
+                            <FormField label="Address" error={errors.address}><Input {...register("address")} /></FormField>
                         </FormSection>
 
                         <FormSection title={userRole === 'loan_officer' ? 'Branch & Group Assignment' : 'Branch, Group & Officer Assignment'}>

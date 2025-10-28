@@ -85,9 +85,9 @@ const MembersPage: React.FC = () => {
       
       // Calculate loan statistics for each member
       const membersWithLoanData = membersData.map(member => {
-        // Find loans for this member (check customer_id)
+        // Find loans for this member (check member_id)
         const memberLoans = loansData?.filter(loan => 
-          loan.customer_id === member.id
+          loan.member_id === member.id
         ) || [];
         
         // Calculate total loans and outstanding balance
@@ -101,9 +101,14 @@ const MembersPage: React.FC = () => {
           return sum;
         }, 0);
         
+        // Concatenate first_name and last_name to create full_name
+        const fullName = member.first_name && member.last_name 
+          ? `${member.first_name} ${member.last_name}`.trim()
+          : member.first_name || member.last_name || 'Unknown Member';
+        
         return {
           member_id: member.id,
-          full_name: member.full_name || 'Unknown Member',
+          full_name: fullName,
           id_number: member.id_number || member.id.slice(0, 8),
           phone_number: member.phone_number || 'N/A',
           status: member.status || 'active',

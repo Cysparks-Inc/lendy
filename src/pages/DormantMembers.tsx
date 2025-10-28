@@ -42,10 +42,65 @@ const DormantMembers: React.FC = () => {
   const fetchDormantMembers = async () => {
     if (!user) return;
     try {
-    const { data, error } = await (supabase as any).rpc('get_dormant_members');
-    if (error) throw error;
-    setDormantMembers((data as any[]) || []);
+      // Direct query instead of RPC to avoid function issues
+      const { data, error } = await supabase
+        .from('members')
+        .select(`
+          id,
+          first_name,
+          last_name,
+          id_number,
+          phone_number,
+          last_activity_date,
+          status,
+          activation_fee_paid,
+          branch_id
+        `)
+        .lt('last_activity_date', new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString())
+        .eq('status', 'active');
+      
+      if (error) throw error;
+
+      // Fetch branch names for the members
+      const branchIds = [...new Set((data || []).map(m => m.branch_id).filter(Boolean))];
+      let branchesMap = new Map();
+      
+      if (branchIds.length > 0) {
+        const { data: branchesData } = await supabase
+          .from('branches')
+          .select('id, name')
+          .in('id', branchIds);
+        
+        branchesMap = new Map((branchesData || []).map(b => [b.id, b.name]));
+      }
+
+      // Format the data to match expected interface
+      const formattedMembers = (data || []).map(member => {
+        const fullName = member?.first_name && member?.last_name
+          ? `${member.first_name} ${member.last_name}`.trim()
+          : member?.first_name || member?.last_name || 'Unknown Member';
+        
+        const lastActivityDate = member.last_activity_date || new Date().toISOString();
+        const monthsInactive = Math.floor(
+          (Date.now() - new Date(lastActivityDate).getTime()) / (1000 * 60 * 60 * 24 * 30)
+        );
+
+        return {
+          id: member.id,
+          full_name: fullName,
+          id_number: member.id_number,
+          phone_number: member.phone_number,
+          branch_name: branchesMap.get(member.branch_id) || 'Unknown Branch',
+          last_activity_date: lastActivityDate,
+          months_inactive: monthsInactive,
+          status: member.status,
+          activation_fee_paid: member.activation_fee_paid || false
+        };
+      });
+
+      setDormantMembers(formattedMembers);
     } catch (error: any) {
+      console.error('Failed to fetch dormant members:', error);
       toast.error('Failed to fetch dormant members', { description: error.message });
     } finally {
       setLoading(false);
