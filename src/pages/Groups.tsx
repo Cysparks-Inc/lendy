@@ -84,7 +84,7 @@ interface LoanOfficer {
 
 const Groups: React.FC = () => {
   const navigate = useNavigate();
-  const { user, userRole } = useAuth();
+  const { user, userRole, profile } = useAuth();
   
   // State
   const [loading, setLoading] = useState(true);
@@ -144,7 +144,26 @@ const Groups: React.FC = () => {
           .limit(100);
         if (error) throw error;
         groupsData = data || [];
+      } else if (userRole === 'branch_admin' && profile?.branch_id) {
+        // Branch admins can only see groups from their branch
+        const { data, error } = await supabase
+          .from('groups')
+          .select('*')
+          .eq('branch_id', profile.branch_id)
+          .limit(100);
+        if (error) throw error;
+        groupsData = data || [];
+      } else if (userRole !== 'super_admin' && profile?.branch_id) {
+        // Teller/Auditor - see only their branch groups
+        const { data, error } = await supabase
+          .from('groups')
+          .select('*')
+          .eq('branch_id', profile.branch_id)
+          .limit(100);
+        if (error) throw error;
+        groupsData = data || [];
       } else {
+        // Super admins see all groups
         const { data, error } = await supabase
           .from('groups')
           .select('*')

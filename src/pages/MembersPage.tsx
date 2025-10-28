@@ -27,7 +27,7 @@ interface MemberSummary {
 }
 
 const MembersPage: React.FC = () => {
-  const { user, userRole } = useAuth();
+  const { user, userRole, profile } = useAuth();
   const [members, setMembers] = useState<MemberSummary[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -53,12 +53,14 @@ const MembersPage: React.FC = () => {
       if (userRole === 'loan_officer') {
         // Loan officers can only see members assigned to them
         membersQuery = membersQuery.eq('assigned_officer_id', user?.id);
-      } else if (userRole === 'branch_admin') {
+      } else if (userRole === 'branch_admin' && profile?.branch_id) {
         // Branch admins can see members in their branch
-        // TODO: Implement branch-based filtering when branch_id is available in user profile
-      } else if (userRole === 'super_admin') {
-        // Super admins can see all members
+        membersQuery = membersQuery.eq('branch_id', profile.branch_id);
+      } else if (userRole !== 'super_admin' && profile?.branch_id) {
+        // Teller/Auditor - see only their branch members
+        membersQuery = membersQuery.eq('branch_id', profile.branch_id);
       }
+      // Super admins and others without branch restrictions see all members
       
       const { data: membersData, error: membersError } = await membersQuery;
       

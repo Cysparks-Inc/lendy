@@ -86,12 +86,24 @@ const Dashboard: React.FC = () => {
         filteredMembers = filteredMembers.filter(member => member.branch_id === profile.branch_id);
       } else if (userRole === 'loan_officer') {
         // Loan officers can only see loans and members assigned to them
-        filteredLoans = filteredLoans.filter(loan => 
-          loan.loan_officer_id === user?.id || loan.created_by === user?.id
-        );
-        filteredMembers = filteredMembers.filter(member => 
-          (member as any).assigned_officer_id === user?.id
-        );
+        // Filter by assigned_officer_id for members
+        filteredMembers = filteredMembers.filter(member => {
+          const memberObj = member as any;
+          return memberObj.assigned_officer_id === user?.id;
+        });
+        
+        // Get member IDs that are assigned to this loan officer
+        const assignedMemberIds = new Set(filteredMembers.map(m => m.id));
+        
+        // Filter loans by loan_officer_id OR by assigned member IDs
+        filteredLoans = filteredLoans.filter(loan => {
+          const loanMemberId = loan.member_id || loan.customer_id;
+          return (
+            loan.loan_officer_id === user?.id || 
+            loan.created_by === user?.id ||
+            (loanMemberId && assignedMemberIds.has(loanMemberId))
+          );
+        });
       } else if (userRole !== 'super_admin' && profile?.branch_id) {
         // Teller/Auditor
         filteredLoans = filteredLoans.filter(loan => loan.branch_id === profile.branch_id);

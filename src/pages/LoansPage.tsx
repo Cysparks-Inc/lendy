@@ -35,7 +35,7 @@ interface LoanSummary {
 }
 
 const LoansPage: React.FC = () => {
-  const { user, userRole } = useAuth();
+  const { user, userRole, profile } = useAuth();
   const navigate = useNavigate();
   const [loans, setLoans] = useState<LoanSummary[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -111,10 +111,23 @@ const LoansPage: React.FC = () => {
         };
       });
 
-      // Step 6: Hide pending (unapproved) loans for non-admin users
-      // Show all repayment statuses (including 'pending' = not fully repaid)
-      // Approval state is shown separately via approval_status badge
-      setLoans(transformedLoansAll);
+      // Step 6: Apply role-based filtering
+      let filteredByRole = transformedLoansAll;
+      
+      if (userRole === 'branch_admin' && profile?.branch_id) {
+        // Branch admins can only see loans from their branch
+        filteredByRole = filteredByRole.filter(loan => loan.branch_id === profile.branch_id);
+      } else if (userRole === 'loan_officer') {
+        // Loan officers can only see loans assigned to them
+        filteredByRole = filteredByRole.filter(loan => 
+          loan.loan_officer_id === user?.id || loan.loan_officer_id === null
+        );
+      } else if (userRole !== 'super_admin' && profile?.branch_id) {
+        // Teller/Auditor - see only their branch loans
+        filteredByRole = filteredByRole.filter(loan => loan.branch_id === profile.branch_id);
+      }
+      
+      setLoans(filteredByRole);
     } catch (error: any) {
       toast.error('Failed to fetch loans', { description: error.message });
       setLoans([]); // Set empty array on error
