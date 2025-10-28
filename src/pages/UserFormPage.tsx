@@ -68,12 +68,23 @@ const UserFormPage: React.FC = () => {
         alternatives?: string[];
     } | null>(null);
 
-    const { register, handleSubmit, control, reset, watch, formState: { errors } } = useForm<UserFormData>({
+    const { register, handleSubmit, control, reset, watch, setValue, formState: { errors } } = useForm<UserFormData>({
         resolver: zodResolver(userSchema),
     });
 
     // Watch the role field to conditionally show/hide branch field
     const watchedRole = watch('role');
+    
+    // Watch branch_id to ensure it's preserved when role changes
+    const watchedBranchId = watch('branch_id');
+    
+    // Effect to handle role changes - only clear branch when switching to super_admin
+    useEffect(() => {
+        if (selectedRole && selectedRole !== '' && selectedRole === 'super_admin' && watchedBranchId) {
+            // Clear branch_id when switching to super_admin
+            setValue('branch_id', undefined, { shouldValidate: false });
+        }
+    }, [selectedRole, watchedBranchId, setValue]);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -85,7 +96,13 @@ const UserFormPage: React.FC = () => {
                 if (isEditMode && userId) {
                     const { data: userData } = await supabase.from('profiles').select('*').eq('id', userId).single();
                     if (userData) {
-                        reset({ ...userData, branch_id: String(userData.branch_id), password: '' });
+                        // Convert branch_id to string, handling null/undefined
+                        const branchIdStr = userData.branch_id ? String(userData.branch_id) : '';
+                        reset({ 
+                            ...userData, 
+                            branch_id: branchIdStr, 
+                            password: '' 
+                        });
                         setSelectedRole(userData.role || '');
                         setFormError(null);
                         setErrorDetails(null);
@@ -108,15 +125,25 @@ const UserFormPage: React.FC = () => {
             if (isEditMode) {
                 // UPDATE user logic
                 try {
+                    // Prepare update data with proper branch_id handling
+                    const updateData: any = {
+                        full_name: data.full_name,
+                        phone_number: data.phone_number,
+                        role: data.role
+                    };
+                    
+                    // Handle branch_id - it's a UUID string, not a number
+                    if (data.branch_id && data.branch_id !== '' && data.branch_id !== 'null' && data.branch_id !== 'undefined') {
+                        // Keep it as a string (UUID)
+                        updateData.branch_id = data.branch_id;
+                    } else {
+                        updateData.branch_id = null;
+                    }
+                    
                     // Update all profile fields
                     const { error: profileError } = await supabase
                         .from('profiles')
-                        .update({
-                            full_name: data.full_name,
-                            phone_number: data.phone_number,
-                            role: data.role,
-                            branch_id: data.branch_id ? Number(data.branch_id) : null
-                        })
+                        .update(updateData)
                         .eq('id', userId);
                     
                     if (profileError) throw profileError;
@@ -259,12 +286,33 @@ const UserFormPage: React.FC = () => {
                             {/* Only show branch field if role is not super_admin */}
                             {watchedRole && watchedRole !== 'super_admin' && (
                                 <FormField label="Branch" error={errors.branch_id} required>
-                                    <Controller name="branch_id" control={control} render={({ field }) => (
-                                        <Select onValueChange={field.onChange} value={String(field.value || '')}>
-                                            <SelectTrigger><SelectValue placeholder="Assign a branch..." /></SelectTrigger>
-                                            <SelectContent>{branches.map(b => <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>)}</SelectContent>
-                                        </Select>
-                                    )} />
+                                    <Controller 
+                                        name="branch_id" 
+                                        control={control} 
+                                        render={({ field }) => {
+                                            // Ensure the value is always a string
+                                            const fieldValue = field.value ? String(field.value) : '';
+                                            return (
+                                                <Select 
+                                                    onValueChange={(value) => {
+                                                        field.onChange(value);
+                                                    }} 
+                                                    value={fieldValue}
+                                                >
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Assign a branch..." />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {branches.map(b => (
+                                                            <SelectItem key={b.id} value={String(b.id)}>
+                                                                {b.name}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            );
+                                        }} 
+                                    />
                                 </FormField>
                             )}
                         </div>

@@ -222,14 +222,30 @@ const GroupEdit: React.FC = () => {
         location: formData.location
       };
 
-      // Only include contact_person_id if it's not 'none' and not empty
-      if (formData.contact_person_id && formData.contact_person_id !== 'none') {
-        submitData.contact_person_id = formData.contact_person_id;
+      // Handle contact_person_id: if 'none' or empty, set to null, otherwise keep the value
+      if (isCreating) {
+        // For new groups, only include if a member was selected
+        if (formData.contact_person_id && formData.contact_person_id !== 'none' && formData.contact_person_id !== '') {
+          submitData.contact_person_id = formData.contact_person_id;
+        }
+      } else {
+        // For updates, explicitly set to null if 'none', otherwise use the selected value
+        submitData.contact_person_id = (formData.contact_person_id && formData.contact_person_id !== 'none' && formData.contact_person_id !== '') 
+          ? formData.contact_person_id 
+          : null;
       }
 
-      // Only include assigned_officer_id if it's not 'none' and not empty
-      if (formData.assigned_officer_id && formData.assigned_officer_id !== 'none') {
-        submitData.assigned_officer_id = formData.assigned_officer_id;
+      // Handle assigned_officer_id: if 'none' or empty, set to null, otherwise keep the value
+      if (isCreating) {
+        // For new groups, only include if an officer was selected
+        if (formData.assigned_officer_id && formData.assigned_officer_id !== 'none' && formData.assigned_officer_id !== '') {
+          submitData.assigned_officer_id = formData.assigned_officer_id;
+        }
+      } else {
+        // For updates, explicitly set to null if 'none', otherwise use the selected value
+        submitData.assigned_officer_id = (formData.assigned_officer_id && formData.assigned_officer_id !== 'none' && formData.assigned_officer_id !== '') 
+          ? formData.assigned_officer_id 
+          : null;
       }
       
       if (isCreating) {

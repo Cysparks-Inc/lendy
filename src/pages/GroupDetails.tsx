@@ -141,7 +141,7 @@ const GroupDetails: React.FC = () => {
     try {
       const { data: membersData, error: membersError } = await supabase
         .from('members')
-        .select('id, full_name')
+        .select('id, first_name, last_name')
         .eq('group_id', groupData.id);
       
       if (membersError) throw membersError;
@@ -157,7 +157,7 @@ const GroupDetails: React.FC = () => {
         .from('loans')
         .select(`
           id,
-          customer_id,
+          member_id,
           principal_amount,
           interest_disbursed,
           processing_fee,
@@ -167,23 +167,26 @@ const GroupDetails: React.FC = () => {
           issue_date,
           loan_program
         `)
-        .in('customer_id', memberIds);
+        .in('member_id', memberIds);
       
       if (loansError) throw loansError;
       
       const transactions: GroupTransaction[] = (loansData || []).map(loan => {
-        const member = membersData.find(m => m.id === loan.customer_id);
+        const member = membersData.find(m => m.id === loan.member_id);
+        const memberName = member 
+          ? `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Unknown Member'
+          : 'Unknown Member';
         const totalAmount = (loan.principal_amount || 0) + (loan.interest_disbursed || 0) + (loan.processing_fee || 0);
         
         return {
-          id: `${loan.id}-${loan.customer_id}`,
-          member_name: member?.full_name || 'Unknown Member',
+          id: `${loan.id}-${loan.member_id}`,
+          member_name: memberName,
           program_name: loan.loan_program || 'Small Loan',
           disbursed_date: loan.issue_date || new Date().toISOString().split('T')[0],
           outstanding_amount: totalAmount,
           loan_collection: loan.total_paid || 0,
           as_on_outstanding: loan.current_balance || 0,
-          member_id: loan.customer_id,
+          member_id: loan.member_id,
           loan_id: loan.id,
           status: loan.status || 'pending'
         };

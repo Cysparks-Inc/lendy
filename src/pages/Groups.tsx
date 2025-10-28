@@ -269,6 +269,16 @@ const Groups: React.FC = () => {
         const officer = officersData?.find(o => o.id === officerId);
         const groupMembers = membersData?.filter(m => m.group_id === group.id) || [];
         const contactPerson = membersData?.find(m => m.id === (group as any).contact_person_id);
+        
+        // Construct full_name from first_name and last_name for contact person
+        let contactPersonName = 'Not Assigned';
+        let contactPersonPhone = '';
+        if (contactPerson) {
+          contactPersonName = contactPerson.first_name && contactPerson.last_name 
+            ? `${contactPerson.first_name} ${contactPerson.last_name}`.trim()
+            : contactPerson.first_name || contactPerson.last_name || 'Unknown Member';
+          contactPersonPhone = contactPerson.phone_number || '';
+        }
 
         return {
           id: group.id?.toString() || '',
@@ -285,8 +295,8 @@ const Groups: React.FC = () => {
           loan_officer_id: officerId || undefined,
           loan_officer_name: officer?.full_name || 'Unassigned',
           contact_person_id: (group as any).contact_person_id,
-          contact_person_name: contactPerson?.full_name || 'Not Assigned',
-          contact_person_phone: contactPerson?.phone_number || '',
+          contact_person_name: contactPersonName,
+          contact_person_phone: contactPersonPhone,
           is_active: (group as any).is_active ?? true,
           deactivated_at: (group as any).deactivated_at,
           deactivated_by: (group as any).deactivated_by
@@ -773,12 +783,9 @@ const Groups: React.FC = () => {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2">
-                            {getStatusBadge(group.status)}
-                            <Badge variant={group.is_active ? 'default' : 'secondary'}>
-                              {group.is_active ? 'Active' : 'Inactive'}
-                            </Badge>
-                          </div>
+                          <Badge variant={group.is_active ? 'default' : 'secondary'}>
+                            {group.is_active ? 'Active' : 'Inactive'}
+                          </Badge>
                         </TableCell>
                         <TableCell>
                           {new Date(group.created_at).toLocaleDateString()}

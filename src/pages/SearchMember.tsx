@@ -25,7 +25,7 @@ interface MemberSearchResult {
 }
 
 const SearchMemberPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<MemberSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -41,8 +41,8 @@ const SearchMemberPage: React.FC = () => {
     setSearchResults([]);
     
     try {
-      // Search members directly from the members table without ambiguous relationships
-      const { data: membersData, error: membersError } = await supabase
+      // Build query based on user role
+      let membersQuery = supabase
         .from('members')
         .select(`
           id,
@@ -52,10 +52,19 @@ const SearchMemberPage: React.FC = () => {
           phone_number,
           status,
           branch_id,
-          group_id
+          group_id,
+          assigned_officer_id
         `)
-        .or(`first_name.ilike.%${searchTerm.trim()}%,last_name.ilike.%${searchTerm.trim()}%,id_number.ilike.%${searchTerm.trim()}%,phone_number.ilike.%${searchTerm.trim()}%`)
-        .limit(20);
+        .or(`first_name.ilike.%${searchTerm.trim()}%,last_name.ilike.%${searchTerm.trim()}%,id_number.ilike.%${searchTerm.trim()}%,phone_number.ilike.%${searchTerm.trim()}%`);
+      
+      // Apply role-based filtering
+      if (userRole === 'loan_officer') {
+        // Loan officers can only see members assigned to them
+        membersQuery = membersQuery.eq('assigned_officer_id', user?.id);
+      }
+      // Super admins and branch admins can see all members, no additional filter needed
+      
+      const { data: membersData, error: membersError } = await membersQuery.limit(20);
 
       if (membersError) throw membersError;
       
@@ -85,7 +94,7 @@ const SearchMemberPage: React.FC = () => {
 
       // Calculate loan statistics for each member
       const membersWithLoanData = membersData.map((member: any) => {
-        const memberLoans = loansData?.filter((loan: any) => loan.customer_id === member.id) || [];
+        const memberLoans = loansData?.filter((loan: any) => loan.member_id === member.id) || [];
         
         const totalLoans = memberLoans.length;
         const outstandingBalance = memberLoans.reduce((sum: number, loan: any) => {

@@ -217,9 +217,14 @@ const LoanFormPage: React.FC = () => {
             ? groupsData.find(g => g.id === memberData.group_id)?.name || null
             : null;
         
+        // Combine first_name and last_name if available, otherwise use full_name
+        const fullName = memberData.first_name && memberData.last_name 
+            ? `${memberData.first_name} ${memberData.last_name}`.trim()
+            : memberData.full_name || `${memberData.first_name || ''} ${memberData.last_name || ''}`.trim() || 'Unknown Member';
+        
         return {
             id: memberData.id,
-            full_name: memberData.full_name,
+            full_name: fullName,
             branch_id: memberData.branch_id,
             group_id: memberData.group_id,
             branch_name: branchName,
@@ -271,7 +276,7 @@ const LoanFormPage: React.FC = () => {
                 if (prefilledMemberId) {
                     const { data: memberData, error: memberError } = await supabase
                         .from('members')
-                        .select('id, full_name, branch_id, group_id, id_number, phone_number')
+                        .select('id, first_name, last_name, branch_id, group_id, id_number, phone_number')
                         .eq('id', prefilledMemberId)
                         .eq('status', 'active')
                         .single();
@@ -292,10 +297,10 @@ const LoanFormPage: React.FC = () => {
                     // Load a limited set of members for initial display
                     const { data: membersData, error: membersError } = await supabase
                         .from('members')
-                        .select('id, full_name, branch_id, group_id, id_number, phone_number')
+                        .select('id, first_name, last_name, branch_id, group_id, id_number, phone_number')
                         .eq('status', 'active')
                         .limit(50)
-                        .order('full_name');
+                        .order('first_name');
 
                     if (membersError) throw membersError;
                     
@@ -326,7 +331,7 @@ const LoanFormPage: React.FC = () => {
                                 // Load the member data for this loan
                                 const { data: memberData, error: memberError } = await supabase
                                     .from('members')
-                                    .select('id, full_name, branch_id, group_id, id_number, phone_number')
+                                    .select('id, first_name, last_name, branch_id, group_id, id_number, phone_number')
                                     .eq('id', memberId)
                                     .single();
 
@@ -397,11 +402,11 @@ const LoanFormPage: React.FC = () => {
         try {
             const { data: memberData, error } = await supabase
                 .from('members')
-                .select('id, full_name, branch_id, group_id, id_number, phone_number')
-                .or(`full_name.ilike.%${searchTerm.trim()}%,id_number.ilike.%${searchTerm.trim()}%,phone_number.ilike.%${searchTerm.trim()}%`)
+                .select('id, first_name, last_name, branch_id, group_id, id_number, phone_number')
+                .or(`first_name.ilike.%${searchTerm.trim()}%,last_name.ilike.%${searchTerm.trim()}%,id_number.ilike.%${searchTerm.trim()}%,phone_number.ilike.%${searchTerm.trim()}%`)
                 .eq('status', 'active')
                 .limit(15)
-                .order('full_name');
+                .order('first_name');
 
             if (error) throw error;
 
@@ -435,10 +440,10 @@ const LoanFormPage: React.FC = () => {
         let repaymentWeeks: number;
 
         if (loanProgram === 'small_loan') {
-            interestRate = 15;
+            interestRate = 18; // Updated from 15% to 18%
             repaymentWeeks = 8;
         } else if (loanProgram === 'big_loan') {
-            interestRate = 20;
+            interestRate = 25; // Updated from 20% to 25%
             repaymentWeeks = 12;
         } else {
             return;
@@ -729,21 +734,25 @@ const LoanFormPage: React.FC = () => {
                                                 }
                                             }}
                                             onBlur={() => {
-                                                setTimeout(() => setShowMemberResults(false), 200);
+                                                // Use longer timeout to allow click to register first
+                                                setTimeout(() => setShowMemberResults(false), 300);
                                             }}
                                             disabled={!!prefilledMemberId}
                                             className="w-full"
                                         />
                                         
                                         {showMemberResults && !prefilledMemberId && memberSearchTerm && (
-                                            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
+                                            <div 
+                                                className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto"
+                                                onMouseDown={(e) => e.preventDefault()}
+                                            >
                                                 {members.length > 0 ? (
                                                     members.map(member => (
                                                         <div
                                                             key={member.id}
                                                             className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
-                                                            onMouseDown={(e) => {
-                                                                e.preventDefault();
+                                                            onClick={() => {
+                                                                // Use onClick instead of onMouseDown for better reliability
                                                                 field.onChange(member.id);
                                                                 setMemberSearchTerm(member.full_name);
                                                                 setShowMemberResults(false);
@@ -877,10 +886,10 @@ const LoanFormPage: React.FC = () => {
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="small_loan">
-                                                    Small Loan (8 weeks, 15% interest)
+                                                    Small Loan (8 weeks, 18% interest)
                                                 </SelectItem>
                                                 <SelectItem value="big_loan">
-                                                    Big Loan (12 weeks, 20% interest)
+                                                    Big Loan (12 weeks, 25% interest)
                                                 </SelectItem>
                                             </SelectContent>
                                         </Select>

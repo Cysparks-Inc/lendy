@@ -21,7 +21,7 @@ interface UserStatusDialogProps {
     id: string;
     full_name: string;
     email: string;
-    role: string;
+    role?: string;
     branch_name?: string;
     is_active: boolean;
   };
@@ -38,7 +38,7 @@ export const UserStatusDialog: React.FC<UserStatusDialogProps> = ({
   const [isUpdating, setIsUpdating] = useState(false);
 
   const canManageUsers = userRole === 'super_admin' || 
-    (userRole === 'branch_admin' && ['loan_officer', 'auditor'].includes(user.role));
+    (userRole === 'branch_admin' && user.role && ['loan_officer', 'auditor'].includes(user.role));
 
   const handleStatusChange = async () => {
     if (!currentUser || !canManageUsers) {
@@ -139,7 +139,7 @@ export const UserStatusDialog: React.FC<UserStatusDialogProps> = ({
               <p className="text-sm font-medium">User Details:</p>
               <p className="text-sm">Name: {user.full_name}</p>
               <p className="text-sm">Email: {user.email}</p>
-              <p className="text-sm">Role: {user.role}</p>
+              <p className="text-sm">Role: {user.role || 'N/A'}</p>
               {user.branch_name && <p className="text-sm">Branch: {user.branch_name}</p>}
               <div className="flex items-center gap-2 mt-2">
                 <span className="text-sm">Status:</span>

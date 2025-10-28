@@ -54,7 +54,7 @@ const UsersPage: React.FC = () => {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      // Fetch profiles first
+      // Fetch profiles first with branch_id
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
@@ -89,7 +89,12 @@ const UsersPage: React.FC = () => {
       const formattedUsers = (profilesData || []).map((profile: any) => {
         const roles = roleMap.get(profile.id) || [];
         const primaryRole = roles.length > 0 ? roles[0] : (profile.role || 'Not Set');
-        const branchName = profile.branch_id ? branchesMap.get(profile.branch_id) : null;
+        
+        // Get branch name using branch_id
+        let branchName = null;
+        if (profile.branch_id) {
+          branchName = branchesMap.get(profile.branch_id) || 'N/A';
+        }
         
         return {
           ...profile,
@@ -234,7 +239,14 @@ const UsersPage: React.FC = () => {
             setStatusDialogOpen(false);
             setUserForStatusChange(null);
           }}
-          user={userForStatusChange}
+          user={{
+            id: userForStatusChange.id,
+            full_name: userForStatusChange.full_name,
+            email: userForStatusChange.email,
+            role: userForStatusChange.role,
+            branch_name: userForStatusChange.branch_name,
+            is_active: userForStatusChange.is_active
+          }}
           onStatusChanged={() => {
             fetchUsers(); // Refresh the users list
           }}

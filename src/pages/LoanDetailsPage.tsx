@@ -67,17 +67,22 @@ const LoanDetailsPage: React.FC = () => {
       // Step 2: Fetch related data (member, branch, officer names, group)
       const memberId = loanData.member_id || loanData.customer_id;
       const [memberRes, branchRes, officerRes, groupRes] = await Promise.all([
-        memberId ? supabase.from('members').select('full_name').eq('id', memberId).single() : { data: null, error: null },
+        memberId ? supabase.from('members').select('first_name, last_name').eq('id', memberId).single() : { data: null, error: null },
         loanData.branch_id ? supabase.from('branches').select('name').eq('id', loanData.branch_id).single() : { data: null, error: null },
         loanData.loan_officer_id ? supabase.from('profiles').select('full_name').eq('id', loanData.loan_officer_id).single() : { data: null, error: null },
         loanData.group_id ? supabase.from('groups').select('name').eq('id', loanData.group_id).single() : { data: null, error: null }
       ]);
       
       // Step 3: Transform the data
+      const memberData = memberRes?.data;
+      const memberName = memberData?.first_name && memberData?.last_name
+        ? `${memberData.first_name} ${memberData.last_name}`.trim()
+        : memberData?.first_name || memberData?.last_name || `Unknown Member (${memberId?.slice(0, 8) || 'N/A'})`;
+      
       const transformedLoan: LoanDetails = {
         id: loanData.id,
         member_id: memberId || '',
-        member_name: memberRes?.data?.full_name || `Unknown Member (${memberId?.slice(0, 8) || 'N/A'})`,
+        member_name: memberName,
         principal_amount: loanData.principal_amount || 0,
         account_number: loanData.application_no || loanData.id.slice(0, 8),
         current_balance: loanData.current_balance || 0,

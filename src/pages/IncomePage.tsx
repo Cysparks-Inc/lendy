@@ -125,7 +125,7 @@ const IncomePage: React.FC = () => {
     setLoading(true);
     try {
       // Fetch income data from multiple sources
-      const [processingFees, processingFeeTransactions, interestPayments, registrationFees, activationFees, allMembers, groupsData, loanOfficersData] = await Promise.all([
+      const [processingFees, interestPayments, registrationFees, activationFees, allMembers, groupsData, loanOfficersData] = await Promise.all([
         // Processing fees from loans (direct) - exclude deleted loans
         supabase
           .from('loans')
@@ -134,12 +134,6 @@ const IncomePage: React.FC = () => {
           .eq('is_deleted', false)
           .not('processing_fee', 'is', null)
           .gt('processing_fee', 0),
-        
-        // Processing fees from loan_payments table (recorded by trigger function)
-        supabase
-          .from('loan_payments')
-          .select('id, amount, payment_date, created_at, loan_id, member_id')
-          .eq('payment_type', 'fee'),
         
         // Interest payments from loan_payments
         supabase
@@ -231,24 +225,8 @@ const IncomePage: React.FC = () => {
         });
       }
 
-      // Add processing fees from transactions table (recorded by trigger function)
-      if (processingFeeTransactions.data) {
-        processingFeeTransactions.data.forEach(transaction => {
-          const groupInfo = getGroupInfo(transaction.member_id);
-          allIncome.push({
-            id: `pf-txn-${transaction.id}`,
-            source: 'processing_fee',
-            amount: transaction.amount,
-            description: transaction.description,
-            member_name: getMemberName(transaction.member_id),
-            loan_id: transaction.loan_id,
-            transaction_date: transaction.transaction_date,
-            created_at: transaction.created_at,
-            group_id: groupInfo.group_id,
-            group_name: groupInfo.group_name
-          });
-        });
-      }
+      // Note: loan_payments table doesn't have payment_type, so we skip fee transactions mapping
+      // Processing fees are already captured from loans table above
 
             // Add interest payments
       if (interestPayments.data) {

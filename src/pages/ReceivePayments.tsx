@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 
 interface Loan {
   id: string;
-  customer_id: string;
+  member_id: string;
   member_name: string;
   member_phone: string;
   principal_amount: number;
@@ -103,8 +103,8 @@ const ReceivePayments: React.FC = () => {
 
       if (loansError) throw loansError;
 
-      // Fetch members data - try both customer_id and member_id
-      const memberIds = loansData?.map(loan => loan.customer_id || loan.member_id).filter(Boolean) || [];
+      // Fetch members data using member_id
+      const memberIds = loansData?.map(loan => loan.member_id).filter(Boolean) || [];
       const { data: membersData, error: membersError } = await supabase
         .from('members')
         .select('id, first_name, last_name, phone_number, group_id, branch_id, assigned_officer_id')
@@ -148,7 +148,7 @@ const ReceivePayments: React.FC = () => {
 
       // Format loans data
       const formattedLoans = loansData?.map(loan => {
-        const memberId = loan.customer_id || loan.member_id;
+        const memberId = loan.member_id;
         const member = membersData?.find(m => m.id === memberId);
         const group = groupsData?.find(g => g.id === member?.group_id);
         const branch = branchesData?.find(b => b.id === member?.branch_id);
@@ -178,7 +178,6 @@ const ReceivePayments: React.FC = () => {
 
         return {
           id: loan.id,
-          customer_id: memberId,
           member_id: memberId,
           member_name: memberName,
           member_phone: member?.phone_number || '',
@@ -236,7 +235,7 @@ const ReceivePayments: React.FC = () => {
         if ((loan as any).loan_officer_id) {
           return (loan as any).loan_officer_id === filters.loanOfficer;
         }
-        const member = members.find(m => m.id === (loan.customer_id || loan.member_id));
+        const member = members.find(m => m.id === loan.member_id);
         return member?.assigned_officer_id === filters.loanOfficer;
       });
     }

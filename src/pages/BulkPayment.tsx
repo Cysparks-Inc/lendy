@@ -90,7 +90,10 @@ const BulkPayment: React.FC = () => {
       
       const membersWithData = membersData?.map(member => ({
         ...member,
-        branch_name: member.branches?.name || 'Unknown'
+        branch_name: member.branches?.name || 'Unknown',
+        full_name: member.first_name && member.last_name 
+          ? `${member.first_name} ${member.last_name}`.trim()
+          : member.first_name || member.last_name || 'Unknown Member'
       })) || [];
       
       setMembers(membersWithData as any);
@@ -99,14 +102,14 @@ const BulkPayment: React.FC = () => {
       const { data: loansData, error: loansError } = await supabase
         .from('loans')
         .select('*')
-        .in('customer_id', memberIds);
+        .in('member_id', memberIds);
       
       if (loansError) throw loansError;
       setLoans((loansData as any) || []);
       
       // Create payment entries
       const entries: PaymentEntry[] = membersWithData.map(member => {
-        const memberLoan = loansData?.find(loan => loan.customer_id === member.id);
+        const memberLoan = loansData?.find(loan => loan.member_id === member.id);
         const loanAmount = memberLoan ? 
           (memberLoan.principal_amount || 0) + ((memberLoan as any).interest_disbursed || 0) + ((memberLoan as any).processing_fee || 0) : 0;
         
