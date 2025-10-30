@@ -32,6 +32,9 @@ interface LoanSummary {
   interest_disbursed?: number;
   processing_fee?: number;
   approval_status?: 'pending' | 'approved' | 'rejected';
+  member_id?: string;
+  branch_id?: string;
+  loan_officer_id?: string | null;
 }
 
 const LoansPage: React.FC = () => {
@@ -75,13 +78,14 @@ const LoansPage: React.FC = () => {
       
       // Step 3: Batch fetch related data
       const [membersRes, branchesRes, officersRes] = await Promise.all([
-        memberIds.length > 0 ? supabase.from('members').select('id, first_name, last_name').in('id', memberIds) : { data: [], error: null },
+        memberIds.length > 0 ? supabase.from('members').select('id, first_name, last_name, assigned_officer_id').in('id', memberIds) : { data: [], error: null },
         branchIds.length > 0 ? supabase.from('branches').select('id, name').in('id', branchIds) : { data: [], error: null },
         officerIds.length > 0 ? supabase.from('profiles').select('id, full_name').in('id', officerIds) : { data: [], error: null }
       ]);
       
       // Step 4: Create lookup maps
       const membersMap = new Map((membersRes.data || []).map(m => [m.id, `${m.first_name || ''} ${m.last_name || ''}`.trim() || 'Unknown Member']));
+      const memberAssignedOfficerMap = new Map((membersRes.data || []).map(m => [m.id, m.assigned_officer_id]));
       const branchesMap = new Map((branchesRes.data || []).map(b => [b.id, b.name]));
       const officersMap = new Map((officersRes.data || []).map(o => [o.id, o.full_name]));
       
@@ -118,10 +122,12 @@ const LoansPage: React.FC = () => {
         // Branch admins can only see loans from their branch
         filteredByRole = filteredByRole.filter(loan => loan.branch_id === profile.branch_id);
       } else if (userRole === 'loan_officer') {
-        // Loan officers can only see loans assigned to them
-        filteredByRole = filteredByRole.filter(loan => 
-          loan.loan_officer_id === user?.id || loan.loan_officer_id === null
-        );
+        // Loan officers can only see loans assigned to them, including loans where
+        // the loan itself is missing officer but the member is assigned to them
+        filteredByRole = filteredByRole.filter(loan => {
+          const assignedOfficerForMember = memberAssignedOfficerMap.get(loan.member_id);
+          return loan.loan_officer_id === user?.id || assignedOfficerForMember === user?.id;
+        });
       } else if (userRole !== 'super_admin' && profile?.branch_id) {
         // Teller/Auditor - see only their branch loans
         filteredByRole = filteredByRole.filter(loan => loan.branch_id === profile.branch_id);
@@ -483,10 +489,11 @@ const LoansPage: React.FC = () => {
                 </div>
                 <div className="relative flex-1 min-w-0">
                   <Input 
-                    placeholder="Filter by loan officer..." 
-                    value={officerFilter === 'all' ? '' : officerFilter} 
+                    placeholder={userRole === 'loan_officer' ? (profile?.full_name || 'Your loans only') : 'Filter by loan officer...'} 
+                    value={userRole === 'loan_officer' ? '' : (officerFilter === 'all' ? '' : officerFilter)} 
                     onChange={e => setOfficerFilter(e.target.value || 'all')} 
                     className="w-full" 
+                    disabled={userRole === 'loan_officer'}
                   />
                 </div>
               </div>

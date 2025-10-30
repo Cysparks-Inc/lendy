@@ -416,18 +416,30 @@ const LoanFormPage: React.FC = () => {
                 orFilter += `,and(first_name.ilike.%${p1}%,last_name.ilike.%${p2}%),and(first_name.ilike.%${p2}%,last_name.ilike.%${p1}%)`;
             }
 
-            const { data: memberData, error } = await supabase
+            let query = supabase
                 .from('members')
-                .select('id, first_name, last_name, branch_id, group_id, id_number, phone_number')
+                .select('id, first_name, last_name, branch_id, group_id, id_number, phone_number, assigned_officer_id')
                 .or(orFilter)
-                .eq('status', 'active')
+                .eq('status', 'active');
+
+            // Loan officers can only search members assigned to them
+            if (userRole === 'loan_officer' && user?.id) {
+                query = query.eq('assigned_officer_id', user.id);
+            }
+
+            const { data: memberData, error } = await query
                 .limit(15)
                 .order('first_name');
 
             if (error) throw error;
 
             if (memberData) {
-                const formattedMembers = memberData.map(member => 
+                // Extra safety: client-side filter to enforce officer scope
+                const scopedMembers = (userRole === 'loan_officer' && user?.id)
+                  ? memberData.filter(m => m.assigned_officer_id === user.id)
+                  : memberData;
+
+                const formattedMembers = scopedMembers.map(member => 
                     formatMemberWithBranchGroup(member, branches, groups)
                 );
                 setMembers(formattedMembers);
