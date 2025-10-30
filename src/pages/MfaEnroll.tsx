@@ -48,6 +48,7 @@ const MfaEnroll: React.FC = () => {
       const { data: ch } = await (supabase as any).auth.mfa.challenge({ factorId });
       const { error } = await (supabase as any).auth.mfa.verify({ factorId, code: verifyCode, challengeId: ch?.id });
       if (error) throw error;
+      try { await supabase.functions.invoke('log-auth-event', { body: { event_type: 'mfa_enrolled' } }); } catch {}
       toast.success('TOTP enrolled successfully');
       window.location.href = '/';
     } catch (e: any) {

@@ -62,7 +62,7 @@ export const ExportDropdown = <T,>({
     doc.setFontSize(20);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(17, 24, 39); // Dark blue color for branding
-    doc.text("Lendy Microfinance", 14, 22);
+    doc.text("Pett Vision", 14, 22);
     
     // Add a line under the company name
     doc.setDrawColor(17, 24, 39);
@@ -139,7 +139,7 @@ export const ExportDropdown = <T,>({
     let csvRows: string[] = [];
     
     // Company header
-    csvRows.push("Lendy Microfinance");
+    csvRows.push("Pett Vision");
     csvRows.push(""); // Empty row for spacing
     
     // Report title

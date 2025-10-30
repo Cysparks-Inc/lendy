@@ -48,6 +48,8 @@ import MfaEnroll from "@/pages/MfaEnroll";
 import MfaPrompt from "@/pages/MfaPrompt";
 import SecurityMfa from "@/pages/SecurityMfa";
 import { useAuth } from "@/contexts/AuthContext";
+import ActivityLogs from "@/pages/ActivityLogs";
+import Backups from "@/pages/Backups";
 
 const queryClient = new QueryClient();
 
@@ -138,6 +140,8 @@ const App = () => (
                 
                 <Route path="security" element={<Security />} />
                 <Route path="branches" element={<Branches />} />
+                <Route path="activity-logs" element={<ActivityLogs />} />
+                <Route path="backups" element={<Backups />} />
                 <Route path="transactions" element={<Transactions />} />
                 <Route path="transactions/:id" element={<TransactionDetails />} />
                 <Route path="expenses" element={<ExpensesPage />} />

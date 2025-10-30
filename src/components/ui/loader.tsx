@@ -46,21 +46,21 @@ const Loader: React.FC<LoaderProps> = ({
   );
 };
 
-// Page Loader Component - Branded with Lendy logo
+// Page Loader Component - Branded with Pett Vision logo
 export const PageLoader: React.FC<{ text?: string }> = ({ text = 'Loading...' }) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-brand-blue-50 to-white flex items-center justify-center">
       <div className="text-center animate-scale-in">
-        {/* Lendy Logo */}
+        {/* Pett Vision Logo */}
         <div className="mb-6">
           <div className="w-24 h-24 mx-auto mb-4">
             <img 
               src="/lovable-uploads/logo-napol.png" 
-              alt="Lendy Microfinance" 
+              alt="Pett Vision" 
               className="w-full h-full object-contain"
             />
           </div>
-          <h1 className="text-2xl font-bold text-brand-blue-800">Lendy Microfinance</h1>
+          <h1 className="text-2xl font-bold text-brand-blue-800">Pett Vision</h1>
           <p className="text-gray-600 mt-1 text-sm">Loading your dashboard...</p>
         </div>
         

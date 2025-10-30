@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { PageLoader, ButtonLoader } from '@/components/ui/loader';
@@ -15,13 +15,6 @@ const Auth = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Reset submitting state when user becomes available
-  useEffect(() => {
-    if (user) {
-      setIsSubmitting(false);
-    }
-  }, [user]);
-
   // Redirect if already authenticated
   if (user && !loading) {
     return <Navigate to="/" replace />;
@@ -30,16 +23,8 @@ const Auth = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
-    const { error } = await signIn(email, password);
-    
-    // If there's an error, reset the submitting state after a delay
-    if (error) {
-      setTimeout(() => {
-        setIsSubmitting(false);
-      }, 1000);
-    }
-    // If successful, the useEffect above will handle resetting via the user state change
+    await signIn(email, password);
+    setIsSubmitting(false);
   };
 
   if (loading) {
@@ -63,7 +48,7 @@ const Auth = () => {
               <div className="absolute inset-0 bg-brand-blue-200 rounded-full blur-xl opacity-30"></div>
               <img 
                 src="/lovable-uploads/logo-napol.png" 
-                alt="Lendy Logo" 
+                alt="Pett Vision Logo" 
                 className="h-32 w-32 object-contain relative z-10 drop-shadow-lg rounded-full bg-white p-2"
               />
             </div>
@@ -72,7 +57,7 @@ const Auth = () => {
             Welcome Back
           </h1>
           <p className="text-muted-foreground text-center text-lg">
-            Sign in to access your Lendy dashboard
+            Sign in to access your Pett Vision dashboard
           </p>
         </div>
 
@@ -170,7 +155,7 @@ const Auth = () => {
         {/* Footer */}
         <div className="text-center mt-8">
           <p className="text-xs text-muted-foreground">
-            © 2025 Lendy Microfinance. All rights reserved.
+            © 2025 Pett Vision. All rights reserved.
           </p>
         </div>
       </div>

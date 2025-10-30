@@ -104,8 +104,8 @@ const Dashboard: React.FC = () => {
             (loanMemberId && assignedMemberIds.has(loanMemberId))
           );
         });
-      } else if (userRole !== 'super_admin' && profile?.branch_id) {
-        // Teller/Auditor
+      } else if (userRole === 'auditor' && profile?.branch_id) {
+        // Auditor scoped to their branch
         filteredLoans = filteredLoans.filter(loan => loan.branch_id === profile.branch_id);
         filteredMembers = filteredMembers.filter(member => member.branch_id === profile.branch_id);
       }

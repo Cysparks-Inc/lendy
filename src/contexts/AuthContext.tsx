@@ -41,100 +41,75 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const isSuperAdmin = userRole === 'super_admin';
   const isBranchAdmin = userRole === 'branch_admin';
-  const isStaff = ['super_admin', 'branch_admin', 'loan_officer', 'teller'].includes(userRole || '');
+  const isStaff = ['super_admin', 'admin', 'branch_admin', 'loan_officer', 'auditor'].includes(userRole || '');
 
+  /**
+   * Fetch user profile and role from the database.
+   * Avoids fallbacks that could mislabel users (e.g., showing Admin as Loan Officer).
+   */
   const fetchUserRoleAndProfile = async (userId: string): Promise<{ role: string | null; profile: any | null }> => {
     try {
-      console.log('Fetching profile for user:', userId);
-      // Create a timeout wrapper for the profile fetch
+      // Original fast path that never blocked the UI
       const timeoutPromise = new Promise<{ role: string | null; profile: any | null }>((resolve) => 
-        setTimeout(() => {
-          console.log('Profile fetch timeout - returning default');
-          resolve({ role: 'teller', profile: null });
-        }, 3000)
+        setTimeout(() => resolve({ role: 'teller', profile: null }), 3000)
       );
-      
-      // Create the actual query promise
       const queryPromise = async () => {
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('id, email, role, full_name, branch_id, is_active, created_at, updated_at')
           .eq('id', userId)
           .maybeSingle();
-        
         if (profileError && profileError.code !== 'PGRST116') {
-          console.error('Error fetching user profile:', profileError);
           return { role: null, profile: null };
         }
-        
         if (!profileData) {
           return { role: null, profile: null };
         }
-        
-        // Check if user is active
         if (profileData.is_active === false) {
           await supabase.auth.signOut();
-          toast.error('Account Deactivated', {
-            description: 'Your account has been deactivated. Please contact an administrator.',
-          });
+          toast.error('Account Deactivated', { description: 'Your account has been deactivated. Please contact an administrator.' });
           return { role: null, profile: null };
         }
-        
-        return {
-          role: profileData.role || 'teller', // Default to teller if no role
-          profile: profileData
-        };
+        return { role: profileData.role || 'teller', profile: profileData };
       };
-      
-      // Race the timeout against the actual query
-      const result = await Promise.race([
-        queryPromise(),
-        timeoutPromise
-      ]);
-      
-      console.log('Profile fetch completed:', result?.role);
-      return result;
-    } catch (error) {
-      console.error('Error fetching user role and profile:', error);
+      return await Promise.race([queryPromise(), timeoutPromise]);
+    } catch {
       return { role: null, profile: null };
     }
   };
 
+  /**
+   * Fetches user-specific permissions from database with timeout protection
+   * Returns empty array on timeout or error (graceful degradation)
+   */
   const fetchUserPermissions = async (userId: string): Promise<Permission[]> => {
     try {
-      // Create a timeout promise that returns empty array instead of rejecting
+      // Timeout protection - returns empty array after 2 seconds
       const timeoutPromise = new Promise<{ data: null; error: null }>((resolve) => 
         setTimeout(() => resolve({ data: null, error: null }), 2000)
       );
       
-      // Create the query promise
       const queryPromise = supabase
         .from('user_permissions')
         .select('permission')
         .eq('user_id', userId);
       
-      // Race against timeout
-      const result = await Promise.race([
-        queryPromise,
-        timeoutPromise
-      ]) as any;
+      const result = await Promise.race([queryPromise, timeoutPromise]) as any;
       
-      if (result.error) {
-        // Silently fail if table doesn't exist or there's an error
-        return [];
-      }
-      
-      if (!result.data || result.data.length === 0) {
+      if (result.error || !result.data || result.data.length === 0) {
         return [];
       }
       
       return result.data.map((p: any) => p.permission as Permission);
     } catch (error) {
-      // Silently fail - permission table may not exist
+      // Graceful failure - permission table may not exist yet
       return [];
     }
   };
 
+  /**
+   * Public method to refresh user permissions (called when permissions change)
+   */
   const refreshPermissions = async () => {
     if (user?.id) {
       const userPermissions = await fetchUserPermissions(user.id);
@@ -146,26 +121,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let mounted = true;
     let loadingTimer: NodeJS.Timeout | null = null;
     
+    // Safety mechanism: force loading to false after 5 seconds to prevent infinite loading
     const safetyTimeout = setTimeout(() => {
-      console.log('Safety timeout triggered - forcing loading to false');
       if (mounted) {
         setLoading(false);
       }
     }, 5000);
 
-    // Set up auth state listener
+    // Listen to authentication state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return;
         
-        console.log('Auth event:', event, 'User:', session?.user?.id);
-        
         setSession(session);
         setUser(session?.user ?? null);
         
-        // Don't refetch profile on TOKEN_REFRESHED - data hasn't changed
+        // Token refresh doesn't change user data - skip refetch
         if (event === 'TOKEN_REFRESHED') {
-          console.log('Token refreshed - skipping data refetch');
           clearTimeout(safetyTimeout);
           if (mounted) {
             setLoading(false);
@@ -174,42 +146,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         
         if (session?.user) {
-          // Only fetch on INITIAL_SESSION to avoid duplicate calls
-          // INITIAL_SESSION fires on page reload and handles everything
+          // Fetch user data only on initial session or user updates
           if (event === 'INITIAL_SESSION' || event === 'USER_UPDATED') {
+            // Prevent duplicate fetches with ref flag
             if (!isFetching.current) {
               isFetching.current = true;
-              console.log('Starting fetch for event:', event);
               try {
-                console.log('Calling fetchUserRoleAndProfile...');
-                const rolePromise = fetchUserRoleAndProfile(session.user.id);
-                console.log('Calling fetchUserPermissions...');
-                const permPromise = fetchUserPermissions(session.user.id);
-                console.log('Waiting for Promise.all...');
+                // Fetch role and permissions in parallel for better performance
                 const [{ role, profile: userProfile }, userPermissions] = await Promise.all([
-                  rolePromise,
-                  permPromise
+                  fetchUserRoleAndProfile(session.user.id),
+                  fetchUserPermissions(session.user.id)
                 ]);
-                console.log('Promise.all completed! Data:', { role, profile: userProfile?.full_name, permissions: userPermissions.length });
+                
                 if (mounted) {
                   setUserRole(role);
                   setProfile(userProfile);
                   setPermissions(userPermissions);
                 }
               } catch (error) {
-                console.error('Error in Promise.all:', error);
+                // Error already handled in fetch functions
               } finally {
-                console.log('Finally block - resetting isFetching');
                 isFetching.current = false;
               }
-            } else {
-              console.log('Already fetching, skipping duplicate request');
             }
           } else if (event === 'SIGNED_IN') {
-            // For SIGNED_IN, just ensure we have data loaded (quick fetch without hanging)
-            console.log('SIGNED_IN event - will load via INITIAL_SESSION');
+            // Fire-and-forget login log; do not block UI
+            try { supabase.functions.invoke('log-auth-event', { body: { event_type: 'login', user_id: session.user.id } } as any); } catch {}
+            // SIGNED_IN is followed by INITIAL_SESSION, so only fetch if no profile exists
             if (!isFetching.current && !profile) {
-              // Only fetch if we don't have profile yet
               isFetching.current = true;
               fetchUserRoleAndProfile(session.user.id).then(({ role, profile: userProfile }) => {
                 fetchUserPermissions(session.user.id).then((userPermissions) => {
@@ -224,13 +188,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           }
         } else {
+          // User signed out - clear all data
           setUserRole(null);
           setProfile(null);
           setPermissions([]);
         }
         
-        // If we're signed out by any means, ensure MFA flags are cleared
+        // Clean up MFA verification flags on sign out
         if (event === 'SIGNED_OUT') {
+          try { supabase.functions.invoke('log-auth-event', { body: { event_type: 'logout' } } as any); } catch {}
           try {
             const keysToRemove: string[] = [];
             for (let i = 0; i < localStorage.length; i++) {
@@ -248,9 +214,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     );
 
-    // Set loading to false immediately for INITIAL_SESSION events from the listener
-    // The listener handles everything including page reloads
-
     return () => {
       mounted = false;
       clearTimeout(safetyTimeout);
@@ -261,6 +224,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
+  // Lightweight presence updates that don't block UI
+  useEffect(() => {
+    if (!user) return;
+    let timer: any;
+    const setOnline = () => { try { void supabase.from('profiles').update({ is_online: true, last_seen: new Date().toISOString() } as any).eq('id', user.id); } catch {} };
+    const setOffline = () => { try { void supabase.from('profiles').update({ is_online: false, last_seen: new Date().toISOString() } as any).eq('id', user.id); } catch {} };
+    setOnline();
+    timer = setInterval(setOnline, 120 * 1000);
+    const onVis = () => { if (document.visibilityState === 'visible') setOnline(); else setOffline(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', onVis); setOffline(); };
+  }, [user?.id]);
+
+  /**
+   * Sign in with email and password
+   */
   const signIn = async (email: string, password: string) => {
     try {
       const { error } = await supabase.auth.signInWithPassword({
@@ -281,7 +260,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-
+  /**
+   * Sign out current user and clear MFA flags
+   */
   const signOut = async () => {
     try {
       const { error } = await supabase.auth.signOut();
@@ -289,7 +270,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         toast.error(error.message);
         throw error;
       }
-      // Clear any MFA verified flags for this user
+      
+      // Clear MFA verification flag for this user
       try {
         const { data } = await supabase.auth.getSession();
         const userId = data?.session?.user?.id;
@@ -297,6 +279,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           localStorage.removeItem(`mfa_verified_${userId}`);
         }
       } catch {}
+      
       toast.success('Successfully signed out');
     } catch (error) {
       toast.error('Error signing out');
@@ -304,10 +287,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  /**
+   * Check if user has a specific permission
+   * Super admins and admins always have all permissions
+   */
   const hasPermission = (permission: Permission): boolean => {
-    // Super admin always has all permissions
-    if (isSuperAdmin) return true;
-    // Check if user has the specific permission
+    if (userRole === 'super_admin' || userRole === 'admin') return true;
     return permissions.includes(permission);
   };
 

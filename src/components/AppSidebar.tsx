@@ -92,7 +92,7 @@ export function AppSidebar() {
         <div className="flex items-center gap-3">
           <img
             src="/lovable-uploads/logo-napol.png"
-            alt="Lendy Logo"
+            alt="Pett Vision Logo"
             className="w-8 h-8 object-contain flex-shrink-0"
           />
           {!isCollapsed && (

@@ -28,10 +28,13 @@ interface Loan {
   group_id?: number;
   group_name?: string;
   branch_name?: string;
+  loan_officer_id?: string;
   installment_amount: number;
   next_payment_date: string;
   overdue_amount: number;
   is_overdue: boolean;
+  member_branch_id?: any;
+  member_assigned_officer_id?: string;
 }
 
 interface PaymentData {
@@ -47,7 +50,7 @@ interface BulkPaymentData {
 }
 
 const ReceivePayments: React.FC = () => {
-  const { user, userRole } = useAuth();
+  const { user, userRole, profile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [selectedLoans, setSelectedLoans] = useState<string[]>([]);
@@ -95,11 +98,20 @@ const ReceivePayments: React.FC = () => {
     try {
       setLoading(true);
       
-      // Fetch all loans
-      const { data: loansData, error: loansError } = await supabase
-        .from('loans')
-        .select('*')
-        .limit(50);
+      // Build loan query based on role
+      let loansQuery = supabase.from('loans').select('*');
+      
+      // Apply role-based filtering at query level
+      if (userRole === 'loan_officer') {
+        // Loan officers can only see loans assigned to them or created by them
+        loansQuery = loansQuery.or(`loan_officer_id.eq.${user?.id},created_by.eq.${user?.id}`);
+      } else if (userRole === 'branch_admin' && profile?.branch_id) {
+        // Branch admins see loans from their branch (need to filter after fetching members)
+      } else if (userRole !== 'super_admin' && profile?.branch_id) {
+        // Teller/Auditor - see only their branch loans
+      }
+      
+      const { data: loansData, error: loansError } = await loansQuery.limit(50);
 
       if (loansError) throw loansError;
 
@@ -147,7 +159,7 @@ const ReceivePayments: React.FC = () => {
       }
 
       // Format loans data
-      const formattedLoans = loansData?.map(loan => {
+      let formattedLoans = loansData?.map(loan => {
         const memberId = loan.member_id;
         const member = membersData?.find(m => m.id === memberId);
         const group = groupsData?.find(g => g.id === member?.group_id);
@@ -194,9 +206,19 @@ const ReceivePayments: React.FC = () => {
           installment_amount: installmentAmount,
           next_payment_date: nextPaymentDate.toISOString().split('T')[0],
           overdue_amount: overdueAmount,
-          is_overdue: isOverdue
+          is_overdue: isOverdue,
+          member_branch_id: member?.branch_id,
+          member_assigned_officer_id: member?.assigned_officer_id
         };
       }) || [];
+
+      // Apply additional role-based filtering for branch admins and other roles
+      if (userRole === 'branch_admin' && profile?.branch_id) {
+        formattedLoans = formattedLoans.filter(loan => loan.member_branch_id === profile.branch_id);
+      } else if (userRole !== 'super_admin' && profile?.branch_id) {
+        // Teller/Auditor
+        formattedLoans = formattedLoans.filter(loan => loan.member_branch_id === profile.branch_id);
+      }
 
       setLoans(formattedLoans);
       setMembers(membersData || []);

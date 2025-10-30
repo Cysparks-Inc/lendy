@@ -34,7 +34,7 @@ const Notifications: React.FC = () => {
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
-    if (userRole === 'super_admin' || userRole === 'admin') {
+    if (userRole) {
       fetchData();
     }
   }, [userRole]);
@@ -150,19 +150,7 @@ const Notifications: React.FC = () => {
     return badgeConfig[type as keyof typeof badgeConfig] || badgeConfig.info;
   };
 
-  if (userRole !== 'super_admin' && userRole !== 'admin') {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <XCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
-          <p className="text-muted-foreground">
-            Only Super Admins and Admins can access this page.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  // Allow all authenticated roles to see their own notifications
 
   if (loading) {
     return (

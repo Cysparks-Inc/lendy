@@ -94,7 +94,7 @@ const Settings: React.FC = () => {
   if (loading) { return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>; }
 
   // --- Frontend Access Control ---
-  if (userRole !== 'super_admin') {
+  if (userRole !== 'super_admin' && userRole !== 'admin') {
     return (
       <div className="p-2 sm:p-4 md:p-6">
         <Card className="max-w-md mx-auto bg-gradient-to-br from-brand-blue-50 to-brand-blue-100 border-brand-blue-200 hover:border-brand-blue-300 transition-all duration-200 hover:shadow-md">

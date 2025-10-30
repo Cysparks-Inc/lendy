@@ -29,11 +29,11 @@ const userSchema = z.object({
     message: "Password must be at least 6 characters",
     path: ["password"],
 }).refine(data => {
-    // Branch is required for all roles except super_admin
-    if (data.role === 'super_admin') {
-        return true; // Super admin doesn't need branch
+    // Branch is required for branch-scoped roles only
+    if (data.role === 'super_admin' || data.role === 'admin') {
+        return true; // Super/admin don't need branch
     }
-    return data.branch_id && data.branch_id.length > 0;
+    return Boolean(data.branch_id && data.branch_id.length > 0);
 }, {
     message: "Branch is required for this role",
     path: ["branch_id"],
@@ -47,7 +47,6 @@ const roles = [
     { value: 'admin', label: 'Admin' },
     { value: 'branch_admin', label: 'Branch Admin' },
     { value: 'loan_officer', label: 'Loan Officer' },
-    { value: 'teller', label: 'Teller' },
     { value: 'auditor', label: 'Auditor' },
 ];
 
@@ -180,7 +179,7 @@ const UserFormPage: React.FC = () => {
                                 full_name: data.full_name,
                                 phone_number: data.phone_number,
                                 role: data.role,
-                                branchId: data.branch_id ? Number(data.branch_id) : null,
+                                branchId: data.branch_id ? data.branch_id : null,
                                 created_by: user?.id // Pass the current user's ID
                             }
                         }
@@ -283,8 +282,8 @@ const UserFormPage: React.FC = () => {
                                 )} />
                             </FormField>
                             
-                            {/* Only show branch field if role is not super_admin */}
-                            {watchedRole && watchedRole !== 'super_admin' && (
+                            {/* Show branch field only for branch-scoped roles (not super_admin/admin) */}
+                            {watchedRole && !['super_admin','admin'].includes(watchedRole) && (
                                 <FormField label="Branch" error={errors.branch_id} required>
                                     <Controller 
                                         name="branch_id" 

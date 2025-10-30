@@ -1,4 +1,4 @@
-# Lendy Microfinance - Migration Checklist
+# Pett Vision - Migration Checklist
 
 ## ✅ What's Been Completed
 
@@ -10,7 +10,7 @@
 - [x] Updated shadow colors to match blue theme
 
 ### 2. Company Name Updates ✅
-- [x] Changed "Napol" to "Lendy" in README.md
+- [x] Updated README and app to "Pett Vision"
 - [x] Updated all references in PDF generation (utils/pdfGenerator.ts)
 - [x] Updated transaction details PDF header
 - [x] Updated auth page branding
@@ -81,7 +81,7 @@ VALUES ('member-avatars', 'member-avatars', true);
 **Action Required:** Replace logo files
 
 Files in `public/lovable-uploads/`:
-- [ ] Replace `logo-napol.png` with Lendy logo
+- [ ] Replace `logo-napol.png` with Pett Vision logo
 - [ ] Replace main logo file
 
 **Note:** Currently the old logo is still referenced. Update these paths once you have the new logo.
@@ -98,7 +98,7 @@ VALUES ('Main Branch', 'MB-001', 'Your City', true);
 
 -- Create organization
 INSERT INTO public.organizations (name, code)
-VALUES ('Lendy Microfinance', 'LEN-001');
+VALUES ('Pett Vision', 'PV-001');
 
 -- Create penalty policy
 INSERT INTO public.penalty_policies (name, penalty_type, rate_per_day)

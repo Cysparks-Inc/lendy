@@ -162,7 +162,7 @@ export const generatePaymentReceipt = (receipt: PaymentReceipt): void => {
       
       <div class="receipt">
         <div class="header">
-          <div class="logo">LENDY MICROFINANCE</div>
+          <div class="logo">PETT VISION</div>
           <div class="subtitle">Empowering Communities Through Financial Inclusion</div>
         </div>
         
@@ -411,7 +411,7 @@ export const generateInstallmentSchedulePDF = (schedule: InstallmentSchedule): v
       
       <div class="schedule">
         <div class="header">
-          <div class="logo">NAPOL MICROFINANCE</div>
+          <div class="logo">PETT VISION</div>
           <div class="subtitle">Installment Schedule</div>
         </div>
         

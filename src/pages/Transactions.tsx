@@ -259,7 +259,7 @@ const Transactions: React.FC = () => {
       const branchIds = [...new Set((loansRes.data || []).map(loan => loan.branch_id).filter(Boolean))];
 
       const [membersRes, branchesRes] = await Promise.all([
-        memberIds.length > 0 ? supabase.from('members').select('id, first_name, last_name, phone_number, id_number').in('id', memberIds) : { data: [], error: null },
+        memberIds.length > 0 ? supabase.from('members').select('id, first_name, last_name, phone_number, id_number, assigned_officer_id').in('id', memberIds) : { data: [], error: null },
         branchIds.length > 0 ? supabase.from('branches').select('id, name').in('id', branchIds) : { data: [], error: null }
       ]);
 
@@ -304,7 +304,7 @@ const Transactions: React.FC = () => {
           member_name: member?.full_name || 'Unknown Member',
           branch_id: loan?.branch_id,
           branch_name: branch?.name,
-          loan_officer_id: loan?.loan_officer_id,
+          loan_officer_id: loan?.loan_officer_id || (member as any)?.assigned_officer_id || null,
           loan_officer_name: '', // Will be fetched separately if needed
           
           // Additional details

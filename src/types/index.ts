@@ -2,7 +2,7 @@
 
 // Definitive list of user roles in the system.
 // Using a type ensures you can't make a typo anywhere in the app.
-export type UserRole = 'super_admin' | 'admin' | 'branch_admin' | 'loan_officer' | 'teller' | 'auditor';
+export type UserRole = 'super_admin' | 'admin' | 'branch_admin' | 'loan_officer' | 'auditor';
 
 // The new, more robust structure for a navigation item.
 // It can now have its own list of required roles or permissions.

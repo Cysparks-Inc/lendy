@@ -1,8 +1,8 @@
-# Lendy Microfinance - Rebranding Summary
+# Pett Vision - Rebranding Summary
 
 ## What Was Changed
 
-The entire Napol Microfinance system has been rebranded to Lendy Microfinance with a new dark blue color scheme.
+The entire system has been rebranded to Pett Vision with a new dark blue color scheme.
 
 ### Color Changes
 
@@ -31,12 +31,12 @@ The entire Napol Microfinance system has been rebranded to Lendy Microfinance wi
 
 #### Component Files:
 3. **src/pages/Auth.tsx** - Login page
-   - Changed "Napol" to "Lendy"
+   - Updated branding to "Pett Vision"
    - Updated gradient to blue
    - Updated logo alt text
 
 4. **src/components/AppLayout.tsx** - Main layout header
-   - Changed company name to "Lendy Microfinance"
+   - Changed company name to "Pett Vision"
    - Updated gradient to blue
 
 5. **src/components/AppSidebar.tsx** - Sidebar
@@ -52,7 +52,7 @@ The entire Napol Microfinance system has been rebranded to Lendy Microfinance wi
 
 #### PDF Generation:
 7. **src/utils/pdfGenerator.ts**
-   - Changed "NAPOL MICROFINANCE" to "LENDY MICROFINANCE"
+   - Updated headers to "PETT VISION"
    - Updated in receipt and schedule templates
 
 8. **src/pages/TransactionDetails.tsx**
@@ -60,16 +60,14 @@ The entire Napol Microfinance system has been rebranded to Lendy Microfinance wi
    - Changed color from green to dark blue (RGB: 29, 78, 216)
 
 9. **src/components/ui/ExportDropdown.tsx**
-   - Updated PDF headers to "Lendy Microfinance"
-   - Updated CSV headers to "Lendy Microfinance"
+   - Updated PDF/CSV headers to "Pett Vision"
 
 10. **src/components/members/GenerateStatementDialog.tsx**
-   - Updated PDF headers to "Lendy Microfinance"
-   - Updated CSV headers to "Lendy Microfinance"
+   - Updated PDF/CSV headers to "Pett Vision"
 
 #### Documentation:
 11. **README.md**
-   - Changed title to "Lendy Microfinance"
+   - Changed title to "Pett Vision"
    - Updated last modified date to January 2025
 
 ## What Still Needs to Be Done
@@ -194,7 +192,7 @@ brand-blue-950: #172554
 1. **Provide your new Supabase credentials** - I'll update the configuration files
 2. **Apply database migrations** - See `SUPABASE_SETUP_GUIDE.md`
 3. **Deploy edge functions** - Follow the guide
-4. **Replace logos** - Upload your new Lendy logo
+4. **Replace logos** - Upload your new Pett Vision logo
 5. **Test everything** - Verify all features work
 
 ## Files You Might Want to Customize Later

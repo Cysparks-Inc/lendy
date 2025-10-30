@@ -1,4 +1,4 @@
-# 🏦 Lendy Microfinance - Core Management System
+# 🏦 Pett Vision - Core Management System
 
 A comprehensive, modern microfinance management system built with React, TypeScript, and Supabase. Designed to streamline loan management, member tracking, and financial operations for microfinance institutions.
 

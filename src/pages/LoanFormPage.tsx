@@ -400,10 +400,26 @@ const LoanFormPage: React.FC = () => {
         }
 
         try {
+            const term = searchTerm.trim();
+            const parts = term.split(/\s+/).filter(Boolean);
+
+            // Build an OR filter that supports:
+            // - first_name LIKE term
+            // - last_name LIKE term
+            // - id_number LIKE term
+            // - phone_number LIKE term
+            // - first_name LIKE part1 AND last_name LIKE part2 (and vice versa) when two parts are provided
+            let orFilter = `first_name.ilike.%${term}%,last_name.ilike.%${term}%,id_number.ilike.%${term}%,phone_number.ilike.%${term}%`;
+            if (parts.length >= 2) {
+                const p1 = parts[0];
+                const p2 = parts[1];
+                orFilter += `,and(first_name.ilike.%${p1}%,last_name.ilike.%${p2}%),and(first_name.ilike.%${p2}%,last_name.ilike.%${p1}%)`;
+            }
+
             const { data: memberData, error } = await supabase
                 .from('members')
                 .select('id, first_name, last_name, branch_id, group_id, id_number, phone_number')
-                .or(`first_name.ilike.%${searchTerm.trim()}%,last_name.ilike.%${searchTerm.trim()}%,id_number.ilike.%${searchTerm.trim()}%,phone_number.ilike.%${searchTerm.trim()}%`)
+                .or(orFilter)
                 .eq('status', 'active')
                 .limit(15)
                 .order('first_name');
@@ -426,13 +442,14 @@ const LoanFormPage: React.FC = () => {
     // Debounced search handler
     useEffect(() => {
         const timeoutId = setTimeout(() => {
-            if (memberSearchTerm && !prefilledMemberId) {
+            // Only search when typing and no member is currently selected
+            if (memberSearchTerm && !prefilledMemberId && !watchedMemberId) {
                 searchMembers(memberSearchTerm);
             }
         }, 300);
 
         return () => clearTimeout(timeoutId);
-    }, [memberSearchTerm, searchMembers, prefilledMemberId]);
+    }, [memberSearchTerm, searchMembers, prefilledMemberId, watchedMemberId]);
 
     // Calculate loan details
     const calculateLoanDetails = useCallback((principal: number, loanProgram: string) => {
@@ -722,7 +739,12 @@ const LoanFormPage: React.FC = () => {
                                             onChange={(e) => {
                                                 const searchTerm = e.target.value;
                                                 setMemberSearchTerm(searchTerm);
-                                                
+                                                // If user edits text after selecting, clear current selection and autofills
+                                                if (watchedMemberId) {
+                                                    field.onChange('');
+                                                    setValue('branch_id', null);
+                                                    setValue('group_id', null);
+                                                }
                                                 if (!searchTerm) {
                                                     field.onChange('');
                                                     setShowMemberResults(false);
@@ -754,6 +776,9 @@ const LoanFormPage: React.FC = () => {
                                                             onClick={() => {
                                                                 // Use onClick instead of onMouseDown for better reliability
                                                                 field.onChange(member.id);
+                                                                // Also auto-fill related fields from the selected member
+                                                                setValue('branch_id', member.branch_id || null);
+                                                                setValue('group_id', member.group_id || null);
                                                                 setMemberSearchTerm(member.full_name);
                                                                 setShowMemberResults(false);
                                                             }}
@@ -913,11 +938,9 @@ const LoanFormPage: React.FC = () => {
                                 <Input 
                                     type="date" 
                                     {...register('issue_date')} 
-                                    disabled 
-                                    className="bg-gray-50 cursor-not-allowed"
                                 />
                                 <p className="text-xs text-muted-foreground mt-1">
-                                    Issue date is automatically set to today's date
+                                    Defaults to today, but you can backdate if needed
                                 </p>
                             </FormField>
 

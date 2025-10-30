@@ -415,7 +415,7 @@ const IncomePage: React.FC = () => {
     { header: 'Amount (KES)', accessorKey: (row: IncomeRecord) => formatCurrency(row.amount) }
   ];
 
-  if (userRole !== 'super_admin') {
+  if (userRole !== 'super_admin' && userRole !== 'admin') {
     return (
       <div className="flex flex-col items-center justify-center h-screen p-4 text-center">
         <div className="max-w-md">

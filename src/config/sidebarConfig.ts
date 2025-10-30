@@ -14,7 +14,7 @@ export const sidebarConfig: NavGroup[] = [
         title: 'Dashboard', 
         url: '/', 
         icon: LayoutDashboard,
-        requiredRoles: ['super_admin', 'branch_admin', 'loan_officer', 'teller', 'auditor']
+        requiredRoles: ['super_admin', 'admin', 'branch_admin', 'loan_officer', 'auditor']
       },
     ],
   },
@@ -25,19 +25,19 @@ export const sidebarConfig: NavGroup[] = [
         title: 'Members', 
         url: '/members', 
         icon: Users,
-        requiredRoles: ['super_admin', 'branch_admin', 'loan_officer', 'teller', 'auditor']
+        requiredRoles: ['super_admin', 'admin', 'branch_admin', 'loan_officer', 'auditor']
       },
       { 
         title: 'Search Member', 
         url: '/search-member', 
         icon: Search,
-        requiredRoles: ['super_admin', 'branch_admin', 'loan_officer', 'teller', 'auditor']
+        requiredRoles: ['super_admin', 'admin', 'branch_admin', 'loan_officer', 'auditor']
       },
       { 
         title: 'Groups', 
         url: '/groups', 
         icon: UsersRound,
-        requiredRoles: ['super_admin', 'branch_admin', 'loan_officer', 'auditor']
+        requiredRoles: ['super_admin', 'admin', 'branch_admin', 'loan_officer', 'auditor']
       },
     ],
   },
@@ -48,19 +48,19 @@ export const sidebarConfig: NavGroup[] = [
         title: 'Loans', 
         url: '/loans', 
         icon: Banknote,
-        requiredRoles: ['super_admin', 'branch_admin', 'loan_officer', 'teller', 'auditor']
+        requiredRoles: ['super_admin', 'admin', 'branch_admin', 'loan_officer', 'auditor']
       },
       { 
         title: 'New Loan Application', 
         url: '/loans/new', 
         icon: CreditCard,
-        requiredRoles: ['super_admin', 'branch_admin', 'loan_officer']
+        requiredRoles: ['super_admin', 'admin', 'branch_admin', 'loan_officer']
       },
       { 
         title: 'Receive Payments', 
         url: '/receive-payments', 
         icon: HandCoins,
-        requiredRoles: ['super_admin', 'branch_admin', 'loan_officer', 'teller']
+        requiredRoles: ['super_admin', 'admin', 'branch_admin', 'loan_officer']
       },
       { 
         title: 'Loans Overdue', 
@@ -72,7 +72,7 @@ export const sidebarConfig: NavGroup[] = [
         title: 'Loan Approvals', 
         url: '/loans/approvals', 
         icon: Shield,
-        requiredRoles: ['super_admin', 'branch_admin']
+        requiredRoles: ['super_admin', 'admin', 'branch_admin']
       },
      
     ],
@@ -84,19 +84,19 @@ export const sidebarConfig: NavGroup[] = [
         title: 'Transactions', 
         url: '/transactions', 
         icon: Receipt,
-        requiredRoles: ['super_admin', 'branch_admin', 'loan_officer', 'teller', 'auditor']
+        requiredRoles: ['super_admin', 'admin', 'branch_admin', 'loan_officer', 'auditor']
       },
       { 
         title: 'Expenses', 
         url: '/expenses', 
         icon: DollarSign,
-        requiredRoles: ['super_admin', 'branch_admin', 'auditor']
+        requiredRoles: ['super_admin', 'admin', 'branch_admin', 'auditor']
       },
       { 
         title: 'Income', 
         url: '/income', 
         icon: TrendingUp,
-        requiredRoles: ['super_admin', 'branch_admin', 'auditor']
+        requiredRoles: ['super_admin', 'admin', 'branch_admin', 'auditor']
       },
     ],
   },
@@ -119,7 +119,7 @@ export const sidebarConfig: NavGroup[] = [
         title: 'Bad Debt Accounts', 
         url: '/bad-debt', 
         icon: Trash2,
-        requiredRoles: ['super_admin', 'auditor']
+        requiredRoles: ['super_admin', 'admin', 'auditor']
       },
     ],
   },
@@ -130,13 +130,25 @@ export const sidebarConfig: NavGroup[] = [
         title: 'Users Management', 
         url: '/users', 
         icon: Users,
-        requiredRoles: ['super_admin']
+        requiredRoles: ['super_admin', 'admin']
       },
       { 
         title: 'Branches', 
         url: '/branches', 
         icon: Building,
-        requiredRoles: ['super_admin', 'auditor']
+        requiredRoles: ['super_admin', 'admin', 'auditor']
+      },
+      {
+        title: 'Activity Logs',
+        url: '/activity-logs',
+        icon: Clock,
+        requiredRoles: ['super_admin']
+      },
+      {
+        title: 'Backups',
+        url: '/backups',
+        icon: FileText,
+        requiredRoles: ['super_admin','admin']
       },
     ],
   },
@@ -147,7 +159,7 @@ export const sidebarConfig: NavGroup[] = [
         title: 'Profile', 
         url: '/profile', 
         icon: User,
-        requiredRoles: ['super_admin', 'branch_admin', 'loan_officer', 'teller', 'auditor']
+        requiredRoles: ['super_admin', 'admin', 'branch_admin', 'loan_officer', 'auditor']
       },
       { 
         title: 'Loan Officer', 
@@ -159,19 +171,19 @@ export const sidebarConfig: NavGroup[] = [
         title: 'Notifications', 
         url: '/notifications', 
         icon: Bell,
-        requiredRoles: ['super_admin', 'branch_admin', 'loan_officer', 'teller', 'auditor']
+        requiredRoles: ['super_admin', 'admin', 'branch_admin', 'loan_officer', 'auditor']
       },
       { 
         title: 'Security', 
         url: '/security', 
         icon: Shield,
-        requiredRoles: ['super_admin', 'branch_admin', 'loan_officer', 'teller', 'auditor']
+        requiredRoles: ['super_admin', 'admin', 'branch_admin', 'loan_officer', 'auditor']
       },
       { 
         title: 'Settings', 
         url: '/settings', 
         icon: Settings,
-        requiredRoles: ['super_admin']
+        requiredRoles: ['super_admin', 'admin']
       },
     ],
   },

@@ -37,7 +37,7 @@ const StatCard: React.FC<{ title: string; value: string | number; icon: React.El
 );
 
 const UsersPage: React.FC = () => {
-  const { isSuperAdmin } = useAuth();
+  const { isSuperAdmin, userRole } = useAuth() as any;
   const [users, setUsers] = useState<UserSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteCandidate, setDeleteCandidate] = useState<UserSummary | null>(null);
@@ -114,6 +114,11 @@ const UsersPage: React.FC = () => {
 
   const handleDeleteUser = async () => {
     if (!deleteCandidate) return;
+    // Prevent admins (non-super_admin) from deleting super admins
+    if (userRole === 'admin' && (deleteCandidate.role === 'super_admin')) {
+      toast.error('Action not allowed', { description: 'Admins cannot delete Super Admin users.' });
+      return;
+    }
     setIsDeleting(true);
     try {
         // --- This is the definitive call to our Edge Function ---
@@ -178,7 +183,7 @@ const UsersPage: React.FC = () => {
     )}
   ];
 
-  if (!isSuperAdmin) {
+  if (!(isSuperAdmin || userRole === 'admin')) {
     return (
         <div className="p-2 sm:p-4 md:p-6">
             <Card className="max-w-md mx-auto">
@@ -223,7 +228,7 @@ const UsersPage: React.FC = () => {
           </DialogHeader>
           <DialogFooter className="pt-4">
             <Button variant="outline" onClick={() => setDeleteCandidate(null)} disabled={isDeleting}>Cancel</Button>
-            <Button variant="destructive" onClick={handleDeleteUser} disabled={isDeleting}>
+            <Button variant="destructive" onClick={handleDeleteUser} disabled={isDeleting || (userRole === 'admin' && deleteCandidate?.role === 'super_admin')}>
               {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Delete User
             </Button>

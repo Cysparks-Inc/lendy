@@ -283,7 +283,7 @@ CREATE TABLE public.guarantors (
 );
 
 -- Insert default organization
-INSERT INTO public.organizations (name, code) VALUES ('Napol Microfinance', 'NAPOL');
+INSERT INTO public.organizations (name, code) VALUES ('Pett Vision', 'PETT');
 
 -- Insert default branches
 INSERT INTO public.branches (name, code, location) VALUES 

@@ -1,6 +1,6 @@
-# Lendy Microfinance - Supabase Setup Guide
+# Pett Vision - Supabase Setup Guide
 
-This guide will help you set up the Lendy Microfinance system with a new Supabase project.
+This guide will help you set up the Pett Vision system with a new Supabase project.
 
 ## Prerequisites
 
@@ -175,7 +175,7 @@ VALUES ('Main Branch', 'MB-001', 'Nairobi', true);
 
 -- Create a sample organization (if needed)
 INSERT INTO public.organizations (name, code)
-VALUES ('Lendy Microfinance', 'LEN-001');
+VALUES ('Pett Vision', 'PV-001');
 
 -- Create initial penalty policy
 INSERT INTO public.penalty_policies (name, penalty_type, rate_per_day)

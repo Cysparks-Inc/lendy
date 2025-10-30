@@ -124,16 +124,16 @@ const ExpensesPage: React.FC = () => {
     },
   });
 
-  // Check if user is super admin
+  // Check if user is super admin/admin
   useEffect(() => {
-    if (userRole && userRole !== 'super_admin') {
-      toast.error('Access Denied', { description: 'Only Super Admins can access this page.' });
+    if (userRole && userRole !== 'super_admin' && userRole !== 'admin') {
+      toast.error('Access Denied', { description: 'Only Super Admins and Admins can access this page.' });
     }
   }, [userRole]);
 
   // Fetch initial data
   useEffect(() => {
-    if (userRole === 'super_admin') {
+    if (userRole === 'super_admin' || userRole === 'admin') {
       fetchData();
     }
   }, [userRole]);
@@ -452,8 +452,8 @@ const ExpensesPage: React.FC = () => {
     }
   };
 
-  // Access control - only super admins can see this page
-  if (userRole !== 'super_admin') {
+  // Access control - super admins and admins can see this page
+  if (userRole !== 'super_admin' && userRole !== 'admin') {
     return (
       <div className="flex items-center justify-center h-screen">
         <Card className="max-w-md">

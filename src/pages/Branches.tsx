@@ -434,7 +434,7 @@ const Branches: React.FC = () => {
     );
   }
 
-  if (userRole !== 'super_admin') {
+  if (userRole !== 'super_admin' && userRole !== 'admin') {
     return (
       <div className="p-2 sm:p-4 md:p-6">
         <Card className="max-w-md mx-auto">

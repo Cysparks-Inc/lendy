@@ -1,10 +1,10 @@
-# 🚀 Lendy Microfinance - Quick Setup Summary
+# 🚀 Pett Vision - Quick Setup Summary
 
 ## ✅ What's Ready
 
 1. ✅ **Rebranding Complete**
    - All colors changed from green → dark blue
-   - Company name: Napol → Lendy
+   - Company name updated to Pett Vision
    - Logo paths updated
    - MFA disabled for easy access
 
@@ -74,7 +74,7 @@ Then visit: http://localhost:8080
 
 ## 🎨 Logo Setup
 
-Your logo should be at: `/public/lovable-uploads/lendy-logo.png`
+Your logo should be at: `/public/lovable-uploads/pett-vision-logo.png`
 
 Currently using: `/public/lovable-uploads/logo-napol.png` (temporary)
 

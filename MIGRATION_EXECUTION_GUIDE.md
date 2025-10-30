@@ -1,4 +1,4 @@
-# Lendy Microfinance - Migration Execution Guide
+# Pett Vision - Migration Execution Guide
 
 ## Your Supabase Project is Connected ✅
 
@@ -238,7 +238,7 @@ VALUES ('Main Branch', 'MB-001', 'Nairobi', true);
 
 -- Create organization  
 INSERT INTO public.organizations (name, code)
-VALUES ('Lendy Microfinance', 'LEN-001');
+VALUES ('Pett Vision', 'PV-001');
 
 -- Create penalty policy
 INSERT INTO public.penalty_policies (name, penalty_type, rate_per_day, grace_days)

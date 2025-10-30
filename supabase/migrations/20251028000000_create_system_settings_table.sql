@@ -1,7 +1,7 @@
 -- Create system_settings table if it doesn't exist
 CREATE TABLE IF NOT EXISTS public.system_settings (
   id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1), -- Singleton table, only one row allowed
-  company_name TEXT NOT NULL DEFAULT 'Lendy Microfinance',
+  company_name TEXT NOT NULL DEFAULT 'Pett Vision',
   company_email TEXT,
   company_phone TEXT,
   default_interest_rate DECIMAL(5, 2) DEFAULT 0.00,
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS public.system_settings (
 
 -- Insert default row if it doesn't exist
 INSERT INTO public.system_settings (id, company_name, company_email, company_phone, default_interest_rate, default_penalty_rate, max_loan_amount, min_loan_amount, loan_term_months)
-VALUES (1, 'Lendy Microfinance', 'info@lendy.co.ke', '+254700000000', 0.00, 0.00, 0.00, 0.00, 0)
+VALUES (1, 'Pett Vision', 'info@pettvision.co.ke', '+254700000000', 0.00, 0.00, 0.00, 0.00, 0)
 ON CONFLICT (id) DO NOTHING;
 
 -- Enable RLS

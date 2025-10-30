@@ -1,12 +1,12 @@
-# 🚀 Lendy Microfinance - Start Here
+# 🚀 Pett Vision - Start Here
 
 ## ✅ What's Been Done
 
-Your system has been successfully rebranded from **Napol Microfinance** to **Lendy Microfinance** with a **dark blue color scheme**.
+Your system has been successfully rebranded to **Pett Vision** with a **dark blue color scheme**.
 
 ### Completed:
 1. ✅ **Colors Updated** - Changed from green to dark blue throughout
-2. ✅ **Company Name Updated** - Changed "Napol" to "Lendy" everywhere
+2. ✅ **Company Name Updated** - Changed company name to "Pett Vision" everywhere
 3. ✅ **Supabase Connected** - New project configured
 4. ✅ **Documentation Created** - Comprehensive guides for next steps
 
@@ -50,7 +50,7 @@ After migrations complete, run the initial data SQL from the setup guide.
 
 ### 5. Replace Logos (When Ready)
 
-Upload your new Lendy logo to:
+Upload your Pett Vision logo to:
 - `public/lovable-uploads/logo-napol.png`
 
 ### 6. Test Everything (15-30 minutes)
@@ -155,7 +155,7 @@ npm run lint
 
 ## 📞 Support
 
-Your project is now configured for **Lendy Microfinance** with:
+Your project is now configured for **Pett Vision** with:
 - ✅ Dark blue branding
 - ✅ Updated company name
 - ✅ New Supabase connection
@@ -167,5 +167,5 @@ Your project is now configured for **Lendy Microfinance** with:
 
 **Estimated Total Time:** 1-2 hours
 **Difficulty:** Easy (with guides)
-**Result:** Fully functional Lendy Microfinance system
+**Result:** Fully functional Pett Vision system
 

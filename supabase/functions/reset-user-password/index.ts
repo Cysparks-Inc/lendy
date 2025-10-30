@@ -45,7 +45,26 @@ serve(async (req) => {
     }
     console.log(`Successfully updated password for user ${data.user.email}`);
 
-    // 5. Send a success response
+    // 5. Insert a notification for the affected user
+    try {
+      const { error: notifError } = await supabaseAdmin
+        .from('notifications')
+        .insert({
+          user_id: userId,
+          title: 'Password Changed',
+          message: 'Your password was reset by an administrator. If this was not you, please contact support immediately.',
+          type: 'info',
+          related_entity_type: 'profile',
+          related_entity_id: userId
+        });
+      if (notifError) {
+        console.warn('Failed to insert password change notification:', notifError.message);
+      }
+    } catch(_e) {
+      console.warn('Notification insertion failed.');
+    }
+
+    // 6. Send a success response
     return new Response(JSON.stringify({ success: true, message: `Password for user ${data.user.email} has been reset.` }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,

@@ -175,19 +175,41 @@ const Groups: React.FC = () => {
       // Fetch members (restrict to groups for loan officers)
       let membersData: any[] | null = null;
       if (isLoanOfficer) {
+        // For loan officers, only get members assigned to them OR in their assigned groups
         const groupIds = (groupsData || []).map(g => g.id);
+        let membersQuery = supabase.from('members').select('*');
+        
+        // Build query to include either assigned members OR members in assigned groups
         if (groupIds.length > 0) {
-          const { data, error } = await supabase
-            .from('members')
-            .select('*')
-            .in('group_id', groupIds)
-            .limit(1000);
-          if (error) throw error;
-          membersData = data || [];
+          membersQuery = membersQuery.or(`assigned_officer_id.eq.${currentOfficerId},group_id.in.(${groupIds.join(',')})`);
         } else {
-          membersData = [];
+          // If no groups assigned, only show directly assigned members
+          membersQuery = membersQuery.eq('assigned_officer_id', currentOfficerId);
         }
+        
+        const { data, error } = await membersQuery.limit(1000);
+        if (error) throw error;
+        membersData = data || [];
+      } else if (userRole === 'branch_admin' && profile?.branch_id) {
+        // Branch admins see only members from their branch
+        const { data, error } = await supabase
+          .from('members')
+          .select('*')
+          .eq('branch_id', profile.branch_id)
+          .limit(1000);
+        if (error) throw error;
+        membersData = data || [];
+      } else if (userRole !== 'super_admin' && profile?.branch_id) {
+        // Teller/Auditor - see only their branch members
+        const { data, error } = await supabase
+          .from('members')
+          .select('*')
+          .eq('branch_id', profile.branch_id)
+          .limit(1000);
+        if (error) throw error;
+        membersData = data || [];
       } else {
+        // Super admins see all members
         const { data, error } = await supabase
           .from('members')
           .select('*')
@@ -343,11 +365,23 @@ const Groups: React.FC = () => {
     let filteredMembersData = members;
     let filteredGroupsData = groups;
 
-    // Enforce visibility restriction for loan officers
+    // Enforce visibility restriction based on role
     if (isLoanOfficer) {
-      filteredGroupsData = filteredGroupsData.filter(g => g.loan_officer_id === currentOfficerId);
+      // Loan officers can only see groups assigned to them (check both loan_officer_id and assigned_officer_id)
+      filteredGroupsData = filteredGroupsData.filter(g => {
+        return g.loan_officer_id === currentOfficerId || 
+               (g as any).assigned_officer_id === currentOfficerId;
+      });
       const allowedGroupIds = new Set(filteredGroupsData.map(g => g.id.toString()));
       filteredMembersData = filteredMembersData.filter(m => m.group_id && allowedGroupIds.has(m.group_id.toString()));
+    } else if (userRole === 'branch_admin' && profile?.branch_id) {
+      // Branch admins can only see groups and members from their branch
+      filteredGroupsData = filteredGroupsData.filter(g => g.branch_id?.toString() === profile.branch_id?.toString());
+      filteredMembersData = filteredMembersData.filter(m => m.branch_id?.toString() === profile.branch_id?.toString());
+    } else if (userRole === 'auditor' && profile?.branch_id) {
+      // Auditor - see only their branch groups and members
+      filteredGroupsData = filteredGroupsData.filter(g => g.branch_id?.toString() === profile.branch_id?.toString());
+      filteredMembersData = filteredMembersData.filter(m => m.branch_id?.toString() === profile.branch_id?.toString());
     }
 
     // Apply search filter

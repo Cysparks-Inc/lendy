@@ -81,6 +81,37 @@ serve(async (req: Request) => {
     }
 
     console.log("disable-user-mfa: success", { removed: factors.length });
+
+    // Insert a notification and auth log
+    try {
+      const admin = await fetch(`${SUPABASE_URL}/rest/v1/notifications`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+          apikey: SERVICE_ROLE_KEY,
+          Prefer: 'return=minimal'
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          title: 'MFA Disabled',
+          message: 'Multi-factor authentication was disabled for your account by an administrator.',
+          type: 'warning',
+          related_entity_type: 'profile',
+          related_entity_id: userId
+        })
+      });
+      console.log('disable-user-mfa: notification insert status', admin.status);
+    } catch(e) { console.warn('disable-user-mfa: notification insert failed'); }
+
+    try {
+      await fetch(`${SUPABASE_URL}/functions/v1/log-auth-event`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
+        body: JSON.stringify({ event_type: 'mfa_disabled', user_id: userId })
+      });
+    } catch(e) { console.warn('disable-user-mfa: log-auth-event failed'); }
+
     return jsonResponse({ success: true, removed: factors.length }, 200);
   } catch (err: any) {
     console.error("disable-user-mfa: error", err?.message || String(err));

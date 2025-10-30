@@ -91,7 +91,7 @@ const LoanApprovals: React.FC = () => {
       // Fetch members data
       const { data: membersData, error: membersError } = await supabase
         .from('members')
-        .select('id, first_name, last_name, phone_number, group_id')
+        .select('id, first_name, last_name, full_name, phone_number, group_id')
         .in('id', memberIds);
 
       if (membersError) throw membersError;
@@ -123,7 +123,7 @@ const LoanApprovals: React.FC = () => {
         // Concatenate first_name and last_name
         const fullName = member?.first_name && member?.last_name 
           ? `${member.first_name} ${member.last_name}`.trim()
-          : member?.first_name || member?.last_name || 'Unknown';
+          : (member?.full_name || member?.first_name || member?.last_name || 'Unknown');
 
         return {
           id: loan.id,
@@ -174,7 +174,7 @@ const LoanApprovals: React.FC = () => {
       // Fetch members data
       const { data: membersData, error: membersError } = await supabase
         .from('members')
-        .select('id, full_name, phone_number, group_id')
+        .select('id, first_name, last_name, full_name, phone_number, group_id')
         .in('id', memberIds);
 
       if (membersError) throw membersError;
@@ -206,7 +206,7 @@ const LoanApprovals: React.FC = () => {
         // Concatenate first_name and last_name
         const fullName = member?.first_name && member?.last_name 
           ? `${member.first_name} ${member.last_name}`.trim()
-          : member?.first_name || member?.last_name || 'Unknown';
+          : (member?.full_name || member?.first_name || member?.last_name || 'Unknown');
 
         return {
           id: loan.id,

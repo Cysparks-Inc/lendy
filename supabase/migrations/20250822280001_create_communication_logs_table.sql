@@ -204,7 +204,7 @@ BEGIN
                         OR 
                         (communication_logs.loan_id IS NOT NULL AND EXISTS (
                             SELECT 1 FROM loans l
-                            JOIN members m ON m.id = l.customer_id OR m.id = l.member_id
+                            JOIN members m ON m.id = l.member_id
                             WHERE l.id = communication_logs.loan_id 
                             AND m.branch_id = p.branch_id
                         ))
@@ -228,7 +228,7 @@ BEGIN
                         OR 
                         (communication_logs.loan_id IS NOT NULL AND EXISTS (
                             SELECT 1 FROM loans l
-                            JOIN members m ON m.id = l.customer_id OR m.id = l.member_id
+                            JOIN members m ON m.id = l.member_id
                             WHERE l.id = communication_logs.loan_id 
                             AND m.assigned_officer_id = p.id
                         ))
@@ -253,7 +253,7 @@ BEGIN
                             OR 
                             (communication_logs.loan_id IS NOT NULL AND EXISTS (
                                 SELECT 1 FROM loans l
-                                JOIN members m ON m.id = l.customer_id OR m.id = l.member_id
+                                JOIN members m ON m.id = l.member_id
                                 WHERE l.id = communication_logs.loan_id 
                                 AND m.branch_id = p.branch_id
                             ))
@@ -267,7 +267,7 @@ BEGIN
                             OR 
                             (communication_logs.loan_id IS NOT NULL AND EXISTS (
                                 SELECT 1 FROM loans l
-                                JOIN members m ON m.id = l.customer_id OR m.id = l.member_id
+                                JOIN members m ON m.id = l.member_id
                                 WHERE l.id = communication_logs.loan_id 
                                 AND m.assigned_officer_id = p.id
                             ))
@@ -313,7 +313,7 @@ BEGIN
                         -- For loan-based logs
                         (communication_logs.loan_id IS NOT NULL AND EXISTS (
                             SELECT 1 FROM loans l 
-                            JOIN members m ON m.id = l.customer_id OR m.id = l.member_id
+                            JOIN members m ON m.id = l.member_id
                             WHERE l.id = communication_logs.loan_id 
                             AND m.branch_id = p.branch_id
                         ))
@@ -358,7 +358,7 @@ BEGIN
         FROM communication_logs cl
         LEFT JOIN members m ON cl.member_id = m.id
         LEFT JOIN loans l ON cl.loan_id = l.id
-        LEFT JOIN members m2 ON l.customer_id = m2.id OR l.member_id = m2.id
+        LEFT JOIN members m2 ON l.member_id = m2.id
         LEFT JOIN branches b ON COALESCE(m.branch_id, m2.branch_id) = b.id
         LEFT JOIN profiles p ON cl.officer_id = p.id;
 
@@ -431,7 +431,7 @@ BEGIN
         FROM communication_logs cl
         LEFT JOIN members m ON cl.member_id = m.id
         LEFT JOIN loans l ON cl.loan_id = l.id
-        LEFT JOIN members m2 ON l.customer_id = m2.id OR l.member_id = m2.id
+        LEFT JOIN members m2 ON l.member_id = m2.id
         LEFT JOIN branches b ON COALESCE(m.branch_id, m2.branch_id) = b.id
         LEFT JOIN profiles p ON cl.officer_id = p.id
         WHERE (member_id_filter IS NULL OR cl.member_id = member_id_filter)
@@ -459,7 +459,7 @@ BEGIN
         FROM communication_logs cl
         LEFT JOIN members m ON cl.member_id = m.id
         LEFT JOIN loans l ON cl.loan_id = l.id
-        LEFT JOIN members m2 ON l.customer_id = m2.id OR l.member_id = m2.id
+        LEFT JOIN members m2 ON l.member_id = m2.id
         LEFT JOIN branches b ON COALESCE(m.branch_id, m2.branch_id) = b.id
         LEFT JOIN profiles p ON cl.officer_id = p.id
         WHERE (cl.member_id IS NOT NULL AND m.branch_id = user_branch_id)
@@ -489,7 +489,7 @@ BEGIN
         FROM communication_logs cl
         LEFT JOIN members m ON cl.member_id = m.id
         LEFT JOIN loans l ON cl.loan_id = l.id
-        LEFT JOIN members m2 ON l.customer_id = m2.id OR l.member_id = m2.id
+        LEFT JOIN members m2 ON l.member_id = m2.id
         LEFT JOIN branches b ON COALESCE(m.branch_id, m2.branch_id) = b.id
         LEFT JOIN profiles p ON cl.officer_id = p.id
         WHERE (cl.member_id IS NOT NULL AND m.assigned_officer_id = requesting_user_id)
