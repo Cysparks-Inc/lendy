@@ -172,22 +172,15 @@ const Groups: React.FC = () => {
         groupsData = data || [];
       }
 
-      // Fetch members (restrict to groups for loan officers)
+      // Fetch members (restrict strictly to assigned members for loan officers)
       let membersData: any[] | null = null;
       if (isLoanOfficer) {
-        // For loan officers, only get members assigned to them OR in their assigned groups
-        const groupIds = (groupsData || []).map(g => g.id);
-        let membersQuery = supabase.from('members').select('*');
-        
-        // Build query to include either assigned members OR members in assigned groups
-        if (groupIds.length > 0) {
-          membersQuery = membersQuery.or(`assigned_officer_id.eq.${currentOfficerId},group_id.in.(${groupIds.join(',')})`);
-        } else {
-          // If no groups assigned, only show directly assigned members
-          membersQuery = membersQuery.eq('assigned_officer_id', currentOfficerId);
-        }
-        
-        const { data, error } = await membersQuery.limit(1000);
+        // Only members directly assigned to this officer
+        const { data, error } = await supabase
+          .from('members')
+          .select('*')
+          .eq('assigned_officer_id', currentOfficerId)
+          .limit(1000);
         if (error) throw error;
         membersData = data || [];
       } else if (userRole === 'branch_admin' && profile?.branch_id) {
@@ -372,8 +365,8 @@ const Groups: React.FC = () => {
         return g.loan_officer_id === currentOfficerId || 
                (g as any).assigned_officer_id === currentOfficerId;
       });
-      const allowedGroupIds = new Set(filteredGroupsData.map(g => g.id.toString()));
-      filteredMembersData = filteredMembersData.filter(m => m.group_id && allowedGroupIds.has(m.group_id.toString()));
+      // Members list should include ONLY members assigned to this officer, regardless of group
+      filteredMembersData = filteredMembersData.filter(m => (m as any).assigned_officer_id === currentOfficerId);
     } else if (userRole === 'branch_admin' && profile?.branch_id) {
       // Branch admins can only see groups and members from their branch
       filteredGroupsData = filteredGroupsData.filter(g => g.branch_id?.toString() === profile.branch_id?.toString());

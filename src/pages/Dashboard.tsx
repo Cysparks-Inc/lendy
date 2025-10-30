@@ -52,15 +52,25 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Guard until auth is ready
+    if (!user || !userRole) {
+      return;
+    }
+    // Reset while refetching to avoid showing stale stats from a previous role
+    setStats(null);
+    setRecentLoans([]);
     fetchDashboardData();
-  }, [user]);
+    // Re-run when role or branch context changes
+  }, [user?.id, userRole, profile?.branch_id]);
 
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
+      const expectedUserId = user?.id;
+      const expectedRole = userRole;
       
       
-      // Step 1: Fetch all loans and members
+      // Step 1: Fetch all loans and members (RLS will scope access)
       const { data: loans, error: loansError } = await supabase
         .from('loans')
         .select('*');
@@ -72,6 +82,10 @@ const Dashboard: React.FC = () => {
       const { data: members, error: membersError } = await supabase
         .from('members')
         .select('*');
+      
+      if (membersError) {
+        throw membersError;
+      }
 
       if (membersError) {
         throw membersError;
@@ -95,12 +109,11 @@ const Dashboard: React.FC = () => {
         // Get member IDs that are assigned to this loan officer
         const assignedMemberIds = new Set(filteredMembers.map(m => m.id));
         
-        // Filter loans by loan_officer_id OR by assigned member IDs
+        // Filter loans by loan_officer_id OR by assigned member IDs (exclude created_by fallback)
         filteredLoans = filteredLoans.filter(loan => {
           const loanMemberId = loan.member_id || loan.customer_id;
           return (
-            loan.loan_officer_id === user?.id || 
-            loan.created_by === user?.id ||
+            loan.loan_officer_id === user?.id ||
             (loanMemberId && assignedMemberIds.has(loanMemberId))
           );
         });
@@ -134,6 +147,8 @@ const Dashboard: React.FC = () => {
         overdue_loans: overdueData?.length || 0 // Use installment-based overdue count
       };
       
+      // Prevent stale updates if user/role changed during fetch
+      if (user?.id !== expectedUserId || userRole !== expectedRole) return;
       setStats(stats);
       
       // Step 5: Get recent loans and fetch related names
@@ -173,6 +188,7 @@ const Dashboard: React.FC = () => {
           };
         });
         
+        if (user?.id !== expectedUserId || userRole !== expectedRole) return;
         setRecentLoans(loansWithDetails);
       } else {
         setRecentLoans([]);
