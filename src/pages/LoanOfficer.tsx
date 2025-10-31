@@ -41,10 +41,17 @@ const LoanOfficerPage: React.FC = () => {
     setLoading(true);
     try {
       // Step 1: Fetch all loan officers (profiles with loan_officer role)
-      const { data: officersData, error: officersError } = await supabase
+      let query = supabase
         .from('profiles')
         .select('id, full_name, email, phone_number, branch_id, role')
         .eq('role', 'loan_officer');
+
+      // Loan officers should only see themselves
+      if (userRole === 'loan_officer') {
+        query = query.eq('id', user.id);
+      }
+
+      const { data: officersData, error: officersError } = await query;
 
       if (officersError) throw officersError;
       
@@ -55,9 +62,13 @@ const LoanOfficerPage: React.FC = () => {
       }
       
       // Step 2: Fetch all loans to calculate officer performance
-      const { data: loansData, error: loansError } = await supabase
+      let loansQuery = supabase
         .from('loans')
         .select('loan_officer_id, principal_amount, current_balance, status');
+      if (userRole === 'loan_officer') {
+        loansQuery = loansQuery.eq('loan_officer_id', user.id);
+      }
+      const { data: loansData, error: loansError } = await loansQuery;
 
       if (loansError) {
         // Continue without loan data
@@ -249,17 +260,19 @@ const LoanOfficerPage: React.FC = () => {
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Loan Officers</h1>
           <p className="text-muted-foreground">Manage loan officer profiles and performance.</p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <ExportDropdown 
-            data={officers} 
-            columns={exportColumns} 
-            fileName="loan-officers-report" 
-            reportTitle="Loan Officers Report"
-          />
-          {userRole === 'super_admin' && (
-            <Button asChild><Link to="/users/new"><Plus className="h-4 w-4 mr-2" />Add Officer</Link></Button>
-          )}
-        </div>
+        {userRole !== 'loan_officer' && (
+          <div className="flex flex-col sm:flex-row gap-3">
+            <ExportDropdown 
+              data={officers} 
+              columns={exportColumns} 
+              fileName="loan-officers-report" 
+              reportTitle="Loan Officers Report"
+            />
+            {userRole === 'super_admin' && (
+              <Button asChild><Link to="/users/new"><Plus className="h-4 w-4 mr-2" />Add Officer</Link></Button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Summary Stats */}
@@ -270,29 +283,41 @@ const LoanOfficerPage: React.FC = () => {
         <StatCard title="Avg Performance" value={`${Math.round(officers.reduce((sum, o) => sum + (o.performance || 0), 0) / Math.max(officers.length, 1))}%`} icon={TrendingUp} />
       </div>
 
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <CardTitle>Officer Directory</CardTitle>
-            <div className="relative w-full sm:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Search officers..." 
-                value={searchTerm} 
-                onChange={e => setSearchTerm(e.target.value)} 
-                className="pl-9"
-              />
+      {userRole !== 'loan_officer' ? (
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <CardTitle>Officer Directory</CardTitle>
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input 
+                  placeholder="Search officers..." 
+                  value={searchTerm} 
+                  onChange={e => setSearchTerm(e.target.value)} 
+                  className="pl-9"
+                />
+              </div>
             </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <DataTable 
-            columns={columns(userRole)} 
-            data={filteredOfficers} 
-            emptyStateMessage="No loan officers found for your role."
-          />
-        </CardContent>
-      </Card>
+          </CardHeader>
+          <CardContent>
+            <DataTable 
+              columns={columns(userRole)} 
+              data={filteredOfficers} 
+              emptyStateMessage="No loan officers found for your role."
+            />
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle>Your Profile</CardTitle>
+            <CardDescription>This section shows only your loan officer stats.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DataTable columns={columns(userRole)} data={officers} emptyStateMessage="No data" />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

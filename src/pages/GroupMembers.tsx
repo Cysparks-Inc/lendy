@@ -161,29 +161,65 @@ const GroupMembers: React.FC = () => {
       let loansData: any[] = [];
       
       if (memberIds.length > 0) {
+        // Fetch loans using member_id - matching pattern from GroupDetails.tsx
         const { data: loans, error: loansError } = await supabase
           .from('loans')
-          .select('id, customer_id, principal_amount, due_date, current_balance, status, created_at')
-          .in('customer_id', memberIds);
+          .select(`
+            id,
+            member_id,
+            principal_amount,
+            current_balance,
+            status,
+            created_at,
+            total_paid,
+            issue_date,
+            loan_program,
+            maturity_date
+          `)
+          .in('member_id', memberIds);
         
-        if (!loansError) {
-          loansData = loans || [];
+        if (loansError) {
+          console.error('Error fetching loans:', loansError);
+          toast.error('Failed to fetch loan data');
+        } else {
+          // Filter out soft-deleted loans if is_deleted column exists
+          loansData = (loans || []).filter(loan => {
+            // If is_deleted exists and is true, exclude it
+            return !loan.is_deleted || loan.is_deleted === false;
+          });
         }
       }
       
       const membersWithData = membersData?.map(member => {
-        const memberLoans = loansData.filter(loan => loan.customer_id === member.id);
-        const activeLoans = memberLoans.filter(loan => 
-          loan.status === 'active' || loan.status === 'overdue'
+        // Construct full_name from first_name and last_name if full_name doesn't exist
+        const fullName = member.full_name || 
+          (member.first_name && member.last_name 
+            ? `${member.first_name} ${member.last_name}`.trim()
+            : member.first_name || member.last_name || 'Unknown Member');
+        
+        // Use member_id for loan lookup
+        const memberLoans = loansData.filter(loan => 
+          loan.member_id === member.id
         );
         
-        const totalOutstanding = activeLoans.reduce((sum, loan) => 
-          sum + parseFloat(loan.current_balance || '0'), 0
-        );
+        // Count all active/pending loans (including other statuses that might have balance)
+        const activeLoans = memberLoans.filter(loan => {
+          const status = loan.status?.toLowerCase();
+          // Include loans that are not completed/repaid
+          return status !== 'repaid' && status !== 'completed' && status !== 'closed';
+        });
+        
+        // Calculate outstanding from active loans
+        const totalOutstanding = activeLoans.reduce((sum, loan) => {
+          const balance = parseFloat(loan.current_balance || '0');
+          return sum + (isNaN(balance) ? 0 : balance);
+        }, 0);
 
-        const totalDisbursed = memberLoans.reduce((sum, loan) => 
-          sum + parseFloat(loan.principal_amount || '0'), 0
-        );
+        // Calculate total disbursed from all loans
+        const totalDisbursed = memberLoans.reduce((sum, loan) => {
+          const principal = parseFloat(loan.principal_amount || '0');
+          return sum + (isNaN(principal) ? 0 : principal);
+        }, 0);
         
         const lastLoan = memberLoans.sort((a, b) => 
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -191,6 +227,7 @@ const GroupMembers: React.FC = () => {
         
         return {
           ...member,
+          full_name: fullName,
           total_loans: memberLoans.length,
           active_loans: activeLoans.length,
           total_outstanding: totalOutstanding,
@@ -220,7 +257,21 @@ const GroupMembers: React.FC = () => {
         .eq('branch_id', groupData.branch_id);
       
       if (error) throw error;
-      setAvailableMembers(data || []);
+      
+      // Ensure full_name is constructed from first_name and last_name
+      const membersWithFullName = (data || []).map(member => {
+        const fullName = member.full_name || 
+          (member.first_name && member.last_name 
+            ? `${member.first_name} ${member.last_name}`.trim()
+            : member.first_name || member.last_name || 'Unknown Member');
+        
+        return {
+          ...member,
+          full_name: fullName
+        };
+      });
+      
+      setAvailableMembers(membersWithFullName);
       
     } catch (error: any) {
       console.error('Failed to fetch available members:', error);
@@ -371,26 +422,23 @@ const GroupMembers: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6 p-3 sm:p-4 md:p-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
           <Button
             variant="outline"
             onClick={() => navigate(`/groups/${groupId}`)}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 w-full sm:w-auto"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to Group
           </Button>
-          <div>
-            <h1 className="text-3xl font-bold">{group.name} - Members</h1>
-            <p className="text-muted-foreground">
-              Excel-like member listing for {group.name}
-            </p>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold truncate">{group.name} - Members</h1>
           </div>
         </div>
-        <Button onClick={() => setShowAddDialog(true)}>
+        <Button onClick={() => setShowAddDialog(true)} className="w-full sm:w-auto">
           <Plus className="mr-2 h-4 w-4" />
           Add Members
         </Button>
@@ -398,26 +446,26 @@ const GroupMembers: React.FC = () => {
 
       {/* Group Info Card */}
       <Card>
-        <CardHeader>
-          <CardTitle>Group Information</CardTitle>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg sm:text-xl">Group Information</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">Group Name</Label>
-              <p className="text-lg font-semibold">{group.name}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            <div className="space-y-1">
+              <Label className="text-xs sm:text-sm font-medium text-muted-foreground">Group Name</Label>
+              <p className="text-base sm:text-lg font-semibold">{group.name}</p>
             </div>
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">Meeting Day</Label>
-              <p className="text-lg font-semibold">{getDayName(group.meeting_day)}</p>
+            <div className="space-y-1">
+              <Label className="text-xs sm:text-sm font-medium text-muted-foreground">Meeting Day</Label>
+              <p className="text-base sm:text-lg font-semibold">{getDayName(group.meeting_day)}</p>
             </div>
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">Branch</Label>
-              <p className="text-lg font-semibold">{group.branch_name}</p>
+            <div className="space-y-1">
+              <Label className="text-xs sm:text-sm font-medium text-muted-foreground">Branch</Label>
+              <p className="text-base sm:text-lg font-semibold">{group.branch_name}</p>
             </div>
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">Loan Officer</Label>
-              <p className="text-lg font-semibold">{group.loan_officer_name}</p>
+            <div className="space-y-1">
+              <Label className="text-xs sm:text-sm font-medium text-muted-foreground">Loan Officer</Label>
+              <p className="text-base sm:text-lg font-semibold">{group.loan_officer_name}</p>
             </div>
           </div>
         </CardContent>
@@ -425,14 +473,14 @@ const GroupMembers: React.FC = () => {
 
       {/* Filters */}
       <Card>
-        <CardHeader>
-          <CardTitle>Filters</CardTitle>
-          <CardDescription>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg sm:text-xl">Filters</CardTitle>
+          <CardDescription className="text-xs sm:text-sm">
             Use filters to narrow down the member data
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
               <Label htmlFor="search">Search</Label>
               <div className="relative">
@@ -465,7 +513,7 @@ const GroupMembers: React.FC = () => {
               </Select>
             </div>
 
-            <div className="flex items-end">
+            <div className="flex items-end sm:col-span-2 lg:col-span-1">
               <Button
                 variant="outline"
                 onClick={() => setFilters({
@@ -481,119 +529,115 @@ const GroupMembers: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Members Excel-like Sheet */}
+      {/* Members Data Sheet */}
       <Card>
-        <CardHeader>
-          <CardTitle>Group Members Data Sheet</CardTitle>
-          <CardDescription>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg sm:text-xl">Group Members Data Sheet</CardTitle>
+          <CardDescription className="text-xs sm:text-sm">
             Showing {filteredMembers.length} members
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0 sm:p-6">
           {filteredMembers.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
+            <div className="text-center py-8 text-muted-foreground px-4">
               No members found matching your filters
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">
-                    <Checkbox
-                      checked={selectedMembers.length === filteredMembers.length && filteredMembers.length > 0}
-                      onCheckedChange={handleSelectAll}
-                    />
-                  </TableHead>
-                  <TableHead>Member Name</TableHead>
-                  <TableHead>ID Number</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Total Loans</TableHead>
-                  <TableHead>Active Loans</TableHead>
-                  <TableHead>Outstanding</TableHead>
-                  <TableHead>Savings</TableHead>
-                  <TableHead>Shares</TableHead>
-                  <TableHead>Member Since</TableHead>
-                  <TableHead>Action</TableHead>
-                </TableRow>
-              </TableHeader>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12 sticky left-0 bg-background z-10">
+                      <Checkbox
+                        checked={selectedMembers.length === filteredMembers.length && filteredMembers.length > 0}
+                        onCheckedChange={handleSelectAll}
+                      />
+                    </TableHead>
+                    <TableHead className="min-w-[120px]">Member Name</TableHead>
+                    <TableHead className="min-w-[100px]">ID Number</TableHead>
+                    <TableHead className="min-w-[110px]">Phone</TableHead>
+                    <TableHead className="min-w-[120px] hidden sm:table-cell">Email</TableHead>
+                    <TableHead className="min-w-[80px]">Status</TableHead>
+                    <TableHead className="min-w-[90px]">Total Loans</TableHead>
+                    <TableHead className="min-w-[90px] hidden md:table-cell">Active Loans</TableHead>
+                    <TableHead className="min-w-[110px]">Outstanding</TableHead>
+                    <TableHead className="min-w-[100px] hidden lg:table-cell">Member Since</TableHead>
+                    <TableHead className="min-w-[120px] sticky right-0 bg-background z-10">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
               <TableBody>
                 {filteredMembers.map((member) => (
                   <TableRow key={member.id}>
-                    <TableCell>
+                    <TableCell className="sticky left-0 bg-background z-10">
                       <Checkbox
                         checked={selectedMembers.includes(member.id)}
                         onCheckedChange={() => handleMemberSelection(member.id)}
                       />
                     </TableCell>
-                    <TableCell className="font-medium">
-                      {member.full_name}
+                    <TableCell className="font-medium min-w-[120px]">
+                      <div className="truncate">{member.full_name}</div>
                     </TableCell>
-                    <TableCell>
-                      {member.id_number}
+                    <TableCell className="min-w-[100px]">
+                      <div className="truncate font-mono text-sm">{member.id_number}</div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="min-w-[110px]">
                       <div className="flex items-center space-x-1">
-                        <Phone className="w-3 h-3" />
-                        <span>{member.phone_number}</span>
+                        <Phone className="w-3 h-3 flex-shrink-0" />
+                        <span className="truncate text-sm">{member.phone_number}</span>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="min-w-[120px] hidden sm:table-cell">
                       {member.email ? (
                         <div className="flex items-center space-x-1">
-                          <Mail className="w-3 h-3" />
-                          <span>{member.email}</span>
+                          <Mail className="w-3 h-3 flex-shrink-0" />
+                          <span className="truncate text-sm">{member.email}</span>
                         </div>
                       ) : (
-                        <span className="text-muted-foreground">No email</span>
+                        <span className="text-muted-foreground text-sm">No email</span>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="min-w-[80px]">
                       {getStatusBadge(member.status)}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="min-w-[90px] text-center">
                       {member.total_loans}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="min-w-[90px] text-center hidden md:table-cell">
                       {member.active_loans}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="min-w-[110px] font-medium">
                       KES {(member.total_outstanding || 0).toLocaleString()}
                     </TableCell>
-                    <TableCell>
-                      KES {(member.savings_balance || 0).toLocaleString()}
-                    </TableCell>
-                    <TableCell>
-                      KES {(member.shares_balance || 0).toLocaleString()}
-                    </TableCell>
-                    <TableCell>
+                    <TableCell className="min-w-[100px] hidden lg:table-cell text-sm">
                       {new Date(member.member_since).toLocaleDateString()}
                     </TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
+                    <TableCell className="sticky right-0 bg-background z-10 min-w-[120px]">
+                      <div className="flex space-x-1 sm:space-x-2">
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => navigate(`/members/${member.id}`)}
+                          className="h-8 px-2 sm:px-3"
                         >
-                          <Eye className="w-3 h-3 mr-1" />
-                          View
+                          <Eye className="w-3 h-3 sm:mr-1" />
+                          <span className="hidden sm:inline">View</span>
                         </Button>
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => handleRemoveMemberFromGroup(member.id)}
+                          className="h-8 px-2 sm:px-3"
                         >
-                          <X className="w-3 h-3 mr-1" />
-                          Remove
+                          <X className="w-3 h-3 sm:mr-1" />
+                          <span className="hidden sm:inline">Remove</span>
                         </Button>
                       </div>
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>

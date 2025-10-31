@@ -50,6 +50,7 @@ import SecurityMfa from "@/pages/SecurityMfa";
 import { useAuth } from "@/contexts/AuthContext";
 import ActivityLogs from "@/pages/ActivityLogs";
 import Backups from "@/pages/Backups";
+import LoanOfficers from "@/pages/LoanOfficers";
 
 const queryClient = new QueryClient();
 
@@ -142,6 +143,7 @@ const App = () => (
                 <Route path="branches" element={<Branches />} />
                 <Route path="activity-logs" element={<ActivityLogs />} />
                 <Route path="backups" element={<Backups />} />
+                <Route path="loan-officers" element={<LoanOfficers />} />
                 <Route path="transactions" element={<Transactions />} />
                 <Route path="transactions/:id" element={<TransactionDetails />} />
                 <Route path="expenses" element={<ExpensesPage />} />

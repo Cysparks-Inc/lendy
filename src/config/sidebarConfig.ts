@@ -28,6 +28,12 @@ export const sidebarConfig: NavGroup[] = [
         requiredRoles: ['super_admin', 'admin', 'branch_admin', 'loan_officer', 'auditor']
       },
       { 
+        title: 'Loan Officers', 
+        url: '/loan-officers', 
+        icon: UserCheck,
+        requiredRoles: ['super_admin', 'admin']
+      },
+      { 
         title: 'Search Member', 
         url: '/search-member', 
         icon: Search,

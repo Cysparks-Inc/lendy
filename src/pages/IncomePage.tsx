@@ -623,13 +623,15 @@ const IncomePage: React.FC = () => {
 
              {/* Tabs for different views */}
        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-         <TabsList className="grid w-full grid-cols-5">
-           <TabsTrigger value="overview">Overview</TabsTrigger>
-           <TabsTrigger value="processing_fees">Processing Fees</TabsTrigger>
-           <TabsTrigger value="interest">Interest Income</TabsTrigger>
-           <TabsTrigger value="registration_fees">Registration Fees</TabsTrigger>
-           <TabsTrigger value="activation_fees">Activation Fees</TabsTrigger>
-         </TabsList>
+         <div className="w-full overflow-x-auto -mx-1 px-1">
+           <TabsList className="inline-flex md:w-full md:grid md:grid-cols-5 gap-1 md:gap-0">
+             <TabsTrigger value="overview" className="flex-shrink-0 whitespace-nowrap px-3 md:px-3">Overview</TabsTrigger>
+             <TabsTrigger value="processing_fees" className="flex-shrink-0 whitespace-nowrap px-3 md:px-3">Processing Fees</TabsTrigger>
+             <TabsTrigger value="interest" className="flex-shrink-0 whitespace-nowrap px-3 md:px-3">Interest Income</TabsTrigger>
+             <TabsTrigger value="registration_fees" className="flex-shrink-0 whitespace-nowrap px-3 md:px-3">Registration Fees</TabsTrigger>
+             <TabsTrigger value="activation_fees" className="flex-shrink-0 whitespace-nowrap px-3 md:px-3">Activation Fees</TabsTrigger>
+           </TabsList>
+         </div>
 
         <TabsContent value="overview" className="space-y-4">
           <Card>

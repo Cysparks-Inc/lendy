@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, Trash2, UserX } from 'lucide-react';
+import { AlertTriangle, Trash2, UserX, Ban } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -37,12 +37,15 @@ export const MemberDeleteDialog: React.FC<MemberDeleteDialogProps> = ({
   const [isContactPerson, setIsContactPerson] = useState(false);
   const [contactGroups, setContactGroups] = useState<any[]>([]);
   const [showContactPersonWarning, setShowContactPersonWarning] = useState(false);
+  const [hasLoans, setHasLoans] = useState(false);
+  const [loanCount, setLoanCount] = useState(0);
 
   const canDeleteMember = userRole === 'super_admin' || userRole === 'branch_admin';
 
   useEffect(() => {
     if (isOpen && member.id) {
       checkContactPersonStatus();
+      checkLoansStatus();
     }
   }, [isOpen, member.id]);
 
@@ -69,6 +72,42 @@ export const MemberDeleteDialog: React.FC<MemberDeleteDialogProps> = ({
     }
   };
 
+  const checkLoansStatus = async () => {
+    try {
+      // Fetch ALL loans (including soft-deleted) since foreign key constraints apply regardless
+      const { data: allLoans, error } = await supabase
+        .from('loans')
+        .select('id, status, is_deleted')
+        .eq('member_id', member.id);
+
+      if (error) throw error;
+
+      // Filter out soft-deleted loans for checking
+      const nonDeletedLoans = (allLoans || []).filter(
+        loan => loan.is_deleted === false || loan.is_deleted === null
+      );
+      
+      // Filter out repaid and completed loans - only active/pending/etc should block deletion
+      const activeLoans = nonDeletedLoans.filter(
+        loan => loan.status !== 'repaid' && loan.status !== 'completed'
+      );
+
+      // Check if there are any active loans (these will block deletion)
+      if (activeLoans && activeLoans.length > 0) {
+        setHasLoans(true);
+        setLoanCount(activeLoans.length);
+      } else {
+        // Has repaid/completed loans or no loans - deletion should work (will auto-delete repaid loans)
+        setHasLoans(false);
+        setLoanCount(0);
+      }
+    } catch (error) {
+      console.error('Error checking loans status:', error);
+      // On error, assume they might have loans to be safe
+      setHasLoans(true);
+    }
+  };
+
   const handleDeleteMember = async () => {
     if (!user || !canDeleteMember) {
       toast.error('Access Denied', {
@@ -77,8 +116,177 @@ export const MemberDeleteDialog: React.FC<MemberDeleteDialogProps> = ({
       return;
     }
 
+    // Prevent deletion if member has loans
+    if (hasLoans) {
+      toast.error('Cannot Delete Member', {
+        description: `This member has ${loanCount} active loan(s). Please delete or close all loans before deleting the member.`,
+      });
+      return;
+    }
+
     try {
       setIsDeleting(true);
+
+      // First, check for ALL loans (including repaid/completed) that might block deletion
+      // Also check soft-deleted loans as they might still have foreign key constraints
+      const { data: allLoans, error: loansCheckError } = await supabase
+        .from('loans')
+        .select('id, status, is_deleted')
+        .eq('member_id', member.id);
+
+      if (loansCheckError) {
+        console.error('Error checking loans:', loansCheckError);
+      }
+
+      console.log(`Found ${allLoans?.length || 0} total loans for member ${member.id}:`, allLoans);
+
+      // Separate active and repaid/completed loans (including soft-deleted ones)
+      // We need to handle ALL loans because foreign key constraints apply regardless of is_deleted flag
+      const activeLoans = (allLoans || []).filter(
+        loan => (loan.is_deleted === false || loan.is_deleted === null) && 
+                loan.status !== 'repaid' && loan.status !== 'completed'
+      );
+      const repaidLoans = (allLoans || []).filter(
+        loan => loan.status === 'repaid' || loan.status === 'completed'
+      );
+      
+      console.log(`Active loans: ${activeLoans.length}, Repaid loans: ${repaidLoans.length} (including soft-deleted)`);
+
+      // Block if there are active loans
+      if (activeLoans.length > 0) {
+        toast.error('Cannot Delete Member', {
+          description: `This member has ${activeLoans.length} active loan(s). Please delete or close all loans before deleting the member.`,
+        });
+        setIsDeleting(false);
+        return;
+      }
+
+      // Delete repaid/completed loans first to avoid foreign key constraint
+      // This includes soft-deleted loans which still have foreign key constraints
+      if (repaidLoans.length > 0) {
+        const repaidLoanIds = repaidLoans.map(loan => loan.id);
+        console.log(`Attempting to hard delete ${repaidLoanIds.length} repaid loans (including soft-deleted):`, repaidLoanIds);
+        
+        // First, delete or update related records in realizable_assets
+        for (const loanId of repaidLoanIds) {
+          // Try to delete realizable_assets that reference this loan
+          const { error: deleteAssetsError } = await supabase
+            .from('realizable_assets')
+            .delete()
+            .eq('loan_id', loanId);
+          
+          if (deleteAssetsError) {
+            console.warn(`Could not delete realizable_assets for loan ${loanId}, trying to set loan_id to null:`, deleteAssetsError);
+            // If deletion fails (permissions), try setting loan_id to null
+            const { error: updateAssetsError } = await supabase
+              .from('realizable_assets')
+              .update({ loan_id: null })
+              .eq('loan_id', loanId);
+            
+            if (updateAssetsError) {
+              console.error(`Could not update realizable_assets for loan ${loanId}:`, updateAssetsError);
+              // Continue anyway - might not have any assets
+            }
+          }
+        }
+        
+        // Hard delete the loans (this will work even if they're already soft-deleted)
+        const { data: deletedData, error: deleteLoansError } = await supabase
+          .from('loans')
+          .delete()
+          .in('id', repaidLoanIds)
+          .select();
+
+        if (deleteLoansError) {
+          console.error('Error deleting repaid loans:', deleteLoansError);
+          // If we can't delete loans due to permissions, we can't proceed
+          toast.error('Cannot Delete Member', {
+            description: `Unable to delete ${repaidLoans.length} repaid loan(s) due to: ${deleteLoansError.message}. Please ensure you have proper permissions.`,
+          });
+          setIsDeleting(false);
+          return;
+        }
+        
+        console.log('Successfully deleted repaid loans:', deletedData);
+        
+        // Verify they're actually deleted from the database
+        const { data: verifyLoans } = await supabase
+          .from('loans')
+          .select('id')
+          .eq('member_id', member.id)
+          .in('id', repaidLoanIds);
+        
+        if (verifyLoans && verifyLoans.length > 0) {
+          console.warn('Some loans still exist after deletion attempt:', verifyLoans);
+          toast.error('Cannot Delete Member', {
+            description: `${verifyLoans.length} repaid loan(s) could not be deleted. Please try again or contact an administrator.`,
+          });
+          setIsDeleting(false);
+          return;
+        }
+        
+        // Wait a brief moment for database to process the deletion
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        // Final check: Verify NO loans remain for this member
+        const { data: remainingLoansCheck } = await supabase
+          .from('loans')
+          .select('id, status, is_deleted')
+          .eq('member_id', member.id);
+        
+        if (remainingLoansCheck && remainingLoansCheck.length > 0) {
+          console.error('Still found loans after deletion attempt:', remainingLoansCheck);
+          // Log details about remaining loans
+          const activeRemaining = remainingLoansCheck.filter(l => !l.is_deleted);
+          const softDeletedRemaining = remainingLoansCheck.filter(l => l.is_deleted);
+          console.error(`Active remaining: ${activeRemaining.length}, Soft-deleted remaining: ${softDeletedRemaining.length}`);
+          
+          // Since member_id cannot be NULL, we must delete these loans
+          // Try to delete them again one by one with better error reporting
+          for (const loan of remainingLoansCheck) {
+            console.log(`Attempting to delete loan ${loan.id} (status: ${loan.status}, is_deleted: ${loan.is_deleted})`);
+            
+            // First ensure realizable_assets are handled
+            const { error: assetsError } = await supabase
+              .from('realizable_assets')
+              .delete()
+              .eq('loan_id', loan.id);
+            
+            if (assetsError) {
+              console.warn(`Could not delete realizable_assets for loan ${loan.id}:`, assetsError);
+              // Try setting loan_id to null in realizable_assets
+              await supabase
+                .from('realizable_assets')
+                .update({ loan_id: null })
+                .eq('loan_id', loan.id);
+            }
+            
+            // Now try to delete the loan
+            const { error: loanDeleteError } = await supabase
+              .from('loans')
+              .delete()
+              .eq('id', loan.id);
+            
+            if (loanDeleteError) {
+              console.error(`Failed to delete loan ${loan.id}:`, loanDeleteError);
+            }
+          }
+        }
+      }
+
+      // Final verification before member deletion
+      const { data: finalLoansCheck } = await supabase
+        .from('loans')
+        .select('id')
+        .eq('member_id', member.id);
+      
+      if (finalLoansCheck && finalLoansCheck.length > 0) {
+        toast.error('Cannot Delete Member', {
+          description: `Member still has ${finalLoansCheck.length} loan(s) that could not be removed. Please contact an administrator.`,
+        });
+        setIsDeleting(false);
+        return;
+      }
 
       // If member is a contact person, remove them from groups first
       if (isContactPerson && contactGroups.length > 0) {
@@ -101,16 +309,41 @@ export const MemberDeleteDialog: React.FC<MemberDeleteDialogProps> = ({
       }
 
       toast.success('Member deleted', {
-        description: `${member.full_name} has been deleted successfully.`,
+        description: `${member.full_name} has been deleted successfully.${repaidLoans.length > 0 ? ` (Also deleted ${repaidLoans.length} repaid loan(s))` : ''}`,
       });
 
       onMemberDeleted();
       onClose();
     } catch (error: any) {
       console.error('Error deleting member:', error);
-      toast.error('Failed to Delete Member', {
-        description: error.message || 'An unexpected error occurred.',
-      });
+      
+      // Check if error is related to foreign key constraint
+      if (error.message && error.message.includes('foreign key constraint')) {
+        // Fetch loans again to give accurate count
+        const { data: remainingLoans } = await supabase
+          .from('loans')
+          .select('id, status')
+          .eq('member_id', member.id)
+          .eq('is_deleted', false);
+        
+        const activeRemaining = (remainingLoans || []).filter(
+          loan => loan.status !== 'repaid' && loan.status !== 'completed'
+        );
+        
+        if (activeRemaining.length > 0) {
+          toast.error('Cannot Delete Member', {
+            description: `This member has ${activeRemaining.length} active loan(s). Please delete or close all loans before deleting the member.`,
+          });
+        } else {
+          toast.error('Cannot Delete Member', {
+            description: 'This member has associated loans that could not be automatically deleted. Please contact an administrator.',
+          });
+        }
+      } else {
+        toast.error('Failed to Delete Member', {
+          description: error.message || 'An unexpected error occurred.',
+        });
+      }
     } finally {
       setIsDeleting(false);
     }
@@ -144,6 +377,18 @@ export const MemberDeleteDialog: React.FC<MemberDeleteDialogProps> = ({
               </div>
             </div>
             
+            {hasLoans && (
+              <div className="bg-red-50 border border-red-200 p-3 rounded-md">
+                <div className="flex items-start gap-2">
+                  <Ban className="h-4 w-4 text-red-500 mt-0.5" />
+                  <div className="text-sm text-red-800">
+                    <p className="font-medium">Cannot Delete Member:</p>
+                    <p>This member has {loanCount} active loan(s). You must delete or close all loans before deleting this member.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {showContactPersonWarning && contactGroups.length > 0 && (
               <div className="bg-orange-50 border border-orange-200 p-3 rounded-md">
                 <div className="flex items-start gap-2">
@@ -162,15 +407,17 @@ export const MemberDeleteDialog: React.FC<MemberDeleteDialogProps> = ({
               </div>
             )}
 
-            <div className="bg-red-50 border border-red-200 p-3 rounded-md">
-              <div className="flex items-start gap-2">
-                <UserX className="h-4 w-4 text-red-500 mt-0.5" />
-                <div className="text-sm text-red-800">
-                  <p className="font-medium">Warning:</p>
-                  <p>Deleting a member will permanently remove all their data. This action cannot be undone.</p>
+            {!hasLoans && (
+              <div className="bg-red-50 border border-red-200 p-3 rounded-md">
+                <div className="flex items-start gap-2">
+                  <UserX className="h-4 w-4 text-red-500 mt-0.5" />
+                  <div className="text-sm text-red-800">
+                    <p className="font-medium">Warning:</p>
+                    <p>Deleting a member will permanently remove all their data. This action cannot be undone.</p>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="gap-2">
@@ -180,7 +427,7 @@ export const MemberDeleteDialog: React.FC<MemberDeleteDialogProps> = ({
           <Button
             variant="destructive"
             onClick={handleDeleteMember}
-            disabled={isDeleting}
+            disabled={isDeleting || hasLoans}
             className="gap-2"
           >
             <Trash2 className="h-4 w-4" />
