@@ -124,14 +124,46 @@ const ReceivePayments: React.FC = () => {
 
       if (membersError) throw membersError;
 
-      // Fetch groups data
-      const groupIds = membersData?.map(member => member.group_id).filter(Boolean) || [];
-      const { data: groupsData, error: groupsError } = await supabase
-        .from('groups')
-        .select('*')
-        .in('id', groupIds);
-
-      if (groupsError) throw groupsError;
+      // Fetch all groups based on role permissions
+      let groupsData: any[] = [];
+      const isLoanOfficer = userRole === 'loan_officer';
+      const currentOfficerId = user?.id || '';
+      
+      if (isLoanOfficer) {
+        const { data, error } = await supabase
+          .from('groups')
+          .select('*')
+          .or(`loan_officer_id.eq.${currentOfficerId},assigned_officer_id.eq.${currentOfficerId}`)
+          .limit(100);
+        if (error) throw error;
+        groupsData = data || [];
+      } else if (userRole === 'branch_admin' && profile?.branch_id) {
+        // Branch admins can only see groups from their branch
+        const { data, error } = await supabase
+          .from('groups')
+          .select('*')
+          .eq('branch_id', profile.branch_id)
+          .limit(100);
+        if (error) throw error;
+        groupsData = data || [];
+      } else if (userRole !== 'super_admin' && profile?.branch_id) {
+        // Teller/Auditor - see only their branch groups
+        const { data, error } = await supabase
+          .from('groups')
+          .select('*')
+          .eq('branch_id', profile.branch_id)
+          .limit(100);
+        if (error) throw error;
+        groupsData = data || [];
+      } else {
+        // Super admins see all groups
+        const { data, error } = await supabase
+          .from('groups')
+          .select('*')
+          .limit(100);
+        if (error) throw error;
+        groupsData = data || [];
+      }
 
       // Fetch branches data
       const branchIds = membersData?.map(member => member.branch_id).filter(Boolean) || [];
@@ -533,9 +565,9 @@ const ReceivePayments: React.FC = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Groups</SelectItem>
-                  {Array.from(new Set(loans.map(loan => loan.group_id).filter(Boolean))).map((groupId) => (
-                    <SelectItem key={groupId} value={groupId.toString()}>
-                      Group {groupId}
+                  {groups.map((group) => (
+                    <SelectItem key={group.id} value={group.id.toString()}>
+                      {group.name || `Group ${group.id}`}
                     </SelectItem>
                   ))}
                 </SelectContent>

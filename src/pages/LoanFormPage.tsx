@@ -542,6 +542,59 @@ const LoanFormPage: React.FC = () => {
         generateInstallmentSchedule();
     }, [generateInstallmentSchedule]);
 
+    // Handle form validation errors - scroll to first error and show toast
+    const handleValidationError = (errors: any) => {
+        const errorFields = Object.keys(errors);
+        if (errorFields.length === 0) return;
+        
+        // Find first error field and scroll to it
+        const firstErrorField = errorFields[0];
+        
+        // Try multiple selectors to find the field
+        let errorElement = document.querySelector(`[data-field="${firstErrorField}"]`) ||
+                           document.querySelector(`#field-${firstErrorField}`) ||
+                           document.querySelector(`[name="${firstErrorField}"]`) ||
+                           document.querySelector(`#${firstErrorField}`);
+        
+        if (errorElement) {
+            errorElement.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'center',
+                inline: 'nearest'
+            });
+            
+            // Try to find and focus the actual input/select within the field wrapper
+            setTimeout(() => {
+                const inputElement = errorElement?.querySelector('input') ||
+                                   errorElement?.querySelector('select') ||
+                                   errorElement?.querySelector('textarea') ||
+                                   (errorElement instanceof HTMLInputElement ? errorElement : null) ||
+                                   (errorElement instanceof HTMLSelectElement ? errorElement : null) ||
+                                   (errorElement instanceof HTMLTextAreaElement ? errorElement : null);
+                
+                if (inputElement && (inputElement instanceof HTMLInputElement || 
+                    inputElement instanceof HTMLSelectElement || 
+                    inputElement instanceof HTMLTextAreaElement)) {
+                    inputElement.focus();
+                }
+            }, 300);
+        }
+        
+        // Show toast with error summary
+        const errorMessages = errorFields
+            .map(field => {
+                const error = errors[field];
+                const fieldLabel = field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                return error?.message ? `${fieldLabel}: ${error.message}` : `${fieldLabel} is required`;
+            })
+            .join('\n');
+        
+        toast.error('Please fix the following errors:', {
+            description: errorMessages,
+            duration: 6000,
+        });
+    };
+
     // Form submission
     const onSubmit = async (data: LoanFormData) => {
         setIsSubmitting(true);
@@ -721,7 +774,7 @@ const LoanFormPage: React.FC = () => {
                     <CardDescription>Fill in the details below to disburse a new loan.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                    <form onSubmit={handleSubmit(onSubmit, handleValidationError)} className="space-y-6">
                         {formError && (
                             <Alert variant="destructive">
                                 <AlertDescription>{formError}</AlertDescription>
@@ -738,7 +791,7 @@ const LoanFormPage: React.FC = () => {
                         )}
 
                         {/* Member Selection */}
-                        <FormField label="Member" error={errors.member_id} required>
+                        <FormField label="Member" error={errors.member_id} required fieldName="member_id">
                             <Controller 
                                 name="member_id" 
                                 control={control} 
@@ -826,7 +879,7 @@ const LoanFormPage: React.FC = () => {
 
                         {/* Branch and Group Selection */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <FormField label="Branch" error={errors.branch_id}>
+                            <FormField label="Branch" error={errors.branch_id} fieldName="branch_id">
                                 <Controller 
                                     name="branch_id" 
                                     control={control} 
@@ -866,7 +919,7 @@ const LoanFormPage: React.FC = () => {
                                 )}
                             </FormField>
 
-                            <FormField label="Group" error={errors.group_id}>
+                            <FormField label="Group" error={errors.group_id} fieldName="group_id">
                                 <Controller 
                                     name="group_id" 
                                     control={control} 
@@ -912,7 +965,7 @@ const LoanFormPage: React.FC = () => {
 
                         {/* Loan Program and Principal */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <FormField label="Loan Program" error={errors.loan_program} required>
+                            <FormField label="Loan Program" error={errors.loan_program} required fieldName="loan_program">
                                 <Controller 
                                     name="loan_program" 
                                     control={control} 
@@ -934,7 +987,7 @@ const LoanFormPage: React.FC = () => {
                                 />
                             </FormField>
 
-                            <FormField label="Principal Amount (KES)" error={errors.principal_amount} required>
+                            <FormField label="Principal Amount (KES)" error={errors.principal_amount} required fieldName="principal_amount">
                                 <Input 
                                     type="number" 
                                     step="0.01" 
@@ -946,7 +999,7 @@ const LoanFormPage: React.FC = () => {
 
                         {/* Issue Date and Installment Type */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <FormField label="Issue Date" error={errors.issue_date} required>
+                            <FormField label="Issue Date" error={errors.issue_date} required fieldName="issue_date">
                                 <Input 
                                     type="date" 
                                     {...register('issue_date')} 
@@ -956,7 +1009,7 @@ const LoanFormPage: React.FC = () => {
                                 </p>
                             </FormField>
 
-                            <FormField label="Installment Type" error={errors.installment_type} required>
+                            <FormField label="Installment Type" error={errors.installment_type} required fieldName="installment_type">
                                 <Controller 
                                     name="installment_type" 
                                     control={control} 
@@ -978,7 +1031,7 @@ const LoanFormPage: React.FC = () => {
 
                         {/* Loan Officer Assignment */}
                         {user?.role !== 'loan_officer' && (
-                            <FormField label="Assign to Officer" error={errors.loan_officer_id} required>
+                            <FormField label="Assign to Officer" error={errors.loan_officer_id} required fieldName="loan_officer_id">
                                 <Controller 
                                     name="loan_officer_id" 
                                     control={control} 
@@ -1133,9 +1186,10 @@ const FormField: React.FC<{
     label: string; 
     error?: { message?: string }; 
     children: React.ReactNode; 
-    required?: boolean; 
-}> = ({ label, error, children, required }) => (
-    <div className="space-y-2">
+    required?: boolean;
+    fieldName?: string;
+}> = ({ label, error, children, required, fieldName }) => (
+    <div className="space-y-2" data-field={fieldName} id={`field-${fieldName}`}>
         <Label className="flex items-center">
             {label}
             {required && <span className="text-red-500 ml-1">*</span>}

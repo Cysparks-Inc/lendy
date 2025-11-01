@@ -181,6 +181,59 @@ const MemberFormPage: React.FC = () => {
         }
     }, [userRole, user?.id, setValue]);
 
+    // Handle form validation errors - scroll to first error and show toast
+    const handleValidationError = (errors: any) => {
+        const errorFields = Object.keys(errors);
+        if (errorFields.length === 0) return;
+        
+        // Find first error field and scroll to it
+        const firstErrorField = errorFields[0];
+        
+        // Try multiple selectors to find the field
+        let errorElement = document.querySelector(`[data-field="${firstErrorField}"]`) ||
+                           document.querySelector(`#field-${firstErrorField}`) ||
+                           document.querySelector(`[name="${firstErrorField}"]`) ||
+                           document.querySelector(`#${firstErrorField}`);
+        
+        if (errorElement) {
+            errorElement.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'center',
+                inline: 'nearest'
+            });
+            
+            // Try to find and focus the actual input/select within the field wrapper
+            setTimeout(() => {
+                const inputElement = errorElement?.querySelector('input') ||
+                                   errorElement?.querySelector('select') ||
+                                   errorElement?.querySelector('textarea') ||
+                                   (errorElement instanceof HTMLInputElement ? errorElement : null) ||
+                                   (errorElement instanceof HTMLSelectElement ? errorElement : null) ||
+                                   (errorElement instanceof HTMLTextAreaElement ? errorElement : null);
+                
+                if (inputElement && (inputElement instanceof HTMLInputElement || 
+                    inputElement instanceof HTMLSelectElement || 
+                    inputElement instanceof HTMLTextAreaElement)) {
+                    inputElement.focus();
+                }
+            }, 300);
+        }
+        
+        // Show toast with error summary
+        const errorMessages = errorFields
+            .map(field => {
+                const error = errors[field];
+                const fieldLabel = field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                return error?.message ? `${fieldLabel}: ${error.message}` : `${fieldLabel} is required`;
+            })
+            .join('\n');
+        
+        toast.error('Please fix the following errors:', {
+            description: errorMessages,
+            duration: 6000,
+        });
+    };
+
     const onSubmit = async (data: MemberFormData) => {
         setIsSubmitting(true);
         setFormError(null);
@@ -318,6 +371,10 @@ const MemberFormPage: React.FC = () => {
         <div className="p-2 sm:p-4 md:p-6 max-w-5xl mx-auto">
             <Button asChild variant="outline" size="sm" className="mb-4"><Link to="/members"><ArrowLeft className="mr-2 h-4 w-4" />Back to Members</Link></Button>
             <form onSubmit={handleSubmit(onSubmit, (err) => {
+                // Call the validation error handler
+                handleValidationError(err);
+                
+                // Special handling for registration fee
                 if (err?.registration_fee_paid) {
                     toast.error('Registration fee is required', { description: 'Please confirm the KES 500 registration fee before submitting.' });
                 }
@@ -344,10 +401,10 @@ const MemberFormPage: React.FC = () => {
                         </FormSection>
 
                         <FormSection title="Personal Details">
-                            <FormField label="Full Name" error={errors.full_name} required><Input {...register("full_name")} /></FormField>
+                            <FormField label="Full Name" error={errors.full_name} required fieldName="full_name"><Input {...register("full_name")} /></FormField>
                             <FormField label="Date of Birth" error={errors.dob}><Input type="date" {...register("dob")} /></FormField>
                             <FormField label="Sex" error={errors.sex}><Controller name="sex" control={control} render={({ field }) => <Select onValueChange={field.onChange} value={field.value || ""}><SelectTrigger><SelectValue placeholder="Select sex..." /></SelectTrigger><SelectContent><SelectItem value="Male">Male</SelectItem><SelectItem value="Female">Female</SelectItem></SelectContent></Select>} /></FormField>
-                            <FormField label="Phone Number" error={errors.phone_number} required>
+                            <FormField label="Phone Number" error={errors.phone_number} required fieldName="phone_number">
                                 <Input 
                                     {...register("phone_number")} 
                                     placeholder="e.g., 254712345678"
@@ -362,8 +419,8 @@ const MemberFormPage: React.FC = () => {
                         </FormSection>
 
                         <FormSection title="KYC & Financial Information">
-                            <FormField label="KYC ID Type" error={errors.kyc_id_type} required><Controller name="kyc_id_type" control={control} render={({ field }) => <Select onValueChange={field.onChange} value={field.value || ""}><SelectTrigger><SelectValue placeholder="Select ID type..." /></SelectTrigger><SelectContent><SelectItem value="National ID">National ID</SelectItem><SelectItem value="Passport">Passport</SelectItem><SelectItem value="Other">Other</SelectItem></SelectContent></Select>} /></FormField>
-                            <FormField label="ID Number" error={errors.id_number} required>
+                            <FormField label="KYC ID Type" error={errors.kyc_id_type} required fieldName="kyc_id_type"><Controller name="kyc_id_type" control={control} render={({ field }) => <Select onValueChange={field.onChange} value={field.value || ""}><SelectTrigger><SelectValue placeholder="Select ID type..." /></SelectTrigger><SelectContent><SelectItem value="National ID">National ID</SelectItem><SelectItem value="Passport">Passport</SelectItem><SelectItem value="Other">Other</SelectItem></SelectContent></Select>} /></FormField>
+                            <FormField label="ID Number" error={errors.id_number} required fieldName="id_number">
                                 <Input {...register("id_number")} placeholder="e.g., 12345678" />
                                 <p className="text-xs text-muted-foreground mt-1">
                                     This KYC ID number must be unique and will be used to prevent duplicate member registrations.
@@ -430,8 +487,8 @@ const MemberFormPage: React.FC = () => {
                         </FormSection>
 
                         <FormSection title={userRole === 'loan_officer' ? 'Branch & Group Assignment' : 'Branch, Group & Officer Assignment'}>
-                            <FormField label="Branch" error={errors.branch_id} required><Controller name="branch_id" control={control} render={({ field }) => <Select onValueChange={field.onChange} value={String(field.value || '')}><SelectTrigger><SelectValue placeholder="Assign a branch..." /></SelectTrigger><SelectContent>{branches.map(b => <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>)}</SelectContent></Select>} /></FormField>
-                            <FormField label="Group" error={errors.group_id} required>
+                            <FormField label="Branch" error={errors.branch_id} required fieldName="branch_id"><Controller name="branch_id" control={control} render={({ field }) => <Select onValueChange={field.onChange} value={String(field.value || '')}><SelectTrigger><SelectValue placeholder="Assign a branch..." /></SelectTrigger><SelectContent>{branches.map(b => <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>)}</SelectContent></Select>} /></FormField>
+                            <FormField label="Group" error={errors.group_id} required fieldName="group_id">
                                 <Controller name="group_id" control={control} render={({ field }) => (
                                     <Select onValueChange={field.onChange} value={String(field.value || '')} disabled={!selectedBranchId}>
                                         <SelectTrigger><SelectValue placeholder={selectedBranchId ? "Select a group..." : "Select branch first"} /></SelectTrigger>
@@ -448,7 +505,7 @@ const MemberFormPage: React.FC = () => {
                                 )} />
                             </FormField>
                             {userRole !== 'loan_officer' && (
-                                <FormField label="Assign to Officer" error={errors.assigned_officer_id} required>
+                                <FormField label="Assign to Officer" error={errors.assigned_officer_id} required fieldName="assigned_officer_id">
                                     <Controller name="assigned_officer_id" control={control} render={({ field }) => (
                                         <Select onValueChange={field.onChange} value={field.value || ""}>
                                             <SelectTrigger><SelectValue placeholder="Select an officer..." /></SelectTrigger>
@@ -485,8 +542,8 @@ const FormSection: React.FC<{ title: string; children: React.ReactNode }> = ({ t
     <div><h3 className="text-lg font-medium">{title}</h3><Separator className="my-4" /><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-8">{children}</div></div>
 );
 
-const FormField: React.FC<{ label: string; error?: { message?: string }; children: React.ReactNode; required?: boolean; }> = ({ label, error, children, required }) => (
-    <div className="space-y-2"><Label className="flex items-center">{label}{required && <span className="text-red-500 ml-1">*</span>}</Label>{children}{error && <p className="text-sm text-red-500 mt-1">{error.message}</p>}</div>
+const FormField: React.FC<{ label: string; error?: { message?: string }; children: React.ReactNode; required?: boolean; fieldName?: string; }> = ({ label, error, children, required, fieldName }) => (
+    <div className="space-y-2" data-field={fieldName} id={`field-${fieldName}`}><Label className="flex items-center">{label}{required && <span className="text-red-500 ml-1">*</span>}</Label>{children}{error && <p className="text-sm text-red-500 mt-1">{error.message}</p>}</div>
 );
 
 export default MemberFormPage;
