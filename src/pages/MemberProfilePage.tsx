@@ -397,12 +397,10 @@ const MemberProfilePage: React.FC = () => {
                 {/* Main Content - Full width on mobile, right columns on desktop */}
                 <div className="lg:col-span-2 space-y-6">
                                          {/* Stats Cards - Responsive grid */}
-                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
+                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
                          <StatCard icon={Banknote} title="Loans" value={loans.length} />
-                         <StatCard icon={DollarSign} title="Active" value={loans.filter(l => l.status === 'active' || l.status === 'pending').length} />
                          <StatCard icon={DollarSign} title="Repaid" value={loans.filter(l => l.status === 'repaid').length} />
                          <StatCard icon={Landmark} title="Outstanding" value={formatCurrency(totalOutstanding)} />
-                         <StatCard icon={Users} title="Member No." value={member.member_no || 'N/A'} />
                          {loanStatusFilter !== 'all' && (
                            <div className="col-span-full">
                              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
@@ -449,70 +447,72 @@ const MemberProfilePage: React.FC = () => {
                                             }
                                         </p>
                                     </div>
-                                    <div className="overflow-x-auto">
-                                        <DataTable 
-                                        columns={[
-                                            { header: 'ID', cell: (row) => <span className="font-mono text-xs">{row.id.slice(0, 8)}...</span> },
-                                            { header: 'Principal', cell: (row) => <span className="text-sm">{formatCurrency(row.principal_amount)}</span> },
-                                            { header: 'Balance', cell: (row) => <span className="text-sm">{formatCurrency(row.current_balance)}</span> },
-                                            { header: 'Approval', cell: (row) => (
-                                                <Badge variant={row.approval_status === 'approved' ? 'secondary' : row.approval_status === 'rejected' ? 'destructive' : 'outline'} className="text-xs capitalize">
-                                                    {row.approval_status || 'pending'}
-                                                </Badge>
-                                            ) },
-                                            { header: 'Progress', cell: (row) => {
-                                                // Calculate progress based on total paid vs total amount due
-                                                const totalAmountDue = row.principal_amount + (row.interest_disbursed || 0) + (row.processing_fee || 0);
-                                                let progress = 0;
-                                                if (totalAmountDue > 0) {
-                                                    progress = Math.min(100, (row.total_paid / totalAmountDue) * 100);
-                                                } else if (row.status === 'repaid') {
-                                                    progress = 100;
-                                                }
-                                                
-                                                // Ensure progress is 100% for fully repaid loans
-                                                if (row.status === 'repaid' && row.total_paid > 0) {
-                                                    progress = 100;
-                                                }
-                                                
-                                                return (
-                                                    <div className="flex items-center gap-1">
-                                                        <Progress 
-                                                            value={progress} 
-                                                            className="w-16 h-2" 
-                                                            style={{
-                                                                '--progress-background': row.status === 'repaid' ? 'hsl(142.1 76.2% 36.3%)' : undefined
-                                                            } as React.CSSProperties}
-                                                        />
-                                                        <span className="text-xs font-medium">{progress.toFixed(0)}%</span>
-                                                    </div>
-                                                );
-                                            }},
-                                            { header: 'Status', cell: (row) => <Badge variant={getStatusVariant(row.status)} className="text-xs capitalize">{row.status}</Badge> },
-                                            { header: 'Due', cell: (row) => <span className="text-xs">{new Date(row.due_date).toLocaleDateString()}</span> },
-                                            { header: 'Actions', cell: (row) => (
-                                                <div className="text-right">
-                                                    <div className="flex items-center justify-end gap-1">
-                                                        <Button asChild variant="outline" size="sm">
-                                                            <Link to={`/loans/${row.id}`}>
-                                                                <Eye className="h-3 w-3" />
-                                                            </Link>
-                                                        </Button>
-                                                        {row.approval_status === 'rejected' && (
-                                                            <Button asChild size="sm" className="text-xs">
-                                                                <Link to={`/loans/new?memberId=${member.id}&memberName=${encodeURIComponent(member.first_name + ' ' + member.last_name)}`}>
-                                                                    Re-apply
+                                    <div className="overflow-x-auto -mx-4 px-4">
+                                        <div className="min-w-full inline-block">
+                                            <DataTable 
+                                            columns={[
+                                                { header: 'ID', cell: (row) => <span className="font-mono text-xs whitespace-nowrap" title={row.id}>{row.id.slice(0, 12)}...</span> },
+                                                { header: 'Principal', cell: (row) => <span className="text-sm whitespace-nowrap">{formatCurrency(row.principal_amount)}</span> },
+                                                { header: 'Balance', cell: (row) => <span className="text-sm whitespace-nowrap">{formatCurrency(row.current_balance)}</span> },
+                                                { header: 'Approval', cell: (row) => (
+                                                    <Badge variant={row.approval_status === 'approved' ? 'secondary' : row.approval_status === 'rejected' ? 'destructive' : 'outline'} className="text-xs capitalize whitespace-nowrap">
+                                                        {row.approval_status || 'pending'}
+                                                    </Badge>
+                                                ) },
+                                                { header: 'Progress', cell: (row) => {
+                                                    // Calculate progress based on total paid vs total amount due
+                                                    const totalAmountDue = row.principal_amount + (row.interest_disbursed || 0) + (row.processing_fee || 0);
+                                                    let progress = 0;
+                                                    if (totalAmountDue > 0) {
+                                                        progress = Math.min(100, ((row.total_paid || 0) / totalAmountDue) * 100);
+                                                    } else if (row.status === 'repaid') {
+                                                        progress = 100;
+                                                    }
+                                                    
+                                                    // Ensure progress is 100% for fully repaid loans
+                                                    if (row.status === 'repaid' && (row.total_paid || 0) > 0) {
+                                                        progress = 100;
+                                                    }
+                                                    
+                                                    return (
+                                                        <div className="flex items-center gap-1 min-w-[80px]">
+                                                            <Progress 
+                                                                value={progress} 
+                                                                className="w-16 h-2 flex-shrink-0" 
+                                                                style={{
+                                                                    '--progress-background': row.status === 'repaid' ? 'hsl(142.1 76.2% 36.3%)' : undefined
+                                                                } as React.CSSProperties}
+                                                            />
+                                                            <span className="text-xs font-medium whitespace-nowrap">{progress.toFixed(0)}%</span>
+                                                        </div>
+                                                    );
+                                                }},
+                                                { header: 'Status', cell: (row) => <Badge variant={getStatusVariant(row.status)} className="text-xs capitalize whitespace-nowrap">{row.status}</Badge> },
+                                                { header: 'Due Date', cell: (row) => <span className="text-xs whitespace-nowrap">{row.due_date ? new Date(row.due_date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'N/A'}</span> },
+                                                { header: 'Actions', cell: (row) => (
+                                                    <div className="text-right whitespace-nowrap">
+                                                        <div className="flex items-center justify-end gap-1">
+                                                            <Button asChild variant="outline" size="sm">
+                                                                <Link to={`/loans/${row.id}`}>
+                                                                    <Eye className="h-3 w-3" />
                                                                 </Link>
                                                             </Button>
-                                                        )}
+                                                            {row.approval_status === 'rejected' && (
+                                                                <Button asChild size="sm" className="text-xs">
+                                                                    <Link to={`/loans/new?memberId=${member.id}&memberName=${encodeURIComponent(member.first_name + ' ' + member.last_name)}`}>
+                                                                        Re-apply
+                                                                    </Link>
+                                                                </Button>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            ) }
-                                        ]} 
-                                        data={filteredLoans} 
-                                        emptyStateMessage="No loan history for this member." 
-                                        className="min-w-fit"
-                                    />
+                                                ) }
+                                            ]} 
+                                            data={filteredLoans} 
+                                            emptyStateMessage="No loan history for this member." 
+                                            className="w-full"
+                                        />
+                                        </div>
                                     </div>
                                 </TabsContent>
                                 <TabsContent value="communication" className="mt-6">
@@ -567,7 +567,7 @@ const InfoItem: React.FC<{icon: React.ElementType, label: string, value: string 
             <Icon className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
             <span className="truncate">{label}</span>
         </p>
-        <p className="font-semibold text-sm sm:text-base text-foreground truncate">
+        <p className="font-semibold text-sm sm:text-base text-foreground break-words" title={value || undefined}>
             {value || 'N/A'}
         </p>
     </div>
@@ -576,11 +576,11 @@ const InfoItem: React.FC<{icon: React.ElementType, label: string, value: string 
 const StatCard: React.FC<{title: string, value: string | number, icon: React.ElementType}> = ({ title, value, icon: Icon }) => (
     <Card className="bg-gradient-to-br from-brand-blue-50 to-brand-blue-100 border-brand-blue-200 hover:border-brand-blue-300 transition-all duration-200 hover:shadow-md p-3 sm:p-4">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-0 pt-0">
-            <CardTitle className="text-xs md:text-sm font-medium text-brand-blue-800">{title}</CardTitle>
-            <Icon className="h-4 w-4 text-brand-blue-600" />
+            <CardTitle className="text-xs md:text-sm font-medium text-brand-blue-800 truncate pr-2">{title}</CardTitle>
+            <Icon className="h-4 w-4 text-brand-blue-600 flex-shrink-0" />
         </CardHeader>
         <CardContent className="px-0 pb-0">
-            <div className="text-xl md:text-2xl font-bold text-brand-blue-700">{value}</div>
+            <div className="text-base sm:text-xl md:text-2xl font-bold text-brand-blue-700 truncate" title={typeof value === 'string' ? value : String(value)}>{value}</div>
         </CardContent>
     </Card>
 );
