@@ -68,7 +68,6 @@ export const MemberDeleteDialog: React.FC<MemberDeleteDialogProps> = ({
         setShowContactPersonWarning(false);
       }
     } catch (error) {
-      console.error('Error checking contact person status:', error);
     }
   };
 
@@ -102,7 +101,6 @@ export const MemberDeleteDialog: React.FC<MemberDeleteDialogProps> = ({
         setLoanCount(0);
       }
     } catch (error) {
-      console.error('Error checking loans status:', error);
       // On error, assume they might have loans to be safe
       setHasLoans(true);
     }
@@ -135,10 +133,8 @@ export const MemberDeleteDialog: React.FC<MemberDeleteDialogProps> = ({
         .eq('member_id', member.id);
 
       if (loansCheckError) {
-        console.error('Error checking loans:', loansCheckError);
       }
 
-      console.log(`Found ${allLoans?.length || 0} total loans for member ${member.id}:`, allLoans);
 
       // Separate active and repaid/completed loans (including soft-deleted ones)
       // We need to handle ALL loans because foreign key constraints apply regardless of is_deleted flag
@@ -150,7 +146,6 @@ export const MemberDeleteDialog: React.FC<MemberDeleteDialogProps> = ({
         loan => loan.status === 'repaid' || loan.status === 'completed'
       );
       
-      console.log(`Active loans: ${activeLoans.length}, Repaid loans: ${repaidLoans.length} (including soft-deleted)`);
 
       // Block if there are active loans
       if (activeLoans.length > 0) {
@@ -165,127 +160,123 @@ export const MemberDeleteDialog: React.FC<MemberDeleteDialogProps> = ({
       // This includes soft-deleted loans which still have foreign key constraints
       if (repaidLoans.length > 0) {
         const repaidLoanIds = repaidLoans.map(loan => loan.id);
-        console.log(`Attempting to hard delete ${repaidLoanIds.length} repaid loans (including soft-deleted):`, repaidLoanIds);
         
-        // First, delete or update related records in realizable_assets
+        // Delete loans one by one to handle all dependencies properly
+        const deletionResults = [];
         for (const loanId of repaidLoanIds) {
-          // Try to delete realizable_assets that reference this loan
-          const { error: deleteAssetsError } = await supabase
-            .from('realizable_assets')
-            .delete()
-            .eq('loan_id', loanId);
-          
-          if (deleteAssetsError) {
-            console.warn(`Could not delete realizable_assets for loan ${loanId}, trying to set loan_id to null:`, deleteAssetsError);
-            // If deletion fails (permissions), try setting loan_id to null
-            const { error: updateAssetsError } = await supabase
-              .from('realizable_assets')
-              .update({ loan_id: null })
-              .eq('loan_id', loanId);
-            
-            if (updateAssetsError) {
-              console.error(`Could not update realizable_assets for loan ${loanId}:`, updateAssetsError);
-              // Continue anyway - might not have any assets
+          try {
+            // Step 1: Delete or update realizable_assets
+            const { error: assetsDeleteError } = await supabase.from('realizable_assets').delete().eq('loan_id', loanId);
+            if (assetsDeleteError) {
+              // If deletion fails, try to set loan_id to null
+              await supabase.from('realizable_assets').update({ loan_id: null }).eq('loan_id', loanId);
             }
+            
+            // Step 2: Delete loan_installments (CASCADE should handle, but explicit for clarity)
+            await supabase.from('loan_installments').delete().eq('loan_id', loanId);
+            
+            // Step 3: Delete loan_payments (CASCADE should handle, but explicit for clarity)
+            await supabase.from('loan_payments').delete().eq('loan_id', loanId);
+            
+            // Step 4: Delete communication_logs (CASCADE should handle, but explicit for clarity)
+            await supabase.from('communication_logs').delete().eq('loan_id', loanId);
+            
+            // Step 5: Update transactions to set loan_id to null (SET NULL should handle, but explicit)
+            await supabase.from('transactions').update({ loan_id: null }).eq('loan_id', loanId);
+            
+            // Step 6: Now delete the loan itself
+            const { error: loanDeleteError } = await supabase
+              .from('loans')
+              .delete()
+              .eq('id', loanId);
+            
+            if (loanDeleteError) {
+              deletionResults.push({ loanId, error: loanDeleteError });
+            } else {
+              deletionResults.push({ loanId, success: true });
+            }
+          } catch (error: any) {
+            deletionResults.push({ loanId, error });
           }
         }
         
-        // Hard delete the loans (this will work even if they're already soft-deleted)
-        const { data: deletedData, error: deleteLoansError } = await supabase
-          .from('loans')
-          .delete()
-          .in('id', repaidLoanIds)
-          .select();
-
-        if (deleteLoansError) {
-          console.error('Error deleting repaid loans:', deleteLoansError);
-          // If we can't delete loans due to permissions, we can't proceed
+        // Check if any deletions failed
+        const failedDeletions = deletionResults.filter(r => r.error);
+        if (failedDeletions.length > 0) {
+          const errorMessages = failedDeletions.map(f => f.error?.message || 'Unknown error').join('; ');
           toast.error('Cannot Delete Member', {
-            description: `Unable to delete ${repaidLoans.length} repaid loan(s) due to: ${deleteLoansError.message}. Please ensure you have proper permissions.`,
+            description: `Unable to delete ${failedDeletions.length} of ${repaidLoanIds.length} repaid loan(s). Errors: ${errorMessages}`,
           });
           setIsDeleting(false);
           return;
         }
+
+        // Wait for database to process deletions
+        await new Promise(resolve => setTimeout(resolve, 300));
         
-        console.log('Successfully deleted repaid loans:', deletedData);
-        
-        // Verify they're actually deleted from the database
+        // Verify all loans are deleted
         const { data: verifyLoans } = await supabase
           .from('loans')
           .select('id')
           .eq('member_id', member.id)
           .in('id', repaidLoanIds);
-        
+
         if (verifyLoans && verifyLoans.length > 0) {
-          console.warn('Some loans still exist after deletion attempt:', verifyLoans);
           toast.error('Cannot Delete Member', {
-            description: `${verifyLoans.length} repaid loan(s) could not be deleted. Please try again or contact an administrator.`,
+            description: `${verifyLoans.length} repaid loan(s) still exist after deletion attempt. The loans may have dependencies that prevent deletion. Please contact an administrator.`,
           });
           setIsDeleting(false);
           return;
         }
-        
-        // Wait a brief moment for database to process the deletion
-        await new Promise(resolve => setTimeout(resolve, 200));
-        
-        // Final check: Verify NO loans remain for this member
-        const { data: remainingLoansCheck } = await supabase
-          .from('loans')
-          .select('id, status, is_deleted')
-          .eq('member_id', member.id);
-        
-        if (remainingLoansCheck && remainingLoansCheck.length > 0) {
-          console.error('Still found loans after deletion attempt:', remainingLoansCheck);
-          // Log details about remaining loans
-          const activeRemaining = remainingLoansCheck.filter(l => !l.is_deleted);
-          const softDeletedRemaining = remainingLoansCheck.filter(l => l.is_deleted);
-          console.error(`Active remaining: ${activeRemaining.length}, Soft-deleted remaining: ${softDeletedRemaining.length}`);
-          
-          // Since member_id cannot be NULL, we must delete these loans
-          // Try to delete them again one by one with better error reporting
-          for (const loan of remainingLoansCheck) {
-            console.log(`Attempting to delete loan ${loan.id} (status: ${loan.status}, is_deleted: ${loan.is_deleted})`);
-            
-            // First ensure realizable_assets are handled
-            const { error: assetsError } = await supabase
-              .from('realizable_assets')
-              .delete()
-              .eq('loan_id', loan.id);
-            
-            if (assetsError) {
-              console.warn(`Could not delete realizable_assets for loan ${loan.id}:`, assetsError);
-              // Try setting loan_id to null in realizable_assets
-              await supabase
-                .from('realizable_assets')
-                .update({ loan_id: null })
-                .eq('loan_id', loan.id);
-            }
-            
-            // Now try to delete the loan
-            const { error: loanDeleteError } = await supabase
-              .from('loans')
-              .delete()
-              .eq('id', loan.id);
-            
-            if (loanDeleteError) {
-              console.error(`Failed to delete loan ${loan.id}:`, loanDeleteError);
-            }
-          }
-        }
       }
 
-      // Final verification before member deletion
+      // Final verification before member deletion - check ALL loans (including soft-deleted)
       const { data: finalLoansCheck } = await supabase
         .from('loans')
-        .select('id')
+        .select('id, status, is_deleted')
         .eq('member_id', member.id);
       
       if (finalLoansCheck && finalLoansCheck.length > 0) {
-        toast.error('Cannot Delete Member', {
-          description: `Member still has ${finalLoansCheck.length} loan(s) that could not be removed. Please contact an administrator.`,
-        });
-        setIsDeleting(false);
-        return;
+        // Try one more time to delete any remaining loans individually
+        const remainingLoanIds = finalLoansCheck.map(loan => loan.id);
+        let allDeleted = true;
+        
+        for (const loanId of remainingLoanIds) {
+          // Handle all dependencies again
+          const { error: assetsDeleteError } = await supabase.from('realizable_assets').delete().eq('loan_id', loanId);
+          if (assetsDeleteError) {
+            await supabase.from('realizable_assets').update({ loan_id: null }).eq('loan_id', loanId);
+          }
+          
+          await supabase.from('loan_installments').delete().eq('loan_id', loanId);
+          await supabase.from('loan_payments').delete().eq('loan_id', loanId);
+          await supabase.from('communication_logs').delete().eq('loan_id', loanId);
+          await supabase.from('transactions').update({ loan_id: null }).eq('loan_id', loanId);
+          
+          const { error: finalDeleteError } = await supabase
+            .from('loans')
+            .delete()
+            .eq('id', loanId);
+          
+          if (finalDeleteError) {
+            allDeleted = false;
+          }
+        }
+        
+        // Verify again after final attempt
+        await new Promise(resolve => setTimeout(resolve, 200));
+        const { data: finalVerify } = await supabase
+          .from('loans')
+          .select('id')
+          .eq('member_id', member.id);
+        
+        if (finalVerify && finalVerify.length > 0) {
+          toast.error('Cannot Delete Member', {
+            description: `Member still has ${finalVerify.length} loan(s) that could not be removed. This may be due to database constraints or permissions. Please contact an administrator.`,
+          });
+          setIsDeleting(false);
+          return;
+        }
       }
 
       // If member is a contact person, remove them from groups first
@@ -315,7 +306,6 @@ export const MemberDeleteDialog: React.FC<MemberDeleteDialogProps> = ({
       onMemberDeleted();
       onClose();
     } catch (error: any) {
-      console.error('Error deleting member:', error);
       
       // Check if error is related to foreign key constraint
       if (error.message && error.message.includes('foreign key constraint')) {

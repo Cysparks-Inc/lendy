@@ -91,8 +91,11 @@ const Dashboard: React.FC = () => {
         throw membersError;
       }
       
-      // Step 2: Apply role-based filtering to the data
-      let filteredLoans = loans || [];
+      // Step 2: Filter out soft-deleted loans first
+      let filteredLoans = (loans || []).filter((loan: any) => {
+        // Exclude soft-deleted loans
+        return !loan.is_deleted || loan.is_deleted === false;
+      });
       let filteredMembers = members || [];
       
       if (userRole === 'branch_admin' && profile?.branch_id) {

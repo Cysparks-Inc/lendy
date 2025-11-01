@@ -232,7 +232,7 @@ const Groups: React.FC = () => {
         const { data, error } = await (supabase as any)
           .from('profiles')
           .select('*')
-          .eq('role', 'loan_officer');
+          .in('role', ['loan_officer', 'super_admin', 'admin']);
         if (error) throw error;
         officersData = data || [];
       }

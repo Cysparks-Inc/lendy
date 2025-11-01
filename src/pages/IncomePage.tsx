@@ -163,11 +163,11 @@ const IncomePage: React.FC = () => {
           .from('groups')
           .select('id, name'),
         
-        // Loan officers for filtering
+        // Loan officers for filtering (including super admins and admins who also create loans)
         supabase
           .from('profiles')
           .select('id, full_name')
-          .eq('role', 'loan_officer')
+          .in('role', ['loan_officer', 'super_admin', 'admin'])
       ]);
 
       // Process and combine all income data

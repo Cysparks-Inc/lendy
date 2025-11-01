@@ -374,11 +374,11 @@ const Transactions: React.FC = () => {
         setBranches(branchesData);
       }
 
-      // Fetch loan officers
+      // Fetch loan officers (including super admins and admins who also create loans)
       const { data: officersData } = await supabase
         .from('profiles')
         .select('id, full_name')
-        .eq('role', 'loan_officer')
+        .in('role', ['loan_officer', 'super_admin', 'admin'])
         .order('full_name');
 
       if (officersData) {

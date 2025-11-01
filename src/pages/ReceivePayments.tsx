@@ -142,11 +142,11 @@ const ReceivePayments: React.FC = () => {
 
       if (branchesError) throw branchesError;
 
-      // Fetch loan officers
+      // Fetch loan officers (including super admins and admins who also create loans)
       const { data: officersData, error: officersError } = await supabase
         .from('profiles')
         .select('*')
-        .eq('role', 'loan_officer');
+        .in('role', ['loan_officer', 'super_admin', 'admin']);
 
       if (officersError) throw officersError;
 
