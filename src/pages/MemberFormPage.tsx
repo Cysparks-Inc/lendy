@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -18,39 +18,48 @@ import { Loader2, ArrowLeft, CheckCircle, UserPlus } from 'lucide-react';
 import { ImageUploader } from '@/components/ui/ImageUploader';
 
 // --- Validation Schema with Zod ---
-const memberSchema = z.object({
-  photo_url: z.string().optional().default(''),
-  full_name: z.string().min(3, "Full name must be at least 3 characters"),
-  dob: z.string().optional().default(''),
-  sex: z.string().optional().default(''),
-  phone_number: z.string()
-    .min(10, "Phone number must be at least 10 digits")
-    .max(13, "Phone number must not exceed 13 digits")
-    .regex(/^\d+$/, "Phone number must contain only digits"),
-  marital_status: z.string().optional().default(''),
-  spouse_dob: z.string().optional().default(''),
-  kyc_id_type: z.string().min(1, "KYC ID type is required"),
-  id_number: z.string().min(5, "A valid KYC ID number is required and must be unique"),
-  kra_pin: z.string().optional().default(''),
-  address: z.string().optional().default(''),
-  location: z.string().optional().default(''),
-  profession: z.string().optional().default(''),
-  profession_other: z.string().optional().default(''),
-  monthly_income: z.preprocess(val => (val === '' || val === null) ? 0 : Number(val), z.number().min(0).optional().default(0)),
-  branch_id: z.string().min(1, "Branch is required"),
-  group_id: z.string().min(1, "Group assignment is required"),
-  // Officer assignment is now mandatory
-  assigned_officer_id: z.string().min(1, "Assigning an officer is required"),
-  registration_fee_paid: z.boolean().optional().default(true),
-}).superRefine((data, ctx) => {
-  if (data.registration_fee_paid !== true) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['registration_fee_paid'], message: 'Registration fee must be paid to add a member' });
-  }
-  if ((data.profession || '') === 'Other' && !(data.profession_other || '').trim()) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['profession_other'], message: 'Please specify the profession' });
-  }
-});
+// Create a function to generate the schema based on user role
+const createMemberSchema = (userRole?: string) => {
+  const baseSchema = z.object({
+    photo_url: z.string().optional().default(''),
+    full_name: z.string().min(3, "Full name must be at least 3 characters"),
+    dob: z.string().optional().default(''),
+    sex: z.string().optional().default(''),
+    phone_number: z.string()
+      .min(10, "Phone number must be at least 10 digits")
+      .max(13, "Phone number must not exceed 13 digits")
+      .regex(/^\d+$/, "Phone number must contain only digits"),
+    marital_status: z.string().optional().default(''),
+    spouse_dob: z.string().optional().default(''),
+    kyc_id_type: z.string().min(1, "KYC ID type is required"),
+    id_number: z.string().min(5, "A valid KYC ID number is required and must be unique"),
+    kra_pin: z.string().optional().default(''),
+    address: z.string().optional().default(''),
+    location: z.string().optional().default(''),
+    profession: z.string().optional().default(''),
+    profession_other: z.string().optional().default(''),
+    monthly_income: z.preprocess(val => (val === '' || val === null) ? 0 : Number(val), z.number().min(0).optional().default(0)),
+    branch_id: z.string().min(1, "Branch is required"),
+    group_id: z.string().min(1, "Group assignment is required"),
+    // Officer assignment is only required for non-loan officers
+    assigned_officer_id: userRole === 'loan_officer' 
+      ? z.string().optional() 
+      : z.string().min(1, "Assigning an officer is required"),
+    registration_fee_paid: z.boolean().optional().default(true),
+  });
 
+  return baseSchema.superRefine((data, ctx) => {
+    if (data.registration_fee_paid !== true) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['registration_fee_paid'], message: 'Registration fee must be paid to add a member' });
+    }
+    if ((data.profession || '') === 'Other' && !(data.profession_other || '').trim()) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['profession_other'], message: 'Please specify the profession' });
+    }
+  });
+};
+
+// Default schema for type inference (used when userRole is not available yet)
+const memberSchema = createMemberSchema();
 type MemberFormData = z.infer<typeof memberSchema>;
 type Branch = { id: number; name: string; };
 type AssignableOfficer = { id: string; full_name: string; };
@@ -100,8 +109,11 @@ const MemberFormPage: React.FC = () => {
     const [successData, setSuccessData] = useState<{ id: string; name: string } | null>(null);
     const [profilePictureFile, setProfilePictureFile] = useState<File | null>(null);
 
+    // Create schema based on user role
+    const dynamicSchema = useMemo(() => createMemberSchema(userRole), [userRole]);
+    
     const { register, handleSubmit, control, reset, watch, setValue, formState: { errors } } = useForm<MemberFormData>({
-        resolver: zodResolver(memberSchema),
+        resolver: zodResolver(dynamicSchema),
         defaultValues: { registration_fee_paid: true }
     });
 
@@ -177,7 +189,7 @@ const MemberFormPage: React.FC = () => {
     // Auto-set assigned_officer_id for loan officers
     useEffect(() => {
         if (userRole === 'loan_officer' && user?.id) {
-            setValue('assigned_officer_id', user.id);
+            setValue('assigned_officer_id', user.id, { shouldValidate: false });
         }
     }, [userRole, user?.id, setValue]);
 
@@ -238,6 +250,12 @@ const MemberFormPage: React.FC = () => {
         setIsSubmitting(true);
         setFormError(null);
         try {
+            // Ensure assigned_officer_id is set for loan officers (fallback in case useEffect didn't run)
+            if (userRole === 'loan_officer' && user?.id && !data.assigned_officer_id) {
+                setValue('assigned_officer_id', user.id);
+                data.assigned_officer_id = user.id;
+            }
+            
             if (!data.registration_fee_paid) {
                 toast.error('Registration fee is required', { description: 'Please confirm the KES 500 registration fee before submitting.' });
                 setIsSubmitting(false);
@@ -438,11 +456,20 @@ const MemberFormPage: React.FC = () => {
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {[
-                                                    'Farmer', 'Trader/Business Owner', 'Teacher', 'Student', 'Civil Servant', 'Healthcare Worker',
-                                                    'Driver', 'Mechanic', 'Tailor/Fashion Designer', 'Mason/Construction Worker', 'Fisherman',
-                                                    'Security Guard', 'Housewife/Homemaker', 'Casual Laborer', 'Accountant/Clerk', 'Engineer/Technician',
-                                                    'IT/Software', 'Sales/Marketing', 'Tourism/Hospitality', 'Artist/Musician', 'Religious Leader',
-                                                    'Unemployed', 'Retired', 'Other'
+                                                    'Groceries',
+                                                    'Agri farming',
+                                                    'House housing',
+                                                    'Poultry farming',
+                                                    'Dairy farming',
+                                                    'Pig farming',
+                                                    'Hotel',
+                                                    'Salon',
+                                                    'Beauty & Cosmetics',
+                                                    'Barber shop',
+                                                    'Daycare',
+                                                    'Butchery',
+                                                    'Clothes',
+                                                    'Trading'
                                                 ].map(p => (
                                                     <SelectItem key={p} value={p}>{p}</SelectItem>
                                                 ))}

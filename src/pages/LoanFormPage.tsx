@@ -124,22 +124,22 @@ const validateLoanIncrement = (requestedAmount: number, memberId: string, userRo
 };
 
 const validatePaymentTerms = (amount: number, installmentType: string): { isValid: boolean; message?: string } => {
-  // KES 5,000-7,000: 8 weeks only
-  if (amount >= 5000 && amount <= 7000) {
+  // KES 5,000-12,000: Must use 8 weeks only (small_loan)
+  if (amount >= 5000 && amount <= 12000) {
     if (installmentType !== 'weekly') {
       return { 
         isValid: false, 
-        message: 'Loans between KES 5,000-7,000 must be paid in 8 weeks (weekly installments only)' 
+        message: 'Loans between KES 5,000-12,000 must be paid in 8 weeks (weekly installments only)' 
       };
     }
   }
   
-  // KES 9,000+: 8 or 12 weeks
-  if (amount >= 9000) {
+  // KES 13,000+: Can use 8 weeks (small_loan) or 12 weeks (big_loan)
+  if (amount >= 13000) {
     if (installmentType !== 'weekly') {
       return { 
         isValid: false, 
-        message: 'Loans KES 9,000+ must be paid in 8 or 12 weeks (weekly installments only)' 
+        message: 'Loans KES 13,000+ must be paid in 8 or 12 weeks (weekly installments only)' 
       };
     }
   }
@@ -190,13 +190,15 @@ const LoanFormPage: React.FC = () => {
     const watchedInstallmentType = watch('installment_type');
     const watchedMemberId = watch('member_id');
 
-    // Immediate rule enforcement: 5k and 7k only on 8-week (small_loan)
+    // Immediate rule enforcement: 5k-12k must use small_loan (8 weeks only)
     useEffect(() => {
         const amount = Number(watchedPrincipal || 0);
-        if ((amount === 5000 || amount === 7000) && watchedLoanProgram === 'big_loan') {
-            setError('loan_program', { type: 'manual', message: 'KES 5,000 and 7,000 are allowed only in Small Loan (8 weeks).' });
-            toast.error('Invalid combination', { description: 'KES 5,000 and 7,000 are allowed only in Small Loan (8 weeks).' });
+        // Loans from 5,000 to 12,000 must use small_loan (8 weeks only)
+        if (amount >= 5000 && amount <= 12000 && watchedLoanProgram === 'big_loan') {
+            setError('loan_program', { type: 'manual', message: 'Loans between KES 5,000-12,000 must use Small Loan (8 weeks only).' });
+            toast.error('Invalid combination', { description: 'Loans between KES 5,000-12,000 must use Small Loan (8 weeks only).' });
         } else {
+            // For amounts above 12,000, both small_loan (8 weeks) and big_loan (12 weeks) are allowed
             clearErrors('loan_program');
         }
     }, [watchedPrincipal, watchedLoanProgram, setError, clearErrors]);
