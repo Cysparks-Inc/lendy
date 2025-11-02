@@ -57,6 +57,15 @@ export const ActivateMemberDialog: React.FC<ActivateMemberDialogProps> = ({
 
     setIsSubmitting(true);
     try {
+      // First, fetch member details to get branch_id
+      const { data: memberData, error: memberFetchError } = await supabase
+        .from('members')
+        .select('branch_id')
+        .eq('id', member.id)
+        .single();
+      
+      if (memberFetchError) throw memberFetchError;
+
       // Update member to mark activation fee as paid using the database function
       const { error: updateError } = await supabase
         .rpc('activate_dormant_member' as any, { member_uuid: member.id });
@@ -64,18 +73,22 @@ export const ActivateMemberDialog: React.FC<ActivateMemberDialogProps> = ({
       if (updateError) throw updateError;
 
       // Create a transaction record for the activation fee
+      // Normalize payment method to match enum values
+      const normalizedPaymentMethod = paymentMethod === 'check' ? 'check' : paymentMethod;
+      
       const { error: transactionError } = await supabase
-        .from('transactions' as any)
+        .from('transactions')
         .insert({
           transaction_type: 'fee',
           amount: 500,
           currency: 'KES',
           status: 'completed',
-          payment_method: paymentMethod,
+          payment_method: normalizedPaymentMethod,
           reference_number: `ACT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           description: `Member Activation Fee - ${member.full_name}`,
           transaction_date: new Date().toISOString(),
           member_id: member.id,
+          branch_id: memberData?.branch_id || null,
           fees: 500,
           total_paid: 500,
           notes: notes || 'Member activation fee payment',

@@ -64,22 +64,51 @@ const LoanOfficerPage: React.FC = () => {
       // Step 2: Fetch all loans to calculate officer performance
       let loansQuery = supabase
         .from('loans')
-        .select('loan_officer_id, principal_amount, current_balance, status');
-      if (userRole === 'loan_officer') {
-        loansQuery = loansQuery.eq('loan_officer_id', user.id);
-      }
+        .select('loan_officer_id, principal_amount, current_balance, status, member_id')
+        .eq('is_deleted', false);
+      
+      // For loan officers, we need to filter after fetching members
+      // For others, fetch all loans
       const { data: loansData, error: loansError } = await loansQuery;
 
       if (loansError) {
         // Continue without loan data
       }
       
+      // Fetch members to check assigned_officer_id for loan officers
+      let membersData: any[] = [];
+      if (userRole === 'loan_officer' && loansData && loansData.length > 0) {
+        const memberIds = [...new Set(loansData.map(l => l.member_id).filter(Boolean))];
+        if (memberIds.length > 0) {
+          const { data: members } = await supabase
+            .from('members')
+            .select('id, assigned_officer_id')
+            .in('id', memberIds);
+          membersData = members || [];
+        }
+      }
+      
+      const memberAssignedOfficerMap = new Map(membersData.map(m => [m.id, m.assigned_officer_id]));
+      
       // Step 3: Calculate performance metrics for each officer
       const officersWithPerformance = officersData.map(officer => {
         // Find loans managed by this officer
-        const officerLoans = (loansData || []).filter(loan => 
-          loan.loan_officer_id === officer.id
-        );
+        // For loan officers, use strict filtering
+        let officerLoans = (loansData || []).filter(loan => {
+          if (userRole === 'loan_officer' && officer.id === user?.id) {
+            // Strict filtering for current loan officer
+            const loanOfficerId = loan.loan_officer_id;
+            const memberAssignedOfficer = memberAssignedOfficerMap.get(loan.member_id);
+            
+            if (loanOfficerId) {
+              return loanOfficerId === officer.id;
+            }
+            return memberAssignedOfficer === officer.id;
+          } else {
+            // For other roles or viewing other officers, use loan_officer_id only
+            return loan.loan_officer_id === officer.id;
+          }
+        });
         
         // Calculate metrics
         const totalLoans = officerLoans.length;

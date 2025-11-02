@@ -106,10 +106,8 @@ const ReceivePayments: React.FC = () => {
         .in('status', ['active', 'pending', 'defaulted']);
       
       // Apply role-based filtering at query level
-      if (userRole === 'loan_officer') {
-        // Loan officers can only see loans assigned to them or created by them
-        loansQuery = loansQuery.or(`loan_officer_id.eq.${user?.id},created_by.eq.${user?.id}`);
-      } else if (userRole === 'branch_admin' && profile?.branch_id) {
+      // For loan officers, we'll filter after fetching members to check member assignment
+      if (userRole === 'branch_admin' && profile?.branch_id) {
         // Branch admins see loans from their branch (need to filter after fetching members)
       } else if (userRole !== 'super_admin' && profile?.branch_id) {
         // Teller/Auditor - see only their branch loans
@@ -127,6 +125,31 @@ const ReceivePayments: React.FC = () => {
         .in('id', memberIds);
 
       if (membersError) throw membersError;
+
+      // For loan officers, apply strict filtering after fetching members
+      let filteredLoansData = loansData || [];
+      if (userRole === 'loan_officer') {
+        // Create a map of member_id to assigned_officer_id
+        const memberAssignedOfficerMap = new Map(
+          (membersData || []).map(m => [m.id, m.assigned_officer_id])
+        );
+        
+        // Filter loans: if loan has loan_officer_id, it must match the user
+        // If no loan_officer_id, check if member is assigned to this officer
+        filteredLoansData = filteredLoansData.filter(loan => {
+          const loanOfficerId = loan.loan_officer_id;
+          const memberId = loan.member_id;
+          const memberAssignedOfficer = memberAssignedOfficerMap.get(memberId);
+          
+          // If loan has an officer assigned, it must be this user
+          if (loanOfficerId) {
+            return loanOfficerId === user?.id;
+          }
+          
+          // If loan has no officer assigned, check if member is assigned to this officer
+          return memberAssignedOfficer === user?.id;
+        });
+      }
 
       // Fetch all groups based on role permissions
       let groupsData: any[] = [];
@@ -195,7 +218,7 @@ const ReceivePayments: React.FC = () => {
       }
 
       // Format loans data
-      let formattedLoans = loansData?.map(loan => {
+      let formattedLoans = filteredLoansData?.map(loan => {
         const memberId = loan.member_id;
         const member = membersData?.find(m => m.id === memberId);
         const group = groupsData?.find(g => g.id === member?.group_id);

@@ -143,11 +143,20 @@ const LoansPage: React.FC = () => {
         // Branch admins can only see loans from their branch
         filteredByRole = filteredByRole.filter(loan => loan.branch_id === profile.branch_id);
       } else if (userRole === 'loan_officer') {
-        // Loan officers can only see loans assigned to them, including loans where
-        // the loan itself is missing officer but the member is assigned to them
+        // Loan officers can only see loans assigned to them
+        // Strict filtering: if loan has loan_officer_id, it must match the user
+        // If no loan_officer_id, check if member is assigned to this officer
         filteredByRole = filteredByRole.filter(loan => {
-          const assignedOfficerForMember = memberAssignedOfficerMap.get(loan.member_id);
-          return loan.loan_officer_id === user?.id || assignedOfficerForMember === user?.id;
+          const loanOfficerId = loan.loan_officer_id;
+          const memberAssignedOfficer = memberAssignedOfficerMap.get(loan.member_id);
+          
+          // If loan has an officer assigned, it must be this user
+          if (loanOfficerId) {
+            return loanOfficerId === user?.id;
+          }
+          
+          // If loan has no officer assigned, check if member is assigned to this officer
+          return memberAssignedOfficer === user?.id;
         });
       } else if (userRole !== 'super_admin' && profile?.branch_id) {
         // Teller/Auditor - see only their branch loans

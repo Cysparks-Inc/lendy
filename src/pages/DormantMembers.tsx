@@ -43,7 +43,10 @@ const DormantMembers: React.FC = () => {
     if (!user) return;
     try {
       // Direct query instead of RPC to avoid function issues
-      const { data, error } = await supabase
+      // Fetch members with last_activity_date more than 90 days ago or NULL (never active)
+      // Members should be active status and either not paid activation fee or last activity was >90 days ago
+      const cutoffDate = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+      let membersQuery = supabase
         .from('members')
         .select(`
           id,
@@ -54,10 +57,28 @@ const DormantMembers: React.FC = () => {
           last_activity_date,
           status,
           activation_fee_paid,
-          branch_id
+          branch_id,
+          created_at
         `)
-        .lt('last_activity_date', new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString())
-        .eq('status', 'active');
+        .eq('status', 'active')
+        .or(`last_activity_date.lt.${cutoffDate},last_activity_date.is.null`);
+      
+      // Apply role-based filtering
+      if (userRole === 'branch_admin') {
+        // Branch admins can only see dormant members from their branch
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('branch_id')
+          .eq('id', user?.id)
+          .single();
+        
+        if (profileData?.branch_id) {
+          membersQuery = membersQuery.eq('branch_id', profileData.branch_id);
+        }
+      }
+      // Super admins can see all dormant members
+      
+      const { data, error } = await membersQuery;
       
       if (error) throw error;
 
@@ -80,10 +101,12 @@ const DormantMembers: React.FC = () => {
           ? `${member.first_name} ${member.last_name}`.trim()
           : member?.first_name || member?.last_name || 'Unknown Member';
         
-        const lastActivityDate = member.last_activity_date || new Date().toISOString();
-        const monthsInactive = Math.floor(
-          (Date.now() - new Date(lastActivityDate).getTime()) / (1000 * 60 * 60 * 24 * 30)
-        );
+        // Handle NULL last_activity_date (member never had activity)
+        const lastActivityDate = member.last_activity_date || member.created_at || new Date().toISOString();
+        const activityTimestamp = new Date(lastActivityDate).getTime();
+        const monthsInactive = Math.max(3, Math.floor(
+          (Date.now() - activityTimestamp) / (1000 * 60 * 60 * 24 * 30)
+        ));
 
         return {
           id: member.id,
@@ -186,13 +209,13 @@ const DormantMembers: React.FC = () => {
   ];
 
   const exportColumns = [
-    { header: 'Member Name', key: 'full_name' },
-    { header: 'ID Number', key: 'id_number' },
-    { header: 'Phone Number', key: 'phone_number' },
-    { header: 'Branch', key: 'branch_name' },
-    { header: 'Last Activity Date', key: 'last_activity_date' },
-    { header: 'Months Inactive', key: 'months_inactive' },
-    { header: 'Status', key: 'status' }
+    { header: 'Member Name', accessorKey: 'full_name' as keyof DormantMember },
+    { header: 'ID Number', accessorKey: 'id_number' as keyof DormantMember },
+    { header: 'Phone Number', accessorKey: 'phone_number' as keyof DormantMember },
+    { header: 'Branch', accessorKey: 'branch_name' as keyof DormantMember },
+    { header: 'Last Activity Date', accessorKey: (row: DormantMember) => new Date(row.last_activity_date).toLocaleDateString('en-KE') },
+    { header: 'Months Inactive', accessorKey: 'months_inactive' as keyof DormantMember },
+    { header: 'Status', accessorKey: (row: DormantMember) => row.activation_fee_paid ? 'Activation Fee Paid' : 'Dormant' }
   ];
 
   if (loading) { 
@@ -226,8 +249,8 @@ const DormantMembers: React.FC = () => {
         <ExportDropdown 
           data={dormantMembers} 
           columns={exportColumns} 
-          filename="dormant_members_report" 
-          buttonText="Export Report" 
+          fileName="dormant_members_report"
+          reportTitle="Dormant Members Report"
         />
       </div>
 

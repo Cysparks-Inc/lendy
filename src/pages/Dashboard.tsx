@@ -112,13 +112,30 @@ const Dashboard: React.FC = () => {
         // Get member IDs that are assigned to this loan officer
         const assignedMemberIds = new Set(filteredMembers.map(m => m.id));
         
-        // Filter loans by loan_officer_id OR by assigned member IDs (exclude created_by fallback)
+        // Create a map of member_id to assigned_officer_id for quick lookup
+        const memberAssignedOfficerMap = new Map(
+          filteredMembers.map((m: any) => [m.id, m.assigned_officer_id])
+        );
+        
+        // Filter loans: must be assigned to this loan officer OR member assigned to this officer
+        // But exclude loans where loan_officer_id is explicitly set to a different officer
         filteredLoans = filteredLoans.filter(loan => {
           const loanMemberId = loan.member_id || loan.customer_id;
-          return (
-            loan.loan_officer_id === user?.id ||
-            (loanMemberId && assignedMemberIds.has(loanMemberId))
-          );
+          const loanOfficerId = loan.loan_officer_id;
+          
+          // If loan has an officer assigned, it must be this user
+          if (loanOfficerId) {
+            return loanOfficerId === user?.id;
+          }
+          
+          // If loan has no officer assigned, check if member is assigned to this officer
+          if (loanMemberId) {
+            const memberAssignedOfficer = memberAssignedOfficerMap.get(loanMemberId);
+            return memberAssignedOfficer === user?.id;
+          }
+          
+          // Fallback: check if member is in assigned member IDs
+          return loanMemberId && assignedMemberIds.has(loanMemberId);
         });
       } else if (userRole === 'auditor' && profile?.branch_id) {
         // Auditor scoped to their branch
@@ -543,31 +560,33 @@ const ApprovalSnapshot: React.FC<{ userRole: string; userId: string }> = ({ user
 
   return (
     <div className="space-y-2">
-      {rows.map(row => (
-        <div key={row.id} className="flex items-center justify-between border rounded-md p-2">
-          <div className="flex items-center gap-3">
-            <div className="font-mono text-xs">{row.id.slice(0,8)}...</div>
-            <div className="text-sm">KES {Number(row.principal_amount || 0).toLocaleString()}</div>
-            <Badge className="capitalize" variant={row.approval_status === 'approved' ? 'secondary' : row.approval_status === 'rejected' ? 'destructive' : 'outline'}>
-              {row.approval_status || 'pending'}
-            </Badge>
-            <div className="text-xs text-muted-foreground">{row.member_name}</div>
-            <div className="text-xs text-muted-foreground hidden sm:block">• Officer: {row.officer_name}</div>
-            <div className="text-xs text-muted-foreground hidden md:block">• {new Date(row.created_at).toLocaleString()}</div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button asChild size="sm" variant="outline">
-              <Link to={`/loans/${row.id}`}>Open</Link>
-            </Button>
-            {['super_admin','admin','branch_admin'].includes(userRole) && (
-              <Button asChild size="sm">
-                <Link to="/loans/approvals">Manage</Link>
+      <div className="max-h-[400px] overflow-y-auto pr-2 space-y-2">
+        {rows.map(row => (
+          <div key={row.id} className="flex items-center justify-between border rounded-md p-2 flex-shrink-0">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className="font-mono text-xs flex-shrink-0">{row.id.slice(0,8)}...</div>
+              <div className="text-sm font-medium flex-shrink-0">KES {Number(row.principal_amount || 0).toLocaleString()}</div>
+              <Badge className="capitalize flex-shrink-0" variant={row.approval_status === 'approved' ? 'secondary' : row.approval_status === 'rejected' ? 'destructive' : 'outline'}>
+                {row.approval_status || 'pending'}
+              </Badge>
+              <div className="text-xs text-muted-foreground truncate">{row.member_name}</div>
+              <div className="text-xs text-muted-foreground hidden sm:block flex-shrink-0">• Officer: {row.officer_name}</div>
+              <div className="text-xs text-muted-foreground hidden md:block flex-shrink-0">• {new Date(row.created_at).toLocaleString()}</div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+              <Button asChild size="sm" variant="outline">
+                <Link to={`/loans/${row.id}`}>Open</Link>
               </Button>
-            )}
+              {['super_admin','admin','branch_admin'].includes(userRole) && (
+                <Button asChild size="sm">
+                  <Link to="/loans/approvals">Manage</Link>
+                </Button>
+              )}
+            </div>
           </div>
-        </div>
-      ))}
-      <div className="flex justify-end">
+        ))}
+      </div>
+      <div className="flex justify-end pt-2 border-t">
         <Button asChild variant="outline" size="sm">
           <Link to={['super_admin','admin','branch_admin'].includes(userRole) ? '/loans/approvals' : '/loans'}>View All</Link>
         </Button>
