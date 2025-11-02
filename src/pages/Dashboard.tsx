@@ -283,9 +283,11 @@ const Dashboard: React.FC = () => {
               {userRole === 'loan_officer' ? 'My Portfolio Dashboard' : 'Dashboard'}
             </h1>
             <p className="text-muted-foreground text-sm sm:text-base">
-              {userRole === 'loan_officer' 
-                ? `Welcome back, Loan Officer! Here's an overview of your assigned members and loans.`
-                : `Welcome back, ${userRole === 'super_admin' ? 'Super Admin' : userRole === 'branch_admin' ? 'Branch Admin' : 'User'} ${user?.email}`
+              {profile?.full_name
+                ? `Welcome back, ${profile.full_name}! Here's an overview of your ${userRole === 'loan_officer' ? 'assigned members and loans' : 'dashboard'}.`
+                : userRole === 'loan_officer' 
+                  ? `Welcome back, Loan Officer! Here's an overview of your assigned members and loans.`
+                  : `Welcome back, ${userRole === 'super_admin' ? 'Super Admin' : userRole === 'branch_admin' ? 'Branch Admin' : 'User'} ${user?.email}!`
               }
             </p>
           </div>
@@ -562,26 +564,26 @@ const ApprovalSnapshot: React.FC<{ userRole: string; userId: string }> = ({ user
     <div className="space-y-2">
       <div className="max-h-[400px] overflow-y-auto pr-2 space-y-2">
         {rows.map(row => (
-          <div key={row.id} className="flex items-center justify-between border rounded-md p-2 flex-shrink-0">
-            <div className="flex items-center gap-3 min-w-0 flex-1">
-              <div className="font-mono text-xs flex-shrink-0">{row.id.slice(0,8)}...</div>
-              <div className="text-sm font-medium flex-shrink-0">KES {Number(row.principal_amount || 0).toLocaleString()}</div>
-              <Badge className="capitalize flex-shrink-0" variant={row.approval_status === 'approved' ? 'secondary' : row.approval_status === 'rejected' ? 'destructive' : 'outline'}>
+          <div key={row.id} className="border rounded-md p-2 flex-shrink-0 overflow-x-auto">
+            <div className="flex items-center gap-3 min-w-max">
+              <div className="font-mono text-xs flex-shrink-0 whitespace-nowrap">{row.id.slice(0,8)}...</div>
+              <div className="text-sm font-medium flex-shrink-0 whitespace-nowrap">KES {Number(row.principal_amount || 0).toLocaleString()}</div>
+              <Badge className="capitalize flex-shrink-0 whitespace-nowrap" variant={row.approval_status === 'approved' ? 'secondary' : row.approval_status === 'rejected' ? 'destructive' : 'outline'}>
                 {row.approval_status || 'pending'}
               </Badge>
-              <div className="text-xs text-muted-foreground truncate">{row.member_name}</div>
-              <div className="text-xs text-muted-foreground hidden sm:block flex-shrink-0">• Officer: {row.officer_name}</div>
-              <div className="text-xs text-muted-foreground hidden md:block flex-shrink-0">• {new Date(row.created_at).toLocaleString()}</div>
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-              <Button asChild size="sm" variant="outline">
-                <Link to={`/loans/${row.id}`}>Open</Link>
-              </Button>
-              {['super_admin','admin','branch_admin'].includes(userRole) && (
-                <Button asChild size="sm">
-                  <Link to="/loans/approvals">Manage</Link>
+              <div className="text-xs text-muted-foreground whitespace-nowrap min-w-[80px]">{row.member_name}</div>
+              <div className="text-xs text-muted-foreground hidden sm:block flex-shrink-0 whitespace-nowrap">• Officer: {row.officer_name}</div>
+              <div className="text-xs text-muted-foreground hidden md:block flex-shrink-0 whitespace-nowrap">• {new Date(row.created_at).toLocaleString()}</div>
+              <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
+                <Button asChild size="sm" variant="outline" className="whitespace-nowrap">
+                  <Link to={`/loans/${row.id}`}>Open</Link>
                 </Button>
-              )}
+                {['super_admin','admin','branch_admin'].includes(userRole) && (
+                  <Button asChild size="sm" className="whitespace-nowrap">
+                    <Link to="/loans/approvals">Manage</Link>
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         ))}

@@ -24,6 +24,8 @@ interface Notification {
   related_entity_id?: string;
   created_at: string;
   read_at?: string;
+  member_name?: string;
+  approver_name?: string;
 }
 
 
@@ -52,8 +54,78 @@ const Notifications: React.FC = () => {
 
       if (notificationsError) throw notificationsError;
 
-      setNotifications(notificationsData || []);
-      setUnreadCount(notificationsData?.filter(n => !n.is_read).length || 0);
+      // For loan-related notifications, fetch loan details with member and approver info
+      const loanNotifications = (notificationsData || []).filter(n => n.related_entity_type === 'loan' && n.related_entity_id);
+      
+      if (loanNotifications.length > 0) {
+        const loanIds = loanNotifications.map(n => n.related_entity_id).filter(Boolean) as string[];
+        
+        // Fetch loans with member and approver info
+        const { data: loansData, error: loansError } = await supabase
+          .from('loans')
+          .select('id, member_id, approved_by')
+          .in('id', loanIds);
+
+        if (!loansError && loansData) {
+          // Get unique member IDs and approver IDs
+          const memberIds = [...new Set(loansData.map(l => l.member_id).filter(Boolean))];
+          const approverIds = [...new Set(loansData.map(l => l.approved_by).filter(Boolean))];
+          
+          // Fetch members
+          const [membersRes, approversRes] = await Promise.all([
+            memberIds.length > 0 
+              ? supabase.from('members').select('id, first_name, last_name').in('id', memberIds)
+              : { data: [], error: null },
+            approverIds.length > 0
+              ? supabase.from('profiles').select('id, full_name').in('id', approverIds)
+              : { data: [], error: null }
+          ]);
+          
+          // Create lookup maps
+          const membersMap = new Map(
+            (membersRes.data || []).map(m => [
+              m.id,
+              `${m.first_name || ''} ${m.last_name || ''}`.trim() || 'Unknown Member'
+            ])
+          );
+          const approversMap = new Map(
+            (approversRes.data || []).map(a => [a.id, a.full_name || 'Unknown Approver'])
+          );
+          
+          // Create loan details map
+          const loanDetailsMap = new Map(
+            loansData.map(loan => [
+              loan.id,
+              {
+                member_name: loan.member_id ? (membersMap.get(loan.member_id) || 'Unknown Member') : 'Unknown Member',
+                approver_name: loan.approved_by ? (approversMap.get(loan.approved_by) || 'System') : 'System'
+              }
+            ])
+          );
+          
+          // Enrich notifications with member and approver names
+          const enrichedNotifications = (notificationsData || []).map(notification => {
+            if (notification.related_entity_type === 'loan' && notification.related_entity_id) {
+              const details = loanDetailsMap.get(notification.related_entity_id);
+              return {
+                ...notification,
+                member_name: details?.member_name,
+                approver_name: details?.approver_name
+              };
+            }
+            return notification;
+          });
+          
+          setNotifications(enrichedNotifications);
+          setUnreadCount(enrichedNotifications.filter(n => !n.is_read).length || 0);
+        } else {
+          setNotifications(notificationsData || []);
+          setUnreadCount(notificationsData?.filter(n => !n.is_read).length || 0);
+        }
+      } else {
+        setNotifications(notificationsData || []);
+        setUnreadCount(notificationsData?.filter(n => !n.is_read).length || 0);
+      }
 
     } catch (error: any) {
       toast.error('Failed to fetch data', { description: error.message });
@@ -124,6 +196,28 @@ const Notifications: React.FC = () => {
     }
   };
 
+  const clearAllNotifications = async () => {
+    try {
+      if (!confirm('Are you sure you want to delete all notifications? This action cannot be undone.')) {
+        return;
+      }
+
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('user_id', user?.id);
+
+      if (error) throw error;
+
+      setNotifications([]);
+      setUnreadCount(0);
+      toast.success('All notifications cleared');
+
+    } catch (error: any) {
+      toast.error('Failed to clear notifications', { description: error.message });
+    }
+  };
+
 
   const getNotificationIcon = (type: string) => {
     const iconConfig = {
@@ -169,12 +263,19 @@ const Notifications: React.FC = () => {
             Manage system notifications and pending loan approvals
           </p>
         </div>
-        {unreadCount > 0 && (
-          <Button onClick={markAllAsRead} variant="outline">
-            <Eye className="w-4 h-4 mr-2" />
-            Mark All as Read
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {unreadCount > 0 && (
+            <Button onClick={markAllAsRead} variant="outline">
+              <Eye className="w-4 h-4 mr-2" />
+              Mark All as Read
+            </Button>
+          )}
+          {notifications.length > 0 && (
+            <Button onClick={clearAllNotifications} variant="destructive">
+              Clear All
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="space-y-6">
@@ -224,7 +325,17 @@ const Notifications: React.FC = () => {
                                 )}
                               </div>
                               <p className="text-sm text-muted-foreground mb-2">
-                                {notification.message}
+                                {notification.related_entity_type === 'loan' && notification.member_name
+                                  ? (
+                                    <>
+                                      Loan application for <strong>{notification.member_name}</strong> was {notification.type === 'success' ? 'approved' : notification.type === 'error' ? 'rejected' : 'updated'}.
+                                      <span className="block mt-1 text-xs">
+                                        Approved by: <strong>{notification.approver_name || 'System'}</strong>
+                                      </span>
+                                    </>
+                                  )
+                                  : notification.message
+                                }
                               </p>
                               <p className="text-xs text-muted-foreground">
                                 {new Date(notification.created_at).toLocaleString()}
