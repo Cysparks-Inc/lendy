@@ -22,6 +22,7 @@ interface MemberSummary {
   phone_number: string;
   status: string;
   branch_name: string;
+  group_name?: string;
   total_loans: number;
   outstanding_balance: number;
 }
@@ -66,6 +67,21 @@ const MembersPage: React.FC = () => {
       
       if (membersError) throw membersError;
       
+      // Step 1.5: Fetch groups for members that have group_id
+      const groupIds = [...new Set((membersData || []).map(m => m.group_id).filter(Boolean))];
+      let groupsData: any[] = [];
+      if (groupIds.length > 0) {
+        const { data: groups, error: groupsError } = await supabase
+          .from('groups')
+          .select('id, name')
+          .in('id', groupIds);
+        if (groupsError) {
+          console.warn('Error fetching groups:', groupsError);
+        } else {
+          groupsData = groups || [];
+        }
+      }
+      
       if (!membersData || membersData.length === 0) {
         setMembers([]);
         setLoading(false);
@@ -108,6 +124,10 @@ const MembersPage: React.FC = () => {
           ? `${member.first_name} ${member.last_name}`.trim()
           : member.first_name || member.last_name || 'Unknown Member';
         
+        // Get group name from group_id
+        const group = groupsData.find(g => g.id === member.group_id);
+        const groupName = group?.name || 'No Group';
+        
         return {
           member_id: member.id,
           full_name: fullName,
@@ -115,6 +135,7 @@ const MembersPage: React.FC = () => {
           phone_number: member.phone_number || 'N/A',
           status: member.status || 'active',
           branch_name: 'Nairobi', // Hardcoded for now, can be enhanced later
+          group_name: groupName,
           total_loans: totalLoans,
           outstanding_balance: outstandingBalance,
         };
@@ -328,7 +349,8 @@ const MembersPage: React.FC = () => {
   const filteredMembers = members.filter(member =>
     member.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (member.id_number && member.id_number.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (member.phone_number && member.phone_number.includes(searchTerm))
+    (member.phone_number && member.phone_number.includes(searchTerm)) ||
+    (member.group_name && member.group_name.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   // Apply date filtering to the already filtered members
@@ -390,6 +412,12 @@ const MembersPage: React.FC = () => {
         )
     },
     {
+        header: 'Group',
+        cell: (row: MemberSummary) => (
+            <div className="font-medium">{row.group_name || 'No Group'}</div>
+        )
+    },
+    {
         header: 'Financials',
         cell: (row: MemberSummary) => (
             <div>
@@ -421,6 +449,7 @@ const MembersPage: React.FC = () => {
     { header: 'Phone Number', accessorKey: 'phone_number' as keyof MemberSummary },
     { header: 'Status', accessorKey: 'status' as keyof MemberSummary },
     { header: 'Branch', accessorKey: 'branch_name' as keyof MemberSummary },
+    { header: 'Group', accessorKey: 'group_name' as keyof MemberSummary },
     { header: 'Total Loans', accessorKey: 'total_loans' as keyof MemberSummary },
     { header: 'Outstanding Balance', accessorKey: (row: MemberSummary) => formatCurrency(row.outstanding_balance) },
   ];

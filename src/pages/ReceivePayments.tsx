@@ -99,7 +99,11 @@ const ReceivePayments: React.FC = () => {
       setLoading(true);
       
       // Build loan query based on role
-      let loansQuery = supabase.from('loans').select('*');
+      let loansQuery = supabase
+        .from('loans')
+        .select('*')
+        .eq('is_deleted', false)
+        .in('status', ['active', 'pending', 'defaulted']);
       
       // Apply role-based filtering at query level
       if (userRole === 'loan_officer') {
@@ -111,7 +115,7 @@ const ReceivePayments: React.FC = () => {
         // Teller/Auditor - see only their branch loans
       }
       
-      const { data: loansData, error: loansError } = await loansQuery.limit(50);
+      const { data: loansData, error: loansError } = await loansQuery;
 
       if (loansError) throw loansError;
 

@@ -38,6 +38,7 @@ interface OverdueItem {
   overdue_installments: number;
   next_due_date: string;
   installment_amount: number;
+  group_name?: string;
 }
 
 const DailyOverdue: React.FC = () => {
@@ -97,7 +98,10 @@ const DailyOverdue: React.FC = () => {
          <Link to={`/loans/${row.id}`} className="font-mono text-xs hover:underline block">{row.account_number}</Link>
          <Badge variant="outline" className="text-xs capitalize">{row.loan_program.replace('_', ' ')}</Badge>
          <div className="text-xs text-muted-foreground">
-           {row.paid_installments}/{row.total_installments} installments
+           {row.paid_installments}/{row.total_installments} paid
+         </div>
+         <div className="text-xs text-destructive font-medium">
+           {row.overdue_installments} overdue
          </div>
        </div>
      )},
@@ -115,6 +119,9 @@ const DailyOverdue: React.FC = () => {
          <div className="text-xs text-muted-foreground">Applied: {new Date(row.applied_at).toLocaleDateString('en-KE')}</div>
        </div>
      )},
+    { header: 'Group', cell: (row: OverdueItem) => (
+      <div className="font-medium text-sm">{row.group_name || 'No Group'}</div>
+    )},
     { header: 'Risk & Branch', cell: (row: OverdueItem) => (
       <div className="space-y-1">
         <Badge variant="default" className="capitalize">{(row as any).risk_level}</Badge>
@@ -151,9 +158,11 @@ const DailyOverdue: React.FC = () => {
      { header: 'Phone Number', accessorKey: 'phone_number' },
            { header: 'Account Number', accessorKey: 'account_number' },
       { header: 'Loan Program', accessorKey: 'loan_program' },
+     { header: 'Group', accessorKey: 'group_name' },
      { header: 'Branch', accessorKey: 'branch_name' },
      { header: 'Days Overdue', accessorKey: 'days_overdue' },
      { header: 'Overdue Amount', accessorKey: (row: OverdueItem) => formatCurrency(row.overdue_amount) },
+     { header: 'Overdue Installments', accessorKey: 'overdue_installments' },
      { header: 'Total Balance', accessorKey: (row: OverdueItem) => formatCurrency(row.loan_balance) },
      { header: 'Principal Amount', accessorKey: (row: OverdueItem) => formatCurrency(row.principal_amount) },
      { header: 'Installments Progress', accessorKey: (row: OverdueItem) => `${row.paid_installments}/${row.total_installments}` },
