@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { 
   ArrowLeft, 
   Download, 
@@ -26,7 +27,8 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
-  Info
+  Info,
+  Trash2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { InlineLoader, QuickLoader, PageLoader } from '@/components/ui/loader';
@@ -57,9 +59,12 @@ interface TransactionDetails {
   branch_id?: number;
   branch_name?: string;
   branch_address?: string;
+  group_id?: string;
+  group_name?: string;
   loan_officer_id?: string;
   loan_officer_name?: string;
   loan_officer_phone?: string;
+  payment_for?: string;
   
   // Additional details
   fees?: number;
@@ -121,6 +126,8 @@ const TransactionDetails: React.FC = () => {
   const [transaction, setTransaction] = useState<TransactionDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [printing, setPrinting] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Fetch transaction details
   const fetchTransactionDetails = useCallback(async () => {
@@ -155,20 +162,28 @@ const TransactionDetails: React.FC = () => {
 
       if (loanData.error) throw loanData.error;
 
-      // Now fetch member and branch using IDs from the loan
-      const [memberData, branchData] = await Promise.all([
-        loanData.data?.member_id ? supabase.from('members').select('id, first_name, last_name, phone_number, id_number').eq('id', loanData.data.member_id).single() : { data: null, error: null },
-        loanData.data?.branch_id ? supabase.from('branches').select('id, name').eq('id', loanData.data.branch_id).single() : { data: null, error: null }
+      // Now fetch member, branch, group, and loan officer using IDs from the loan
+      const [memberData, branchData, loanOfficerData] = await Promise.all([
+        loanData.data?.member_id ? supabase.from('members').select('id, first_name, last_name, phone_number, id_number, group_id').eq('id', loanData.data.member_id).single() : { data: null, error: null },
+        loanData.data?.branch_id ? supabase.from('branches').select('id, name').eq('id', loanData.data.branch_id).single() : { data: null, error: null },
+        loanData.data?.loan_officer_id ? supabase.from('profiles').select('id, full_name').eq('id', loanData.data.loan_officer_id).single() : { data: null, error: null }
       ]);
+
+      // Fetch group if member has one
+      const groupData = memberData.data?.group_id
+        ? await supabase.from('groups').select('id, name').eq('id', memberData.data.group_id).single()
+        : { data: null, error: null };
 
       const data = {
         ...paymentData,
         loans: loanData.data,
         members: memberData.data,
-        branches: branchData.data
+        branches: branchData.data,
+        groups: groupData.data,
+        loanOfficer: loanOfficerData.data
       };
 
-      const error = paymentError || loanData.error || memberData.error || branchData.error;
+      const error = paymentError || loanData.error || memberData.error || branchData.error || groupData.error || loanOfficerData.error;
 
       if (error) {
         // Check if it's a table not found error
@@ -217,6 +232,15 @@ const TransactionDetails: React.FC = () => {
         ? `${data.members.first_name} ${data.members.last_name}`.trim()
         : data.members?.first_name || data.members?.last_name || 'Unknown Member';
 
+      // Determine payment for
+      const paymentFor = paymentData.payment_type === 'payment' 
+        ? 'Loan repayment installment'
+        : paymentData.payment_type === 'fee'
+        ? 'Processing fee'
+        : paymentData.payment_type === 'penalty'
+        ? 'Late payment penalty'
+        : 'Loan related payment';
+
       // Transform data to match our interface
       const transformedTransaction: TransactionDetails = {
         id: paymentData.id,
@@ -241,9 +265,12 @@ const TransactionDetails: React.FC = () => {
         branch_id: loanData.data?.branch_id,
         branch_name: branchData.data?.name,
         branch_address: branchData.data?.location || 'N/A',
+        group_id: memberData.data?.group_id,
+        group_name: groupData.data?.name || 'No Group',
         loan_officer_id: loanData.data?.loan_officer_id,
-        loan_officer_name: 'Not specified', // We'll get this separately if needed
-        loan_officer_phone: 'Not specified', // We'll get this separately if needed
+        loan_officer_name: loanOfficerData.data?.full_name || 'Not specified',
+        loan_officer_phone: 'Not specified', // Phone not stored in profiles
+        payment_for: paymentFor,
         
         // Additional details
         fees: paymentData.processing_fee,
@@ -414,6 +441,38 @@ const TransactionDetails: React.FC = () => {
       window.print();
       setPrinting(false);
     }, 100);
+  };
+
+  // Handle delete transaction
+  const handleDeleteClick = () => {
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteTransaction = async () => {
+    if (!transaction || !finalTransactionId) return;
+
+    try {
+      setIsDeleting(true);
+      
+      // Delete the payment - the trigger will automatically revert loan balances
+      const { error } = await supabase
+        .from('loan_payments')
+        .delete()
+        .eq('id', finalTransactionId);
+
+      if (error) {
+        throw error;
+      }
+
+      toast.success('Transaction deleted successfully. Loan balances have been reverted.');
+      setDeleteDialogOpen(false);
+      navigate('/transactions');
+    } catch (error: any) {
+      console.error('Error deleting transaction:', error);
+      toast.error(error.message || 'Failed to delete transaction');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   // Download receipt
@@ -638,6 +697,19 @@ const TransactionDetails: React.FC = () => {
             <span className="hidden sm:inline">Print Receipt</span>
             <span className="sm:hidden">Print</span>
           </Button>
+
+          {(userRole === 'super_admin' || userRole === 'admin') && (
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteClick} 
+              className="w-full sm:w-auto"
+              disabled={isDeleting}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Delete Transaction</span>
+              <span className="sm:hidden">Delete</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -693,6 +765,12 @@ const TransactionDetails: React.FC = () => {
                 </div>
               </div>
               
+              {transaction.payment_for && (
+                <div>
+                  <label className="text-body font-medium text-gray-500">Payment For</label>
+                  <p className="text-body text-gray-900">{transaction.payment_for}</p>
+                </div>
+              )}
               {transaction.description && (
                 <div>
                   <label className="text-body font-medium text-gray-500">Description</label>
@@ -731,6 +809,14 @@ const TransactionDetails: React.FC = () => {
                 <div>
                   <label className="text-body font-medium text-gray-500">Loan Account</label>
                   <p className="text-body text-gray-900 font-mono">{transaction.loan_account_number || 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="text-body font-medium text-gray-500">Group</label>
+                  <p className="text-body text-gray-900">{transaction.group_name || 'No Group'}</p>
+                </div>
+                <div>
+                  <label className="text-body font-medium text-gray-500">Loan Officer</label>
+                  <p className="text-body text-gray-900">{transaction.loan_officer_name || 'Not specified'}</p>
                 </div>
                 <div>
                   <label className="text-body font-medium text-gray-500">Branch</label>
@@ -927,6 +1013,46 @@ const TransactionDetails: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Delete Transaction Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertCircle className="h-5 w-5" />
+              Delete Transaction
+            </DialogTitle>
+            <DialogDescription className="space-y-2">
+              <p>
+                Are you sure you want to delete this transaction? This action will revert the loan balance to its state before this payment was made.
+              </p>
+              {transaction && (
+                <div className="bg-destructive/10 p-3 rounded-md mt-2">
+                  <p className="text-sm font-medium">Transaction Details:</p>
+                  <p className="text-sm">Reference: {transaction.reference_number}</p>
+                  <p className="text-sm">Amount: KES {transaction.amount.toLocaleString()}</p>
+                  <p className="text-sm">Member: {transaction.member_name}</p>
+                  <p className="text-sm">Date: {format(new Date(transaction.transaction_date), 'MMM dd, yyyy')}</p>
+                </div>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} disabled={isDeleting}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteTransaction}
+              disabled={isDeleting}
+              className="gap-2"
+            >
+              <Trash2 className="h-4 w-4" />
+              {isDeleting ? 'Deleting...' : 'Delete Transaction'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

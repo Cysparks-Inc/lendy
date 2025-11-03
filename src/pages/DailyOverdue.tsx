@@ -78,8 +78,15 @@ const DailyOverdue: React.FC = () => {
      item.account_number.toLowerCase().includes(searchTerm.toLowerCase())
    );
 
-  // Apply date filtering to the already filtered items
-  const dateFilteredItems = filterDataByDateRange(filteredItems, dateRange, 'last_payment_date');
+  // Sort by due_date ascending (oldest overdue first) so last week's overdues appear at top
+  const sortedItems = [...filteredItems].sort((a, b) => {
+    const dateA = new Date(a.due_date).getTime();
+    const dateB = new Date(b.due_date).getTime();
+    return dateA - dateB; // Ascending: oldest first
+  });
+
+  // Apply date filtering to the sorted items - filter by due_date (when installment was due)
+  const dateFilteredItems = filterDataByDateRange(sortedItems, dateRange, 'due_date');
 
   const formatCurrency = (amount: number) => new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(amount || 0);
   const getRiskBadgeVariant = (risk: RiskLevel) => {
@@ -225,7 +232,7 @@ const DailyOverdue: React.FC = () => {
                     </span>
                   )}
                   <span className="text-blue-600 font-medium ml-2">
-                    • Latest overdue shown at top
+                    • Oldest overdues (last week) shown first
                   </span>
                 </CardDescription>
               </div>

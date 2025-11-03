@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { 
   Search, 
   Filter, 
@@ -21,7 +22,9 @@ import {
   TrendingDown,
   CreditCard,
   Banknote,
-  Wallet
+  Wallet,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageLoader, InlineLoader, QuickLoader } from '@/components/ui/loader';
@@ -53,6 +56,8 @@ interface Transaction {
   member_name?: string;
   branch_id?: number;
   branch_name?: string;
+  group_id?: string;
+  group_name?: string;
   loan_officer_id?: string;
   loan_officer_name?: string;
   
@@ -79,6 +84,7 @@ interface TransactionFilters {
   payment_method: string;
   branch_id: string;
   loan_officer_id: string;
+  group_id: string;
 }
 
 // Helper functions for badge variants
@@ -118,10 +124,14 @@ const Transactions: React.FC = () => {
   
   // State
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [allTransactions, setAllTransactions] = useState<Transaction[]>([]); // Store all fetched transactions
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [branches, setBranches] = useState<any[]>([]);
   const [loanOfficers, setLoanOfficers] = useState<any[]>([]);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   // Filters
   const [filters, setFilters] = useState<TransactionFilters>({
@@ -130,8 +140,10 @@ const Transactions: React.FC = () => {
     status: 'all',
     payment_method: 'all',
     branch_id: 'all',
-    loan_officer_id: 'all'
+    loan_officer_id: 'all',
+    group_id: 'all'
   });
+  const [groups, setGroups] = useState<any[]>([]);
   const [dateRange, setDateRange] = useState<DateRange>({ from: undefined, to: undefined });
   
   // Pagination
@@ -140,93 +152,26 @@ const Transactions: React.FC = () => {
   const [totalTransactions, setTotalTransactions] = useState(0);
   const itemsPerPage = 20;
 
-  // Fetch transactions based on user role and filters
-  const fetchTransactions = async () => {
+  // Fetch all transactions (only on initial load or refresh)
+  const fetchTransactions = async (skipLoading = false) => {
     try {
-      setLoading(true);
+      if (!skipLoading) {
+        setLoading(true);
+      }
       
-      // NOTE: The transactions table doesn't exist yet in the schema
-      // This is a placeholder implementation
+      // Fetch all transactions without pagination or complex filters
+      // We'll do filtering client-side for better performance and real-time updates
       let query = supabase
-        .from('loan_payments')  // Use loan_payments instead of transactions
+        .from('loan_payments')
         .select('*')
         .order('payment_date', { ascending: false });
 
-      // Apply only basic filters (no relationship filters)
+      // Apply only basic role-based filtering
       if (userRole === 'branch_admin' && profile?.branch_id) {
-        query = query.eq('branch_id', profile.branch_id);
-      }
-      // Note: loan_officer filtering will be done after getting the data
-
-      // Apply basic filters
-      if (filters.transaction_type !== 'all') {
-        query = query.eq('transaction_type', filters.transaction_type);
-      }
-      if (filters.status !== 'all') {
-        query = query.eq('status', filters.status);
-      }
-      if (filters.payment_method !== 'all') {
-        query = query.eq('payment_method', filters.payment_method);
-      }
-      if (filters.branch_id !== 'all') {
-        query = query.eq('branch_id', filters.branch_id);
-      }
-      if (dateRange.from) {
-        query = query.gte('payment_date', dateRange.from.toISOString().split('T')[0]);
-      }
-      if (dateRange.to) {
-        query = query.lte('payment_date', dateRange.to.toISOString().split('T')[0]);
-      }
-      if (filters.search) {
-        query = query.or(`
-          reference_number.ilike.%${filters.search}%,
-          description.ilike.%${filters.search}%
-        `);
+        // We'll filter by branch after fetching loans
       }
 
-      // Create a separate query for counting (without pagination)
-      let countQuery = supabase
-        .from('loan_payments')  // Use loan_payments instead of transactions
-        .select('*', { count: 'exact', head: true });
-
-      // Apply the same basic filters to count query
-      if (userRole === 'branch_admin' && profile?.branch_id) {
-        countQuery = countQuery.eq('branch_id', profile.branch_id);
-      }
-
-      if (filters.transaction_type !== 'all') {
-        countQuery = countQuery.eq('transaction_type', filters.transaction_type);
-      }
-      if (filters.status !== 'all') {
-        countQuery = countQuery.eq('status', filters.status);
-      }
-      if (filters.payment_method !== 'all') {
-        countQuery = countQuery.eq('payment_method', filters.payment_method);
-      }
-      if (filters.branch_id !== 'all') {
-        countQuery = countQuery.eq('branch_id', filters.branch_id);
-      }
-      if (dateRange.from) {
-        countQuery = countQuery.gte('payment_date', dateRange.from.toISOString().split('T')[0]);
-      }
-      if (dateRange.to) {
-        countQuery = countQuery.lte('payment_date', dateRange.to.toISOString().split('T')[0]);
-      }
-      if (filters.search) {
-        countQuery = countQuery.or(`
-          reference_number.ilike.%${filters.search}%,
-          description.ilike.%${filters.search}%
-        `);
-      }
-
-      // Get count
-      const { count } = await countQuery;
-      
-      // Apply pagination to main query
-      const from = (currentPage - 1) * itemsPerPage;
-      const to = from + itemsPerPage - 1;
-      query = query.range(from, to);
-
+      // Fetch all data (we'll filter client-side)
       const { data, error } = await query;
 
       if (error) {
@@ -236,9 +181,11 @@ const Transactions: React.FC = () => {
       }
 
       if (!data || data.length === 0) {
+        setAllTransactions([]);
         setTransactions([]);
         setTotalTransactions(0);
         setTotalPages(1);
+        if (!skipLoading) setLoading(false);
         return;
       }
 
@@ -259,9 +206,33 @@ const Transactions: React.FC = () => {
       const branchIds = [...new Set((loansRes.data || []).map(loan => loan.branch_id).filter(Boolean))];
 
       const [membersRes, branchesRes] = await Promise.all([
-        memberIds.length > 0 ? supabase.from('members').select('id, first_name, last_name, phone_number, id_number, assigned_officer_id').in('id', memberIds) : { data: [], error: null },
+        memberIds.length > 0 ? supabase.from('members').select('id, first_name, last_name, phone_number, id_number, assigned_officer_id, group_id').in('id', memberIds) : { data: [], error: null },
         branchIds.length > 0 ? supabase.from('branches').select('id, name').in('id', branchIds) : { data: [], error: null }
       ]);
+
+      // Fetch groups for members
+      const groupIds = [...new Set((membersRes.data || []).map((m: any) => m.group_id).filter(Boolean))];
+      const groupsRes = groupIds.length > 0 
+        ? await supabase.from('groups').select('id, name').in('id', groupIds)
+        : { data: [], error: null };
+
+      // Fetch loan officers for loans
+      const loanOfficerIds = [...new Set((loansRes.data || []).map(loan => loan.loan_officer_id).filter(Boolean))];
+      const loanOfficersRes = loanOfficerIds.length > 0
+        ? await supabase.from('profiles').select('id, full_name').in('id', loanOfficerIds)
+        : { data: [], error: null };
+
+      // Also get assigned officers from members
+      const assignedOfficerIds = [...new Set((membersRes.data || []).map((m: any) => m.assigned_officer_id).filter(Boolean))];
+      const assignedOfficersRes = assignedOfficerIds.length > 0 && assignedOfficerIds.some(id => !loanOfficerIds.includes(id))
+        ? await supabase.from('profiles').select('id, full_name').in('id', assignedOfficerIds.filter(id => !loanOfficerIds.includes(id)))
+        : { data: [], error: null };
+
+      // Combine all loan officers
+      const allLoanOfficers = [
+        ...(loanOfficersRes.data || []),
+        ...(assignedOfficersRes.data || [])
+      ];
 
       // Create lookup maps
       const loansMap = new Map((loansRes.data || []).map(loan => [loan.id, loan]));
@@ -272,6 +243,8 @@ const Transactions: React.FC = () => {
         return [member.id, { ...member, full_name: fullName }];
       }));
       const branchesMap = new Map((branchesRes.data || []).map(branch => [branch.id, branch]));
+      const groupsMap = new Map((groupsRes.data || []).map(group => [group.id, group]));
+      const loanOfficersMap = new Map(allLoanOfficers.map(officer => [officer.id, officer.full_name]));
 
       // Transform data to match our interface
       let transformedTransactions: Transaction[] = data.map(tx => {
@@ -279,14 +252,14 @@ const Transactions: React.FC = () => {
         // Get member_id from loan, not from the payment record
         const member = loan?.member_id ? membersMap.get(loan.member_id) : null;
         const branch = loan?.branch_id ? branchesMap.get(loan.branch_id) : null;
+        const group = member?.group_id ? groupsMap.get(member.group_id) : null;
 
         // Map loan_payments fields to transaction interface
-        // loan_payments uses 'payment_date' instead of 'transaction_date'
         const paymentDate = tx.payment_date || tx.created_at || new Date().toISOString();
         
         return {
           id: tx.id,
-          transaction_type: tx.payment_type || 'payment', // Map payment_type to transaction_type
+          transaction_type: tx.payment_type || 'payment',
           amount: tx.amount,
           currency: tx.currency || 'KES',
           status: tx.status || 'completed',
@@ -304,8 +277,13 @@ const Transactions: React.FC = () => {
           member_name: member?.full_name || 'Unknown Member',
           branch_id: loan?.branch_id,
           branch_name: branch?.name,
+          group_id: member?.group_id,
+          group_name: group?.name,
           loan_officer_id: loan?.loan_officer_id || (member as any)?.assigned_officer_id || null,
-          loan_officer_name: '', // Will be fetched separately if needed
+          loan_officer_name: (() => {
+            const officerId = loan?.loan_officer_id || (member as any)?.assigned_officer_id;
+            return officerId ? (loanOfficersMap.get(officerId) || 'Unknown Officer') : 'Not assigned';
+          })(),
           
           // Additional details
           fees: tx.fees,
@@ -324,42 +302,112 @@ const Transactions: React.FC = () => {
         };
       });
 
-      // Apply client-side filtering after data transformation
-      if (userRole === 'loan_officer') {
-        transformedTransactions = transformedTransactions.filter(tx => 
-          tx.loan_officer_id === user?.id
-        );
-      }
-
-      // Apply loan officer filter if selected
-      if (filters.loan_officer_id !== 'all') {
-        transformedTransactions = transformedTransactions.filter(tx => 
-          tx.loan_officer_id === filters.loan_officer_id
-        );
-      }
-
-      // Apply advanced search filtering (member name, loan account number)
-      if (filters.search) {
-        const searchTerm = filters.search.toLowerCase();
-        transformedTransactions = transformedTransactions.filter(tx => 
-          tx.member_name?.toLowerCase().includes(searchTerm) ||
-          tx.loan_account_number?.toLowerCase().includes(searchTerm) ||
-          tx.reference_number?.toLowerCase().includes(searchTerm) ||
-          tx.description?.toLowerCase().includes(searchTerm)
-        );
-      }
-
-      setTransactions(transformedTransactions);
-      setTotalTransactions(count || 0);
-      setTotalPages(Math.ceil((count || 0) / itemsPerPage));
+      // Store all transactions for client-side filtering
+      // The useEffect will automatically apply filters when allTransactions changes
+      setAllTransactions(transformedTransactions);
 
     } catch (error) {
       console.error('Error fetching transactions:', error);
       toast.error('Failed to fetch transactions');
     } finally {
-      setLoading(false);
+      if (!skipLoading) {
+        setLoading(false);
+      }
     }
   };
+
+  // Apply filters to transactions (client-side, instant filtering)
+  const applyFiltersToTransactions = useCallback((transactionsToFilter?: Transaction[]) => {
+    const source = transactionsToFilter || allTransactions;
+    if (source.length === 0) return;
+    
+    let filtered = [...source];
+
+    // Apply role-based filtering
+    if (userRole === 'loan_officer') {
+      filtered = filtered.filter(tx => 
+        tx.loan_officer_id === user?.id
+      );
+    }
+
+    // Apply branch admin filtering
+    if (userRole === 'branch_admin' && profile?.branch_id) {
+      filtered = filtered.filter(tx => 
+        tx.branch_id === profile.branch_id
+      );
+    }
+
+    // Apply transaction type filter
+    if (filters.transaction_type !== 'all') {
+      filtered = filtered.filter(tx => 
+        tx.transaction_type === filters.transaction_type
+      );
+    }
+
+    // Apply status filter
+    if (filters.status !== 'all') {
+      filtered = filtered.filter(tx => 
+        tx.status === filters.status
+      );
+    }
+
+    // Apply payment method filter
+    if (filters.payment_method !== 'all') {
+      filtered = filtered.filter(tx => 
+        tx.payment_method === filters.payment_method
+      );
+    }
+
+    // Apply date range filter
+    if (dateRange.from || dateRange.to) {
+      filtered = filtered.filter(tx => {
+        const txDate = new Date(tx.transaction_date);
+        if (dateRange.from && txDate < dateRange.from) return false;
+        if (dateRange.to) {
+          const toDate = new Date(dateRange.to);
+          toDate.setHours(23, 59, 59, 999); // Include the entire end date
+          if (txDate > toDate) return false;
+        }
+        return true;
+      });
+    }
+
+    // Apply loan officer filter
+    if (filters.loan_officer_id !== 'all') {
+      filtered = filtered.filter(tx => 
+        tx.loan_officer_id === filters.loan_officer_id
+      );
+    }
+
+    // Apply group filter
+    if (filters.group_id !== 'all') {
+      filtered = filtered.filter(tx => 
+        tx.group_id === filters.group_id
+      );
+    }
+
+    // Apply search filter
+    if (filters.search) {
+      const searchTerm = filters.search.toLowerCase();
+      filtered = filtered.filter(tx => 
+        tx.member_name?.toLowerCase().includes(searchTerm) ||
+        tx.loan_account_number?.toLowerCase().includes(searchTerm) ||
+        tx.reference_number?.toLowerCase().includes(searchTerm) ||
+        tx.description?.toLowerCase().includes(searchTerm) ||
+        tx.group_name?.toLowerCase().includes(searchTerm)
+      );
+    }
+
+    // Apply pagination
+    const totalFiltered = filtered.length;
+    const from = (currentPage - 1) * itemsPerPage;
+    const to = from + itemsPerPage;
+    const paginated = filtered.slice(from, to);
+
+    setTransactions(paginated);
+    setTotalTransactions(totalFiltered);
+    setTotalPages(Math.ceil(totalFiltered / itemsPerPage));
+  }, [allTransactions, filters, dateRange, currentPage, itemsPerPage, user, userRole, profile]);
 
   // Fetch branches and loan officers for filters
   const fetchFilterData = async () => {
@@ -372,6 +420,16 @@ const Transactions: React.FC = () => {
 
       if (branchesData) {
         setBranches(branchesData);
+      }
+
+      // Fetch groups
+      const { data: groupsData } = await supabase
+        .from('groups')
+        .select('id, name')
+        .order('name');
+
+      if (groupsData) {
+        setGroups(groupsData);
       }
 
       // Fetch loan officers (including super admins and admins who also create loans)
@@ -390,15 +448,16 @@ const Transactions: React.FC = () => {
     }
   };
 
-  // Handle filter changes
+  // Handle filter changes - triggers immediate fetch via useEffect
   const handleFilterChange = (key: keyof TransactionFilters, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }));
     setCurrentPage(1); // Reset to first page when filters change
   };
 
-  // Apply filters
+  // Apply filters - reset to page 1 and re-apply filters
   const applyFilters = () => {
-    fetchTransactions();
+    setCurrentPage(1);
+    applyFiltersToTransactions();
   };
 
   // Clear filters
@@ -409,7 +468,8 @@ const Transactions: React.FC = () => {
       status: 'all',
       payment_method: 'all',
       branch_id: 'all',
-      loan_officer_id: 'all'
+      loan_officer_id: 'all',
+      group_id: 'all'
     });
     setDateRange({ from: undefined, to: undefined });
     setCurrentPage(1);
@@ -418,13 +478,49 @@ const Transactions: React.FC = () => {
   // Refresh data
   const refreshData = async () => {
     setRefreshing(true);
-    await fetchTransactions();
+    await fetchTransactions(false); // Full reload with loading
     setRefreshing(false);
   };
 
   // Navigate to transaction details
   const viewTransaction = (transactionId: string) => {
     navigate(`/transactions/${transactionId}`);
+  };
+
+  // Handle delete transaction
+  const handleDeleteClick = (transaction: Transaction) => {
+    setTransactionToDelete(transaction);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteTransaction = async () => {
+    if (!transactionToDelete) return;
+
+    try {
+      setIsDeleting(true);
+      
+      // Delete the payment - the trigger will automatically revert loan balances
+      const { error } = await supabase
+        .from('loan_payments')
+        .delete()
+        .eq('id', transactionToDelete.id);
+
+      if (error) {
+        throw error;
+      }
+
+      toast.success('Transaction deleted successfully. Loan balances have been reverted.');
+      setDeleteDialogOpen(false);
+      setTransactionToDelete(null);
+      
+      // Refresh transactions
+      await fetchTransactions(true); // Skip loading state
+    } catch (error: any) {
+      console.error('Error deleting transaction:', error);
+      toast.error(error.message || 'Failed to delete transaction');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   // Get transaction type icon and color
@@ -476,9 +572,17 @@ const Transactions: React.FC = () => {
     fetchFilterData();
   }, []);
 
+  // Initial load
   useEffect(() => {
     fetchTransactions();
-  }, [currentPage, filters]);
+  }, []); // Only on mount
+
+  // Apply filters in real-time when filters or pagination change
+  useEffect(() => {
+    if (allTransactions.length > 0) {
+      applyFiltersToTransactions();
+    }
+  }, [applyFiltersToTransactions]);
 
   if (loading) {
     return <PageLoader text="Loading transactions..." />;
@@ -644,18 +748,18 @@ const Transactions: React.FC = () => {
               />
             </div>
 
-            {/* Branch */}
+            {/* Group */}
             <div className="space-y-2">
-              <Label className="text-body font-medium">Branch</Label>
-              <Select value={filters.branch_id} onValueChange={(value) => handleFilterChange('branch_id', value)}>
+              <Label className="text-body font-medium">Group</Label>
+              <Select value={filters.group_id} onValueChange={(value) => handleFilterChange('group_id', value)}>
                 <SelectTrigger className="w-full text-body">
-                  <SelectValue placeholder="All branches" />
+                  <SelectValue placeholder="All groups" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All branches</SelectItem>
-                  {branches.map(branch => (
-                    <SelectItem key={branch.id} value={branch.id.toString()}>
-                      {branch.name}
+                  <SelectItem value="all">All groups</SelectItem>
+                  {groups.map(group => (
+                    <SelectItem key={group.id} value={group.id}>
+                      {group.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -725,7 +829,7 @@ const Transactions: React.FC = () => {
                   cell: (row) => (
                     <div>
                       <div className="text-body">{row.member_name || 'N/A'}</div>
-                      <div className="text-caption text-muted-foreground">{row.loan_account_number || 'N/A'}</div>
+                      <div className="text-caption text-muted-foreground">{row.group_name || 'No Group'}</div>
                     </div>
                   )
                 },
@@ -766,13 +870,33 @@ const Transactions: React.FC = () => {
                   }
                 },
                 {
+                  header: 'Loan Officer',
+                  cell: (row) => (
+                    <div className="text-body">
+                      {row.loan_officer_name || 'Not assigned'}
+                    </div>
+                  )
+                },
+                {
                   header: 'Actions',
                   cell: (row) => (
-                    <Button asChild variant="outline" size="sm">
-                      <Link to={`/transactions/${row.id}`}>
-                        <Eye className="h-4 w-4" />
-                      </Link>
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button asChild variant="outline" size="sm">
+                        <Link to={`/transactions/${row.id}`}>
+                          <Eye className="h-4 w-4" />
+                        </Link>
+                      </Button>
+                      {(userRole === 'super_admin' || userRole === 'admin') && (
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleDeleteClick(row)}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   )
                 }
               ]}
@@ -816,6 +940,46 @@ const Transactions: React.FC = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Delete Transaction Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Delete Transaction
+            </DialogTitle>
+            <DialogDescription className="space-y-2">
+              <p>
+                Are you sure you want to delete this transaction? This action will revert the loan balance to its state before this payment was made.
+              </p>
+              {transactionToDelete && (
+                <div className="bg-destructive/10 p-3 rounded-md mt-2">
+                  <p className="text-sm font-medium">Transaction Details:</p>
+                  <p className="text-sm">Reference: {transactionToDelete.reference_number}</p>
+                  <p className="text-sm">Amount: KES {transactionToDelete.amount.toLocaleString()}</p>
+                  <p className="text-sm">Member: {transactionToDelete.member_name}</p>
+                  <p className="text-sm">Date: {format(new Date(transactionToDelete.transaction_date), 'MMM dd, yyyy')}</p>
+                </div>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} disabled={isDeleting}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteTransaction}
+              disabled={isDeleting}
+              className="gap-2"
+            >
+              <Trash2 className="h-4 w-4" />
+              {isDeleting ? 'Deleting...' : 'Delete Transaction'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

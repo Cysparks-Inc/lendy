@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { InlineLoader, QuickLoader } from '@/components/ui/loader';
+import { startOfWeek, endOfWeek, subWeeks } from 'date-fns';
 
 // Helper function for currency formatting
 const formatCurrency = (amount: number) => new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES' }).format(amount || 0);
@@ -151,6 +152,38 @@ const Dashboard: React.FC = () => {
         // Silently handle overdue data error
       }
 
+      // Filter overdue loans to show loans with installments that were due last week
+      // Last week = the complete previous week (Monday to Sunday)
+      // Show loans that have overdue installments from last week (or earlier)
+      const now = new Date();
+      
+      // Calculate last week's Monday to Sunday range
+      const lastWeekStart = subWeeks(startOfWeek(now, { weekStartsOn: 1 }), 1);
+      const lastWeekEnd = endOfWeek(lastWeekStart, { weekStartsOn: 1 });
+      
+      // Filter overdue loans to show loans with installments that were due last week
+      // A loan qualifies if it has overdue installments and:
+      // 1. The earliest overdue date is on or before the end of last week (has installments from last week or earlier)
+      // 2. AND the loan is still overdue (has unpaid installments)
+      // Since we're looking for installments that "were supposed to be paid last week but weren't",
+      // any loan that is overdue AND has been overdue since at least the end of last week qualifies
+      const lastWeekOverdues = (overdueData || []).filter((overdue: any) => {
+        if (!overdue.days_overdue && overdue.days_overdue !== 0) return false;
+        
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        // Calculate when the earliest overdue installment was due
+        const earliestOverdueDate = new Date(today);
+        earliestOverdueDate.setDate(today.getDate() - overdue.days_overdue);
+        earliestOverdueDate.setHours(0, 0, 0, 0);
+        
+        // Show loans where the earliest overdue installment was due on or before the end of last week
+        // This captures loans that have overdue installments from last week (or earlier)
+        // If a loan became overdue before or during last week, it has installments that were due last week
+        return earliestOverdueDate <= lastWeekEnd;
+      });
+
       // Include all loans (pending and approved) for dashboard display
       const approvedLoans = (filteredLoans || []);
 
@@ -164,7 +197,7 @@ const Dashboard: React.FC = () => {
         outstanding_balance: approvedLoans
           .filter((loan: any) => ['active', 'pending', 'defaulted'].includes((loan as any).status))
           .reduce((sum: number, loan: any) => sum + parseFloat((loan as any).current_balance || 0), 0),
-        overdue_loans: overdueData?.length || 0 // Use installment-based overdue count
+        overdue_loans: lastWeekOverdues.length // Last week overdue count for dashboard
       };
       
       // Prevent stale updates if user/role changed during fetch
