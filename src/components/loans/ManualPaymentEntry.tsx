@@ -166,7 +166,6 @@ export const ManualPaymentEntry: React.FC<ManualPaymentEntryProps> = ({ loan, on
             <div className="text-xs text-gray-700 space-y-1 mt-1">
               <div>Principal: KES {(loan.principal_amount || 0).toLocaleString()}</div>
               <div>Interest: KES {(loan.interest_disbursed || 0).toLocaleString()}</div>
-              <div className="text-gray-500 italic">Processing Fee: KES {((loan as any).processing_fee || 0).toLocaleString()} (not part of repayment)</div>
               <div className="font-semibold border-t pt-1">Total Due: KES {((loan.principal_amount || 0) + (loan.interest_disbursed || 0)).toLocaleString()}</div>
             </div>
           </div>

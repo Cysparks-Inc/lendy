@@ -281,7 +281,6 @@ const LoanDetailsPage: React.FC = () => {
                   <InfoItem label="Interest Rate" value={`${loan.interest_rate}%`} />
                   <InfoItem label="Loan Program" value={loan.loan_program ? (loan.loan_program === 'small_loan' ? 'Small Loan (8 weeks)' : 'Big Loan (12 weeks)') : 'N/A'} />
                   <InfoItem label="Installment Type" value={loan.installment_type || 'N/A'} />
-                  <InfoItem label="Processing Fee" value={formatCurrency(loan.processing_fee || 0)} />
                   <InfoItem label="Interest Amount" value={formatCurrency(loan.interest_disbursed || 0)} />
                   <InfoItem label="Total Disbursed" value={formatCurrency(loan.total_disbursed || 0)} />
                 </CardContent>
