@@ -176,7 +176,7 @@ const GroupDetails: React.FC = () => {
         const memberName = member 
           ? `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Unknown Member'
           : 'Unknown Member';
-        const totalAmount = (loan.principal_amount || 0) + (loan.interest_disbursed || 0) + (loan.processing_fee || 0);
+        const totalAmount = (loan.principal_amount || 0) + (loan.interest_disbursed || 0); // Processing fee is NOT part of repayment
         
         return {
           id: `${loan.id}-${loan.member_id}`,

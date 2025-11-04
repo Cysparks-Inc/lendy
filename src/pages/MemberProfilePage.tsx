@@ -460,8 +460,8 @@ const MemberProfilePage: React.FC = () => {
                                                     </Badge>
                                                 ) },
                                                 { header: 'Progress', cell: (row) => {
-                                                    // Calculate progress based on total paid vs total amount due
-                                                    const totalAmountDue = row.principal_amount + (row.interest_disbursed || 0) + (row.processing_fee || 0);
+                                                    // Calculate progress based on total paid vs total amount due (processing fee is NOT part of repayment)
+                                                    const totalAmountDue = row.principal_amount + (row.interest_disbursed || 0);
                                                     let progress = 0;
                                                     if (totalAmountDue > 0) {
                                                         progress = Math.min(100, ((row.total_paid || 0) / totalAmountDue) * 100);

@@ -51,6 +51,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import ActivityLogs from "@/pages/ActivityLogs";
 import Backups from "@/pages/Backups";
 import LoanOfficers from "@/pages/LoanOfficers";
+import TodaysPayments from "@/pages/TodaysPayments";
 
 const queryClient = new QueryClient();
 
@@ -122,6 +123,7 @@ const App = () => (
                 <Route path="loans/:id" element={<LoanDetailsPage />} />
                 <Route path="loans/:id/edit" element={<LoanFormPage />} /> 
                 <Route path="receive-payments" element={<ReceivePayments />} />
+                <Route path="todays-payments" element={<TodaysPayments />} />
                 
                 <Route path="daily-overdue" element={<DailyOverdue />} />
                 <Route path="realizable-report" element={<RealizableReport />} />

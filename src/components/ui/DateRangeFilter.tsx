@@ -21,6 +21,8 @@ export interface DateRange {
  * Props for the DateRangeFilter component
  */
 interface DateRangeFilterProps {
+  /** Current date range value (controlled) */
+  dateRange?: DateRange;
   /** Callback function when date range changes */
   onDateRangeChange: (range: DateRange) => void;
   /** Additional CSS classes */
@@ -84,19 +86,34 @@ const presetRanges = [
  * ```
  */
 export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
+  dateRange: externalDateRange,
   onDateRangeChange,
   className,
   showPresets = true,
   placeholder = "Select date range"
 }) => {
-  const [dateRange, setDateRange] = useState<DateRange>({
+  // Use external dateRange if provided, otherwise use internal state
+  const [internalDateRange, setInternalDateRange] = useState<DateRange>({
     from: undefined,
     to: undefined
   });
+  const dateRange = externalDateRange !== undefined ? externalDateRange : internalDateRange;
+  
   const [isOpen, setIsOpen] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState<string>('');
   const [customFrom, setCustomFrom] = useState<string>('');
   const [customTo, setCustomTo] = useState<string>('');
+  
+  // Sync custom inputs with external dateRange
+  useEffect(() => {
+    if (externalDateRange?.from && externalDateRange?.to) {
+      setCustomFrom(externalDateRange.from.toISOString().split('T')[0]);
+      setCustomTo(externalDateRange.to.toISOString().split('T')[0]);
+    } else {
+      setCustomFrom('');
+      setCustomTo('');
+    }
+  }, [externalDateRange]);
 
   /**
    * Handle preset date range selection
@@ -148,7 +165,9 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
         break;
     }
 
-    setDateRange(newRange);
+    if (externalDateRange === undefined) {
+      setInternalDateRange(newRange);
+    }
     onDateRangeChange(newRange);
     setIsOpen(false);
   };
@@ -172,7 +191,9 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
       }
       
       const newRange = { from: fromDate, to: toDate };
-      setDateRange(newRange);
+      if (externalDateRange === undefined) {
+        setInternalDateRange(newRange);
+      }
       setSelectedPreset(''); // Clear preset selection
       onDateRangeChange(newRange);
       setIsOpen(false);
@@ -183,11 +204,14 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
    * Clear all date filters
    */
   const handleClearFilter = () => {
-    setDateRange({ from: undefined, to: undefined });
+    const clearedRange = { from: undefined, to: undefined };
+    if (externalDateRange === undefined) {
+      setInternalDateRange(clearedRange);
+    }
     setSelectedPreset('');
     setCustomFrom('');
     setCustomTo('');
-    onDateRangeChange({ from: undefined, to: undefined });
+    onDateRangeChange(clearedRange);
   };
 
   /**
@@ -350,10 +374,40 @@ export const filterDataByDateRange = <T extends Record<string, any>>(
   dateRange: DateRange,
   dateField: keyof T
 ): T[] => {
-  if (!dateRange.from || !dateRange.to) return data;
+  // If no date range is set, return all data
+  if (!dateRange.from && !dateRange.to) return data;
 
   return data.filter(item => {
-    const itemDate = parseISO(String(item[dateField]));
-    return isWithinInterval(itemDate, { start: dateRange.from!, end: dateRange.to! });
+    const dateValue = item[dateField];
+    if (!dateValue) return false; // Exclude items without a date
+    
+    // Handle both string dates and Date objects
+    const itemDate = typeof dateValue === 'string' 
+      ? parseISO(dateValue) 
+      : new Date(dateValue);
+    
+    // Check if date is valid
+    if (isNaN(itemDate.getTime())) return false;
+    
+    // If only 'from' is set, filter items on or after that date
+    if (dateRange.from && !dateRange.to) {
+      return itemDate >= dateRange.from;
+    }
+    
+    // If only 'to' is set, filter items on or before that date
+    if (!dateRange.from && dateRange.to) {
+      const toDate = endOfDay(dateRange.to);
+      return itemDate <= toDate;
+    }
+    
+    // If both are set, check if date is within interval
+    if (dateRange.from && dateRange.to) {
+      return isWithinInterval(itemDate, { 
+        start: startOfDay(dateRange.from), 
+        end: endOfDay(dateRange.to) 
+      });
+    }
+    
+    return false;
   });
 };

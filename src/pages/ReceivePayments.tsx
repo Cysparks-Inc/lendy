@@ -12,6 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Search, Calendar, CheckCircle, XCircle, AlertCircle, DollarSign } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { DateRangeFilter, DateRange, filterDataByDateRange } from '@/components/ui/DateRangeFilter';
 import { toast } from 'sonner';
 
 interface Loan {
@@ -67,6 +68,7 @@ const ReceivePayments: React.FC = () => {
     status: 'all',
     searchTerm: ''
   });
+  const [dateRange, setDateRange] = useState<DateRange>({ from: undefined, to: undefined });
   
   // Individual payment form
   const [individualPayment, setIndividualPayment] = useState<PaymentData>({
@@ -92,7 +94,7 @@ const ReceivePayments: React.FC = () => {
 
   useEffect(() => {
     filterLoans();
-  }, [loans, filters]);
+  }, [loans, filters, dateRange]);
 
   const fetchData = async () => {
     try {
@@ -242,8 +244,8 @@ const ReceivePayments: React.FC = () => {
           new Date(overdueInfo.next_due_date) : 
           new Date(loan.issue_date || loan.disbursed_at || loan.created_at || new Date());
         
-        // Calculate total loan amount for validation
-        const totalLoanAmount = (loan.principal_amount || 0) + (loan.interest_disbursed || 0) + (loan.processing_fee || 0);
+        // Calculate total loan amount for validation (processing fee is NOT part of repayment)
+        const totalLoanAmount = (loan.principal_amount || 0) + (loan.interest_disbursed || 0);
         const validatedBalance = Math.max(0, Math.min(loan.current_balance || 0, totalLoanAmount));
         const correctStatus = validatedBalance <= 0 ? 'repaid' : (loan.status || 'active');
 
@@ -305,8 +307,11 @@ const ReceivePayments: React.FC = () => {
     }
 
     // Apply group filter
-    if (filters.group !== 'all') {
-      filtered = filtered.filter(loan => loan.group_id?.toString() === filters.group);
+    if (filters.group && filters.group !== 'all') {
+      filtered = filtered.filter(loan => {
+        const groupId = loan.group_id?.toString();
+        return groupId === filters.group;
+      });
     }
 
     // Apply loan officer filter
@@ -322,8 +327,21 @@ const ReceivePayments: React.FC = () => {
     }
 
     // Apply status filter
-    if (filters.status !== 'all') {
+    if (filters.status && filters.status !== 'all') {
       filtered = filtered.filter(loan => loan.status === filters.status);
+    }
+
+    // Apply branch filter
+    if (filters.branch && filters.branch !== 'all') {
+      filtered = filtered.filter(loan => {
+        const branchId = loan.member_branch_id?.toString();
+        return branchId === filters.branch;
+      });
+    }
+
+    // Apply date range filter (filter by next payment date)
+    if (dateRange.from || dateRange.to) {
+      filtered = filterDataByDateRange(filtered, dateRange, 'next_payment_date');
     }
 
     setFilteredLoans(filtered);
@@ -566,6 +584,12 @@ const ReceivePayments: React.FC = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="mb-4">
+            <DateRangeFilter
+              dateRange={dateRange}
+              onDateRangeChange={setDateRange}
+            />
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <div>
               <Label htmlFor="search">Search</Label>
@@ -642,13 +666,16 @@ const ReceivePayments: React.FC = () => {
             <div className="flex items-end">
               <Button
                 variant="outline"
-                onClick={() => setFilters({
-                  group: 'all',
-                  branch: 'all',
-                  loanOfficer: 'all',
-                  status: 'all',
-                  searchTerm: ''
-                })}
+                onClick={() => {
+                  setFilters({
+                    group: 'all',
+                    branch: 'all',
+                    loanOfficer: 'all',
+                    status: 'all',
+                    searchTerm: ''
+                  });
+                  setDateRange({ from: undefined, to: undefined });
+                }}
                 className="w-full"
               >
                 Clear Filters

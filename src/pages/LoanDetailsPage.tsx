@@ -205,8 +205,8 @@ const LoanDetailsPage: React.FC = () => {
         <StatCard 
           icon={DollarSign} 
           title="Outstanding Balance" 
-          value={formatCurrency(Math.max(0, ((loan.principal_amount || 0) + (loan.interest_disbursed || 0) + (loan.processing_fee || 0)) - (loan.total_paid || 0)))} 
-          variant={((loan.principal_amount || 0) + (loan.interest_disbursed || 0) + (loan.processing_fee || 0)) - (loan.total_paid || 0) > 0 ? 'warning' : 'success'} 
+          value={formatCurrency(Math.max(0, ((loan.principal_amount || 0) + (loan.interest_disbursed || 0)) - (loan.total_paid || 0)))} 
+          variant={((loan.principal_amount || 0) + (loan.interest_disbursed || 0)) - (loan.total_paid || 0) > 0 ? 'warning' : 'success'} 
         />
         <StatCard icon={Banknote} title="Principal Amount" value={formatCurrency(loan.principal_amount)} />
         <StatCard icon={TrendingUp} title="Total Repaid" value={formatCurrency(loan.total_paid)} />

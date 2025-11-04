@@ -55,13 +55,14 @@ export const ManualPaymentEntry: React.FC<ManualPaymentEntryProps> = ({ loan, on
       return;
     }
 
-    const outstandingBalance = Math.max(0, ((loan.principal_amount || 0) + (loan.interest_disbursed || 0) + ((loan as any).processing_fee || 0)) - ((loan as any).total_paid || 0));
+    // Processing fee is NOT part of repayment - exclude it from calculations
+    const outstandingBalance = Math.max(0, ((loan.principal_amount || 0) + (loan.interest_disbursed || 0)) - ((loan as any).total_paid || 0));
     if (paymentAmount > outstandingBalance) {
       setError(`Payment amount cannot exceed the outstanding balance of KES ${outstandingBalance.toLocaleString()}`);
       return;
     }
     
-    // Additional validation: payment should not exceed the total loan amount
+    // Additional validation: payment should not exceed the total loan amount (principal + interest only)
     const totalLoanAmount = loan.principal_amount + (loan.interest_disbursed || 0);
     if (paymentAmount > totalLoanAmount) {
       setError(`Payment amount cannot exceed the total loan amount of KES ${totalLoanAmount.toLocaleString()}`);
@@ -121,8 +122,8 @@ export const ManualPaymentEntry: React.FC<ManualPaymentEntryProps> = ({ loan, on
   };
 
   // Conditionally render a message if the loan is already paid off
-  // Check if the loan is actually fully paid by comparing total paid vs total amount due
-  const totalAmountDue = (loan.principal_amount || 0) + (loan.interest_disbursed || 0) + ((loan as any).processing_fee || 0);
+  // Check if the loan is actually fully paid by comparing total paid vs total amount due (processing fee excluded)
+  const totalAmountDue = (loan.principal_amount || 0) + (loan.interest_disbursed || 0);
   const isFullyPaid = ((loan as any).total_paid || 0) >= totalAmountDue;
   
   if (loan.status === 'repaid' || isFullyPaid) {
@@ -156,7 +157,7 @@ export const ManualPaymentEntry: React.FC<ManualPaymentEntryProps> = ({ loan, on
           <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <div className="text-sm text-blue-600 font-medium">Outstanding Balance</div>
             <div className="text-lg font-semibold text-blue-900">
-              KES {Math.max(0, ((loan.principal_amount || 0) + (loan.interest_disbursed || 0) + ((loan as any).processing_fee || 0)) - ((loan as any).total_paid || 0)).toLocaleString()}
+              KES {Math.max(0, ((loan.principal_amount || 0) + (loan.interest_disbursed || 0)) - ((loan as any).total_paid || 0)).toLocaleString()}
             </div>
           </div>
           
@@ -165,8 +166,8 @@ export const ManualPaymentEntry: React.FC<ManualPaymentEntryProps> = ({ loan, on
             <div className="text-xs text-gray-700 space-y-1 mt-1">
               <div>Principal: KES {(loan.principal_amount || 0).toLocaleString()}</div>
               <div>Interest: KES {(loan.interest_disbursed || 0).toLocaleString()}</div>
-              <div>Processing Fee: KES {((loan as any).processing_fee || 0).toLocaleString()}</div>
-              <div className="font-semibold border-t pt-1">Total Due: KES {((loan.principal_amount || 0) + (loan.interest_disbursed || 0) + ((loan as any).processing_fee || 0)).toLocaleString()}</div>
+              <div className="text-gray-500 italic">Processing Fee: KES {((loan as any).processing_fee || 0).toLocaleString()} (not part of repayment)</div>
+              <div className="font-semibold border-t pt-1">Total Due: KES {((loan.principal_amount || 0) + (loan.interest_disbursed || 0)).toLocaleString()}</div>
             </div>
           </div>
           
@@ -191,7 +192,7 @@ export const ManualPaymentEntry: React.FC<ManualPaymentEntryProps> = ({ loan, on
               disabled={isSubmitting}
             />
             <p className="text-xs text-muted-foreground mt-1">
-              Maximum payment: KES {(loan.principal_amount + (loan.interest_disbursed || 0) + ((loan as any).processing_fee || 0)).toLocaleString()}
+              Maximum payment: KES {(loan.principal_amount + (loan.interest_disbursed || 0)).toLocaleString()}
             </p>
           </div>
           <div>

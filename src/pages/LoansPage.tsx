@@ -50,6 +50,8 @@ const LoansPage: React.FC = () => {
   const [officerFilter, setOfficerFilter] = useState<string>('all');
   const [groupFilter, setGroupFilter] = useState<string>('all');
   const [groups, setGroups] = useState<Array<{ id: string; name: string }>>([]);
+  const [branches, setBranches] = useState<Array<{ id: string; name: string }>>([]);
+  const [loanOfficers, setLoanOfficers] = useState<Array<{ id: string; full_name: string }>>([]);
   const [dateRange, setDateRange] = useState<DateRange>({ from: undefined, to: undefined });
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [loanToDelete, setLoanToDelete] = useState<LoanSummary | null>(null);
@@ -81,17 +83,30 @@ const LoansPage: React.FC = () => {
       const officerIds = [...new Set(loansData.map(loan => loan.loan_officer_id).filter(Boolean))];
       
       // Step 3: Batch fetch related data
-      const [membersRes, branchesRes, officersRes] = await Promise.all([
-        memberIds.length > 0 ? supabase.from('members').select('id, first_name, last_name, assigned_officer_id, group_id').in('id', memberIds) : { data: [], error: null },
+      // Fetch members for loans, and all branches/officers for filter dropdowns
+      const [membersRes, branchesRes, officersRes, allBranchesRes, allOfficersRes] = await Promise.all([
+        memberIds.length > 0 ? supabase.from('members').select('id, first_name, last_name, assigned_officer_id, group_id, branch_id').in('id', memberIds) : { data: [], error: null },
         branchIds.length > 0 ? supabase.from('branches').select('id, name').in('id', branchIds) : { data: [], error: null },
-        officerIds.length > 0 ? supabase.from('profiles').select('id, full_name').in('id', officerIds) : { data: [], error: null }
+        officerIds.length > 0 ? supabase.from('profiles').select('id, full_name').in('id', officerIds) : { data: [], error: null },
+        // Fetch ALL branches for filter dropdown (with role-based filtering)
+        supabase.from('branches').select('id, name').order('name'),
+        // Fetch ALL loan officers for filter dropdown
+        supabase.from('profiles')
+          .select('id, full_name')
+          .in('role', ['loan_officer', 'super_admin', 'admin'])
+          .order('full_name')
       ]);
       
-      // Step 3b: Get unique group IDs from members and fetch groups
+      // Step 3b: Get unique group IDs from members for loan display, and fetch ALL groups for filter dropdown
       const groupIds = [...new Set((membersRes.data || []).map((m: any) => m.group_id).filter(Boolean))];
-      const { data: groupsData } = groupIds.length > 0 
-        ? await supabase.from('groups').select('id, name').in('id', groupIds)
-        : { data: [], error: null };
+      const [groupsForLoansRes, allGroupsRes] = await Promise.all([
+        groupIds.length > 0 
+          ? supabase.from('groups').select('id, name').in('id', groupIds)
+          : { data: [], error: null },
+        // Fetch ALL groups for filter dropdown (with role-based filtering)
+        supabase.from('groups').select('id, name').order('name')
+      ]);
+      const groupsData = groupsForLoansRes.data || [];
       
       // Step 4: Create lookup maps
       const membersMap = new Map((membersRes.data || []).map(m => [m.id, `${m.first_name || ''} ${m.last_name || ''}`.trim() || 'Unknown Member']));
@@ -131,9 +146,58 @@ const LoansPage: React.FC = () => {
         };
       });
       
-      // Store groups for filter dropdown
-      if (groupsData) {
-        setGroups(groupsData);
+      // Store groups, branches, and loan officers for filter dropdowns
+      // Use all groups for filter dropdown (with role-based filtering if needed)
+      if (allGroupsRes.data) {
+        let groupsToShow = allGroupsRes.data;
+        // Apply role-based filtering for groups based on members' branch_id
+        // We'll filter groups based on which members belong to them
+        if (userRole === 'branch_admin' && profile?.branch_id) {
+          // Filter groups that have members from this branch
+          const memberIdsInBranch = (membersRes.data || []).filter(m => m.branch_id === profile.branch_id).map(m => m.id);
+          groupsToShow = allGroupsRes.data.filter(g => {
+            // Check if any member in this group belongs to the branch
+            return (membersRes.data || []).some(m => 
+              m.group_id === g.id && m.branch_id === profile.branch_id
+            );
+          });
+        } else if (userRole === 'loan_officer' && user?.id) {
+          // Loan officers see groups with members assigned to them
+          groupsToShow = allGroupsRes.data.filter(g => {
+            return (membersRes.data || []).some(m => 
+              m.group_id === g.id && m.assigned_officer_id === user.id
+            );
+          });
+        } else if (userRole !== 'super_admin' && profile?.branch_id) {
+          // Filter groups that have members from this branch
+          groupsToShow = allGroupsRes.data.filter(g => {
+            return (membersRes.data || []).some(m => 
+              m.group_id === g.id && m.branch_id === profile.branch_id
+            );
+          });
+        }
+        setGroups(groupsToShow);
+      }
+      // Use all branches for filter dropdown (with role-based filtering if needed)
+      if (allBranchesRes.data) {
+        let branchesToShow = allBranchesRes.data;
+        // Apply role-based filtering for branches
+        if (userRole === 'branch_admin' && profile?.branch_id) {
+          branchesToShow = allBranchesRes.data.filter(b => b.id === profile.branch_id);
+        } else if (userRole !== 'super_admin' && profile?.branch_id) {
+          branchesToShow = allBranchesRes.data.filter(b => b.id === profile.branch_id);
+        }
+        setBranches(branchesToShow);
+      }
+      // Use all loan officers for filter dropdown
+      if (allOfficersRes.data) {
+        let officersToShow = allOfficersRes.data;
+        // Apply role-based filtering for loan officers
+        if (userRole === 'loan_officer') {
+          // Loan officers only see themselves
+          officersToShow = allOfficersRes.data.filter(o => o.id === user?.id);
+        }
+        setLoanOfficers(officersToShow);
       }
 
       // Step 6: Apply role-based filtering
@@ -193,11 +257,30 @@ const LoansPage: React.FC = () => {
   }, []); // The dependency on `user` is no longer needed here as RLS is session-based
 
   const filteredLoans = loans.filter(loan => {
-    const searchMatch = (loan.member_name || '').toLowerCase().includes(searchTerm.toLowerCase());
+    // Search filter - matches member name, branch name, or loan officer name
+    const searchMatch = !searchTerm || 
+      (loan.member_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (loan.branch_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (loan.loan_officer_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (loan.group_name || '').toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // Status filter - exact match
     const statusMatch = statusFilter === 'all' || loan.status === statusFilter;
-    const branchMatch = branchFilter === 'all' || (loan.branch_name || '').toLowerCase().includes(branchFilter.toLowerCase());
-    const officerMatch = officerFilter === 'all' || (loan.loan_officer_name || '').toLowerCase().includes(officerFilter.toLowerCase());
-    const groupMatch = groupFilter === 'all' || (loan.group_id === groupFilter);
+    
+    // Branch filter - match by branch_id (if ID selected) or branch_name (if text search)
+    const branchMatch = branchFilter === 'all' || 
+      (loan.branch_id && loan.branch_id.toString() === branchFilter) ||
+      (loan.branch_name || '').toLowerCase().includes(branchFilter.toLowerCase());
+    
+    // Loan officer filter - match by loan_officer_id (if ID selected) or loan_officer_name (if text search)
+    const officerMatch = officerFilter === 'all' || 
+      (loan.loan_officer_id && loan.loan_officer_id === officerFilter) ||
+      (loan.loan_officer_name || '').toLowerCase().includes(officerFilter.toLowerCase());
+    
+    // Group filter - exact match by group_id
+    const groupMatch = groupFilter === 'all' || 
+      (loan.group_id && loan.group_id.toString() === groupFilter);
+    
     return searchMatch && statusMatch && branchMatch && officerMatch && groupMatch;
   });
 
@@ -230,9 +313,8 @@ const LoansPage: React.FC = () => {
     { header: 'Principal', cell: (row: LoanSummary) => <div className="font-mono">{formatCurrency(row.principal_amount)}</div> },
     { header: 'Outstanding', cell: (row: LoanSummary) => <div className="font-mono">{formatCurrency(row.current_balance)}</div> },
     { header: 'Progress', cell: (row: LoanSummary) => {
-        // Calculate total amount due (principal + interest + processing fee)
-        // For now, we'll use a simplified calculation, but ideally this should include processing_fee
-        const totalAmountDue = row.principal_amount + (row.interest_disbursed || 0) + (row.processing_fee || 0);
+        // Calculate total amount due (principal + interest only - processing fee is NOT part of repayment)
+        const totalAmountDue = row.principal_amount + (row.interest_disbursed || 0);
         
         // Calculate progress based on total paid vs total amount due
         let progress = 0;
@@ -482,6 +564,7 @@ const LoansPage: React.FC = () => {
               {/* Date Filter - Takes priority */}
               <div className="flex-shrink-0">
                 <DateRangeFilter
+                  dateRange={dateRange}
                   onDateRangeChange={setDateRange}
                   placeholder="Filter by date"
                   className="w-full lg:w-auto"
@@ -515,23 +598,36 @@ const LoansPage: React.FC = () => {
               
               {/* Branch, Loan Officer, and Group Filters */}
               <div className="flex flex-col sm:flex-row gap-3 flex-1">
-                <div className="relative flex-1 min-w-0">
-                  <Input 
-                    placeholder="Filter by branch..." 
-                    value={branchFilter === 'all' ? '' : branchFilter} 
-                    onChange={e => setBranchFilter(e.target.value || 'all')} 
-                    className="w-full" 
-                  />
-                </div>
-                <div className="relative flex-1 min-w-0">
-                  <Input 
-                    placeholder={userRole === 'loan_officer' ? (profile?.full_name || 'Your loans only') : 'Filter by loan officer...'} 
-                    value={userRole === 'loan_officer' ? '' : (officerFilter === 'all' ? '' : officerFilter)} 
-                    onChange={e => setOfficerFilter(e.target.value || 'all')} 
-                    className="w-full" 
-                    disabled={userRole === 'loan_officer'}
-                  />
-                </div>
+                <Select value={branchFilter} onValueChange={setBranchFilter}>
+                  <SelectTrigger className="w-full sm:w-auto">
+                    <SelectValue placeholder="All Branches" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Branches</SelectItem>
+                    {branches.map(branch => (
+                      <SelectItem key={branch.id} value={branch.id.toString()}>
+                        {branch.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select 
+                  value={officerFilter} 
+                  onValueChange={setOfficerFilter}
+                  disabled={userRole === 'loan_officer'}
+                >
+                  <SelectTrigger className="w-full sm:w-auto">
+                    <SelectValue placeholder={userRole === 'loan_officer' ? (profile?.full_name || 'Your loans only') : 'All Loan Officers'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Loan Officers</SelectItem>
+                    {loanOfficers.map(officer => (
+                      <SelectItem key={officer.id} value={officer.id}>
+                        {officer.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Select value={groupFilter} onValueChange={setGroupFilter}>
                   <SelectTrigger className="w-full sm:w-auto">
                     <SelectValue placeholder="All Groups" />
@@ -539,7 +635,7 @@ const LoansPage: React.FC = () => {
                   <SelectContent>
                     <SelectItem value="all">All Groups</SelectItem>
                     {groups.map(group => (
-                      <SelectItem key={group.id} value={group.id}>
+                      <SelectItem key={group.id} value={group.id.toString()}>
                         {group.name}
                       </SelectItem>
                     ))}

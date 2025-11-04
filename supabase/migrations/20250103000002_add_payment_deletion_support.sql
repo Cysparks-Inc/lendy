@@ -17,7 +17,7 @@ DECLARE
   v_amount_to_revert DECIMAL(15,2);
 BEGIN
   -- Get the payment details before it's deleted
-  SELECT loan_id, amount, principal_amount, interest_amount, payment_date
+  SELECT loan_id, amount, payment_date
   INTO v_payment
   FROM public.loan_payments
   WHERE id = p_loan_payment_id;
@@ -28,9 +28,21 @@ BEGIN
   
   v_loan_id := v_payment.loan_id;
   v_payment_amount := v_payment.amount;
-  v_interest_amount := COALESCE(v_payment.interest_amount, 0);
   v_payment_date := v_payment.payment_date;
   v_remaining_amount := v_payment_amount;
+  
+  -- Calculate interest amount from installments that were paid on this payment date
+  -- This is an approximation - we'll use the interest portion from the installments
+  SELECT COALESCE(SUM(interest_amount), 0)
+  INTO v_interest_amount
+  FROM public.loan_installments
+  WHERE loan_id = v_loan_id
+  AND paid_date = v_payment_date
+  AND amount_paid > 0;
+  
+  -- If we can't determine interest from installments, set to 0
+  -- The income deletion will still work based on loan_id and date
+  v_interest_amount := COALESCE(v_interest_amount, 0);
   
   -- Revert payment from installments (in reverse order of payment)
   -- Get installments that were paid, ordered by paid_date DESC (most recently paid first)
@@ -132,6 +144,7 @@ CREATE TRIGGER trigger_revert_payment_on_delete
 -- Update RLS policy to allow deletion ONLY for admins and super admins
 DROP POLICY IF EXISTS "Only super admins can delete payments" ON public.loan_payments;
 DROP POLICY IF EXISTS "Users can delete payments they have access to" ON public.loan_payments;
+DROP POLICY IF EXISTS "Only admins can delete payments" ON public.loan_payments;
 CREATE POLICY "Only admins can delete payments" ON public.loan_payments
     FOR DELETE USING (
         EXISTS (

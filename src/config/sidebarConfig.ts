@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Users, CreditCard, Search, FileText, Settings, User, Shield, UserCheck,
   UsersRound, Clock, AlertTriangle, Trash2, Building, Banknote, Receipt, DollarSign,
-  Bell, HandCoins, TrendingUp, BarChart3
+  Bell, HandCoins, TrendingUp, BarChart3, Calendar
 } from 'lucide-react';
 import { NavGroup, UserRole } from '@/types';
 
@@ -66,6 +66,12 @@ export const sidebarConfig: NavGroup[] = [
         title: 'Receive Payments', 
         url: '/receive-payments', 
         icon: HandCoins,
+        requiredRoles: ['super_admin', 'admin', 'branch_admin', 'loan_officer']
+      },
+      { 
+        title: "Today's Payments", 
+        url: '/todays-payments', 
+        icon: Calendar,
         requiredRoles: ['super_admin', 'admin', 'branch_admin', 'loan_officer']
       },
       { 

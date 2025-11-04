@@ -25,6 +25,15 @@ const loanSchema = z.object({
   loan_officer_id: z.string().uuid("An officer must be assigned").optional(),
   branch_id: z.string().uuid().nullable().optional(),
   group_id: z.string().uuid().nullable().optional(),
+  processing_fee_paid: z.boolean().optional().default(true),
+}).refine((data) => {
+  if (data.processing_fee_paid !== true) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Processing fee must be confirmed",
+  path: ["processing_fee_paid"],
 });
 
 type LoanFormData = z.infer<typeof loanSchema>;
@@ -180,7 +189,8 @@ const LoanFormPage: React.FC = () => {
             branch_id: null,
             group_id: null,
             installment_type: 'weekly',
-            issue_date: getCurrentDate() // Set current date as default
+            issue_date: getCurrentDate(), // Set current date as default
+            processing_fee_paid: true // Default to checked
         }
     });
 
@@ -609,6 +619,14 @@ const LoanFormPage: React.FC = () => {
 
             if (!loanCalculation) {
                 throw new Error("Please ensure loan program and principal amount are set");
+            }
+
+            // Validate processing fee payment
+            if (!data.processing_fee_paid) {
+                toast.error('Processing fee must be confirmed', { 
+                    description: `Please confirm the KES ${loanCalculation.processing_fee.toLocaleString()} processing fee before submitting.` 
+                });
+                throw new Error("Processing fee must be confirmed");
             }
 
             // Check if member has any active or pending-repayment loans (only for new loans)
@@ -1113,6 +1131,31 @@ const LoanFormPage: React.FC = () => {
                                             </div>
                                         </div>
                                     </div>
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {/* Processing Fee Confirmation */}
+                        {loanCalculation && (
+                            <Card>
+                                <CardContent className="pt-6">
+                                    <div className="flex items-start space-x-3">
+                                        <input
+                                            type="checkbox"
+                                            id="processing_fee_paid"
+                                            {...register("processing_fee_paid")}
+                                            className="h-4 w-4 text-brand-blue-600 focus:ring-brand-blue-500 border-gray-300 rounded mt-1"
+                                        />
+                                        <Label htmlFor="processing_fee_paid" className="text-sm font-medium cursor-pointer">
+                                            Processing Fee Paid (KES {loanCalculation.processing_fee.toLocaleString()})
+                                        </Label>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground mt-2 ml-7">
+                                        Check this box to confirm the processing fee has been paid. The processing fee is income and is not part of the loan repayment amount.
+                                    </p>
+                                    {errors.processing_fee_paid && (
+                                        <p className="text-sm text-red-600 mt-2 ml-7">{errors.processing_fee_paid.message as string}</p>
+                                    )}
                                 </CardContent>
                             </Card>
                         )}

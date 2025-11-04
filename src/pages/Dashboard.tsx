@@ -16,7 +16,8 @@ import {
   Eye,
   Loader2,
   RefreshCw,
-  AlertTriangle
+  AlertTriangle,
+  Calendar
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { InlineLoader, QuickLoader } from '@/components/ui/loader';
@@ -32,6 +33,8 @@ interface DashboardStats {
   total_disbursed: number;
   outstanding_balance: number;
   overdue_loans: number;
+  todays_payments: number;
+  todays_payments_amount: number;
 }
 
 interface RecentLoan {
@@ -144,45 +147,60 @@ const Dashboard: React.FC = () => {
         filteredMembers = filteredMembers.filter(member => member.branch_id === profile.branch_id);
       }
       
-      // Step 3: Get unified overdue count
-      const { data: overdueData, error: overdueError } = await supabase
-        .rpc('get_unified_overdue_loans_report', { requesting_user_id: user?.id });
+      // Step 3: Get today's payments count and amount
+      const today = new Date().toISOString().split('T')[0];
+      let todaysPaymentsQuery = supabase
+        .from('loan_installments')
+        .select('total_amount, amount_paid, loan_id')
+        .eq('due_date', today)
+        .or('is_paid.is.null,is_paid.eq.false');
 
-      if (overdueError) {
-        // Silently handle overdue data error
+      // Apply role-based filtering for loan officers
+      if (userRole === 'loan_officer') {
+        // Get loan IDs assigned to this officer
+        const assignedLoanIds = filteredLoans
+          .filter(loan => loan.loan_officer_id === user?.id || 
+            (filteredMembers.find(m => m.id === (loan.member_id || loan.customer_id)) as any)?.assigned_officer_id === user?.id)
+          .map(loan => loan.id);
+        
+        if (assignedLoanIds.length > 0) {
+          todaysPaymentsQuery = todaysPaymentsQuery.in('loan_id', assignedLoanIds);
+        } else {
+          todaysPaymentsQuery = todaysPaymentsQuery.eq('loan_id', '00000000-0000-0000-0000-000000000000'); // No results
+        }
+      } else if (userRole === 'branch_admin' && profile?.branch_id) {
+        const branchLoanIds = filteredLoans.map(loan => loan.id);
+        if (branchLoanIds.length > 0) {
+          todaysPaymentsQuery = todaysPaymentsQuery.in('loan_id', branchLoanIds);
+        } else {
+          todaysPaymentsQuery = todaysPaymentsQuery.eq('loan_id', '00000000-0000-0000-0000-000000000000');
+        }
+      } else if (userRole !== 'super_admin' && profile?.branch_id) {
+        const branchLoanIds = filteredLoans.map(loan => loan.id);
+        if (branchLoanIds.length > 0) {
+          todaysPaymentsQuery = todaysPaymentsQuery.in('loan_id', branchLoanIds);
+        } else {
+          todaysPaymentsQuery = todaysPaymentsQuery.eq('loan_id', '00000000-0000-0000-0000-000000000000');
+        }
       }
 
-      // Filter overdue loans to show loans with installments that were due last week
-      // Last week = the complete previous week (Monday to Sunday)
-      // Show loans that have overdue installments from last week (or earlier)
-      const now = new Date();
+      const { data: todaysInstallments, error: todaysPaymentsError } = await todaysPaymentsQuery;
+
+      let todaysPaymentsCount = 0;
+      let todaysPaymentsAmount = 0;
       
-      // Calculate last week's Monday to Sunday range
-      const lastWeekStart = subWeeks(startOfWeek(now, { weekStartsOn: 1 }), 1);
-      const lastWeekEnd = endOfWeek(lastWeekStart, { weekStartsOn: 1 });
-      
-      // Filter overdue loans to show loans with installments that were due last week
-      // A loan qualifies if it has overdue installments and:
-      // 1. The earliest overdue date is on or before the end of last week (has installments from last week or earlier)
-      // 2. AND the loan is still overdue (has unpaid installments)
-      // Since we're looking for installments that "were supposed to be paid last week but weren't",
-      // any loan that is overdue AND has been overdue since at least the end of last week qualifies
-      const lastWeekOverdues = (overdueData || []).filter((overdue: any) => {
-        if (!overdue.days_overdue && overdue.days_overdue !== 0) return false;
+      if (!todaysPaymentsError && todaysInstallments) {
+        // Filter installments with remaining amount
+        const installmentsWithRemaining = todaysInstallments.filter((inst: any) => {
+          const remaining = (inst.total_amount || 0) - (inst.amount_paid || 0);
+          return remaining > 0;
+        });
         
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
-        // Calculate when the earliest overdue installment was due
-        const earliestOverdueDate = new Date(today);
-        earliestOverdueDate.setDate(today.getDate() - overdue.days_overdue);
-        earliestOverdueDate.setHours(0, 0, 0, 0);
-        
-        // Show loans where the earliest overdue installment was due on or before the end of last week
-        // This captures loans that have overdue installments from last week (or earlier)
-        // If a loan became overdue before or during last week, it has installments that were due last week
-        return earliestOverdueDate <= lastWeekEnd;
-      });
+        todaysPaymentsCount = installmentsWithRemaining.length;
+        todaysPaymentsAmount = installmentsWithRemaining.reduce((sum: number, inst: any) => {
+          return sum + ((inst.total_amount || 0) - (inst.amount_paid || 0));
+        }, 0);
+      }
 
       // Include all loans (pending and approved) for dashboard display
       const approvedLoans = (filteredLoans || []);
@@ -197,7 +215,9 @@ const Dashboard: React.FC = () => {
         outstanding_balance: approvedLoans
           .filter((loan: any) => ['active', 'pending', 'defaulted'].includes((loan as any).status))
           .reduce((sum: number, loan: any) => sum + parseFloat((loan as any).current_balance || 0), 0),
-        overdue_loans: lastWeekOverdues.length // Last week overdue count for dashboard
+        overdue_loans: 0, // No longer showing on dashboard
+        todays_payments: todaysPaymentsCount,
+        todays_payments_amount: todaysPaymentsAmount
       };
       
       // Prevent stale updates if user/role changed during fetch
@@ -255,7 +275,9 @@ const Dashboard: React.FC = () => {
         active_loans: 0,
         total_disbursed: 0,
         outstanding_balance: 0,
-        overdue_loans: 0
+        overdue_loans: 0,
+        todays_payments: 0,
+        todays_payments_amount: 0
       });
       setRecentLoans([]);
     } finally {
@@ -369,37 +391,37 @@ const Dashboard: React.FC = () => {
           description={userRole === 'loan_officer' ? `${stats?.active_loans || 0} active` : `${stats?.active_loans || 0} active`}
           onClick={() => handleStatCardClick('loans')}
         />
-        {stats?.overdue_loans > 0 && (
+        {stats?.todays_payments > 0 && (
           <StatCard
-            icon={AlertTriangle}
-            title="Overdue Loans"
-            value={stats.overdue_loans}
-            description="Requires immediate attention"
-            onClick={() => navigate('/daily-overdue')}
+            icon={Calendar}
+            title="Today's Payments"
+            value={stats.todays_payments}
+            description={formatCurrency(stats.todays_payments_amount)}
+            onClick={() => navigate('/todays-payments')}
           />
         )}
       </div>
 
-      {/* Loans Overdue Alert Card */}
-      {stats?.overdue_loans > 0 && (
-        <Card className="border-red-200 bg-red-50 hover:bg-red-100 transition-colors">
+      {/* Today's Payments Alert Card */}
+      {stats?.todays_payments > 0 && (
+        <Card className="border-blue-200 bg-blue-50 hover:bg-blue-100 transition-colors">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-red-100 rounded-full">
-                  <AlertTriangle className="h-5 w-5 text-red-600" />
+                <div className="p-2 bg-blue-100 rounded-full">
+                  <Calendar className="h-5 w-5 text-blue-600" />
                 </div>
                 <div>
-                  <CardTitle className="text-red-800">Loans Overdue Alert</CardTitle>
-                  <CardDescription className="text-red-600">
-                    {stats.overdue_loans} loan{stats.overdue_loans > 1 ? 's' : ''} require{stats.overdue_loans > 1 ? '' : 's'} immediate attention
+                  <CardTitle className="text-blue-800">Today's Payments</CardTitle>
+                  <CardDescription className="text-blue-600">
+                    {stats.todays_payments} payment{stats.todays_payments > 1 ? 's' : ''} due today totaling {formatCurrency(stats.todays_payments_amount)}
                   </CardDescription>
                 </div>
               </div>
-              <Button asChild variant="outline" className="border-red-300 text-red-700 hover:bg-red-100">
-                <Link to="/daily-overdue">
-                  View Overdue
-                  <AlertTriangle className="ml-2 h-4 w-4" />
+              <Button asChild variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-100">
+                <Link to="/todays-payments">
+                  View Payments
+                  <Calendar className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
             </div>

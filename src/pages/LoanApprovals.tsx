@@ -71,10 +71,12 @@ const LoanApprovals: React.FC = () => {
       setLoading(true);
       
       // Fetch loans data separately to avoid relationship conflicts
+      // Only fetch pending loans that are not deleted
       const { data: loansData, error: loansError } = await supabase
         .from('loans')
         .select('*')
         .eq('approval_status', 'pending')
+        .eq('is_deleted', false)
         .order('created_at', { ascending: false });
 
       if (loansError) throw loansError;
@@ -154,10 +156,11 @@ const LoanApprovals: React.FC = () => {
 
   const fetchAllLoans = async () => {
     try {
-      // Fetch all loans regardless of approval status
+      // Fetch all loans regardless of approval status, but exclude deleted (rejected) loans
       const { data: loansData, error: loansError } = await supabase
         .from('loans')
         .select('*')
+        .eq('is_deleted', false)
         .order('created_at', { ascending: false });
 
       if (loansError) throw loansError;

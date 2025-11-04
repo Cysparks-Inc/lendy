@@ -111,7 +111,7 @@ const BulkPayment: React.FC = () => {
       const entries: PaymentEntry[] = membersWithData.map(member => {
         const memberLoan = loansData?.find(loan => loan.member_id === member.id);
         const loanAmount = memberLoan ? 
-          (memberLoan.principal_amount || 0) + ((memberLoan as any).interest_disbursed || 0) + ((memberLoan as any).processing_fee || 0) : 0;
+          (memberLoan.principal_amount || 0) + ((memberLoan as any).interest_disbursed || 0) : 0; // Processing fee is NOT part of repayment
         
         return {
           memberId: member.id,
